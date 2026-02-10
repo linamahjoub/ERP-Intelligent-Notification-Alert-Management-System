@@ -1,0 +1,16 @@
+﻿# Frontend
+frontend/node_modules/
+frontend/build/
+frontend/.env.local
+
+# Backend
+backend/__pycache__/
+backend/venv/
+backend/.env
+backend/*.pyc
+
+# Général
+.DS_Store
+.vscode/
+.idea/
+*.log
