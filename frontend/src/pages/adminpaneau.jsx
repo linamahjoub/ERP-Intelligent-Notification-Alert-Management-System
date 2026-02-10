@@ -1,0 +1,1954 @@
+﻿import React, { useState, useEffect } from 'react';
+import { useAuth } from '../context/AuthContext';
+import {
+  Container,
+  Typography,
+  Paper,
+  Box,
+  Grid,
+  Card,
+  CardContent,
+  Button,
+  CircularProgress,
+  Alert,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControlLabel,
+  Checkbox,
+  Chip,
+  Snackbar,
+  Tooltip,
+  Menu,
+  MenuItem,
+  Avatar,
+  Drawer,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  useTheme,
+  useMediaQuery,
+} from '@mui/material';
+import { useNavigate, useLocation } from 'react-router-dom';
+import {
+  Delete as DeleteIcon,
+  Edit as EditIcon,
+  Add as AddIcon,
+  PersonAdd as PersonAddIcon,
+  AdminPanelSettings as AdminIcon,
+  PersonRemove as PersonRemoveIcon,
+  Refresh as RefreshIcon,
+  MoreVert as MoreVertIcon,
+  Dashboard as DashboardIcon,
+  Settings as SettingsIcon,
+  Logout as LogoutIcon,
+  Menu as MenuIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
+  People as PeopleIcon,
+  BarChart as BarChartIcon,
+  Notifications as NotificationsIcon,
+  Search as SearchIcon,
+  CalendarToday as CalendarIcon,
+  FlashOn as FlashOnIcon,
+  Storage as StorageIcon,
+} from '@mui/icons-material';
+import notif from '../assets/notif.png';
+
+const drawerWidth = 280;
+const collapsedDrawerWidth = 80;
+
+const AdminPaneau = () => {
+    const { user, logout } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
+  // États
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [stats, setStats] = useState(null);
+  const [users, setUsers] = useState([]);
+  const [filteredUsers, setFilteredUsers] = useState([]);
+  const [searchTerm, setSearchTerm] = useState('');
+  
+  // États pour les dialogues
+  const [openAddDialog, setOpenAddDialog] = useState(false);
+  const [openEditDialog, setOpenEditDialog] = useState(false);
+  const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
+  
+  // États pour le drawer
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(true);
+  
+  // État pour le formulaire
+  const [newUser, setNewUser] = useState({
+    email: '',
+    username: '',
+    first_name: '',
+    last_name: '',
+    password: '',
+    password2: '',
+    is_superuser: false,
+    is_staff: false,
+  });
+
+  // État pour l'édition d'utilisateur
+  const [editUser, setEditUser] = useState({
+    id: '',
+    email: '',
+    username: '',
+    first_name: '',
+    last_name: '',
+    is_active: true,
+    is_staff: false,
+    is_superuser: false,
+  });
+  
+  // Snackbar (notifications)
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success',
+  });
+  
+  // Menu d'actions
+  const [anchorEl, setAnchorEl] = useState(null);
+  const [menuUser, setMenuUser] = useState(null);
+
+  // Style global pour éliminer les espaces blancs
+  useEffect(() => {
+    document.body.style.margin = '0';
+    document.body.style.padding = '0';
+    document.body.style.backgroundColor = 'black';
+    document.documentElement.style.backgroundColor = 'black';
+  }, []);
+
+  // Charger les données
+  useEffect(() => {
+    fetchAdminData();
+  }, []);
+
+  // Filtrer les utilisateurs
+  useEffect(() => {
+    if (searchTerm) {
+      const filtered = users.filter(user =>
+        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        user.last_name?.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+      setFilteredUsers(filtered);
+    } else {
+      setFilteredUsers(users);
+    }
+  }, [searchTerm, users]);
+
+  const fetchAdminData = async () => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      const token = localStorage.getItem('access_token');
+      
+      // Récupérer les statistiques (optionnel - gérer l'erreur 404)
+      try {
+        const statsResponse = await fetch('http://localhost:8000/api/admin/stats/', {
+          headers: { 'Authorization': 'Bearer ' + token }
+        });
+        
+        if (statsResponse.ok) {
+          const statsData = await statsResponse.json();
+          setStats(statsData);
+        }
+      } catch (statsErr) {
+        console.log('Stats endpoint not available, using default stats');
+      }
+      
+      // Récupérer tous les utilisateurs
+      const usersResponse = await fetch('http://localhost:8000/api/admin/users/', {
+        headers: { 'Authorization': 'Bearer ' + token }
+      });
+      
+      if (usersResponse.ok) {
+        const usersData = await usersResponse.json();
+        // Extraire le tableau 'results' de la réponse paginée
+        const usersArray = usersData.results || [];
+        setUsers(usersArray);
+        setFilteredUsers(usersArray);
+        
+        // Si stats n'est pas disponible, calculer les statistiques à partir des utilisateurs
+        if (!stats) {
+          const userStats = {
+            total_users: usersArray.length,
+            active_users: usersArray.filter(u => u.is_active).length,
+            admins_count: usersArray.filter(u => u.is_staff).length,
+            today_registrations: usersArray.filter(u => {
+              const today = new Date();
+              const userDate = new Date(u.date_joined);
+              return userDate.toDateString() === today.toDateString();
+            }).length
+          };
+          setStats(userStats);
+        }
+      } else {
+        throw new Error('Erreur lors du chargement des utilisateurs');
+      }
+      
+    } catch (err) {
+      console.error('Error:', err);
+      setError('Erreur: ' + err.message);
+      // Assurer que filteredUsers reste un tableau même en cas d'erreur
+      setFilteredUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Gérer l'ajout d'un nouvel utilisateur
+  const handleAddUser = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      
+      const userData = {
+        email: newUser.email,
+        username: newUser.username,
+        password: newUser.password,
+        password2: newUser.password2,
+        first_name: newUser.first_name,
+        last_name: newUser.last_name,
+        is_superuser: newUser.is_superuser,
+        is_staff: newUser.is_staff,
+      };
+      
+      const endpoint = newUser.is_staff ? 'http://localhost:8000/api/auth/create-admin/' : 'http://localhost:8000/api/auth/register/';
+      
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(userData),
+      });
+      
+      if (response.ok) {
+        setSnackbar({
+          open: true,
+          message: newUser.is_staff ? 'Administrateur créé avec succès!' : 'Utilisateur créé avec succès!',
+          severity: 'success',
+        });
+        
+        setNewUser({
+          email: '',
+          username: '',
+          first_name: '',
+          last_name: '',
+          password: '',
+          password2: '',
+          is_superuser: false,
+          is_staff: false,
+        });
+        
+        setOpenAddDialog(false);
+        fetchAdminData();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Erreur lors de la création');
+      }
+      
+    } catch (err) {
+      setSnackbar({
+        open: true,
+        message: 'Erreur: ' + err.message,
+        severity: 'error',
+      });
+    }
+  };
+
+  // Gérer la promotion/dépromotion d'admin
+  const handleToggleAdmin = async (userId, isCurrentlyAdmin) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      
+      const updateData = {
+        is_staff: !isCurrentlyAdmin,
+        is_superuser: !isCurrentlyAdmin,
+      };
+      
+      const response = await fetch(`http://localhost:8000/api/admin/users/${userId}/`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
+      });
+      
+      if (response.ok) {
+        setSnackbar({
+          open: true,
+          message: isCurrentlyAdmin ? 'Utilisateur rétrogradé avec succès!' : 'Utilisateur promu administrateur avec succès!',
+          severity: 'success',
+        });
+        fetchAdminData();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Erreur lors de la modification');
+      }
+      
+    } catch (err) {
+      setSnackbar({
+        open: true,
+        message: 'Erreur: ' + err.message,
+        severity: 'error',
+      });
+    }
+  };
+
+  // Gérer la suppression d'utilisateur
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+
+    try {
+      const token = localStorage.getItem('access_token');
+
+      const response = await fetch(`http://localhost:8000/api/admin/users/${selectedUser.id}/`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+        },
+      });
+
+      if (response.ok) {
+        setSnackbar({
+          open: true,
+          message: 'Utilisateur supprimé avec succès!',
+          severity: 'success',
+        });
+        setOpenDeleteDialog(false);
+        setSelectedUser(null);
+        fetchAdminData();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Erreur lors de la suppression');
+      }
+
+    } catch (err) {
+      setSnackbar({
+        open: true,
+        message: 'Erreur: ' + err.message,
+        severity: 'error',
+      });
+    }
+  };
+
+  // Gérer l'édition d'utilisateur
+  const handleEditUser = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+
+      const response = await fetch(`http://localhost:8000/api/admin/users/${editUser.id}/`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: editUser.email,
+          username: editUser.username,
+          first_name: editUser.first_name,
+          last_name: editUser.last_name,
+          is_active: editUser.is_active,
+          is_staff: editUser.is_staff,
+          is_superuser: editUser.is_superuser,
+        }),
+      });
+
+      if (response.ok) {
+        setSnackbar({
+          open: true,
+          message: 'Utilisateur modifié avec succès!',
+          severity: 'success',
+        });
+        setOpenEditDialog(false);
+        setEditUser({
+          id: '',
+          email: '',
+          username: '',
+          first_name: '',
+          last_name: '',
+          is_active: true,
+          is_staff: false,
+          is_superuser: false,
+        });
+        fetchAdminData();
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Erreur lors de la modification');
+      }
+
+    } catch (err) {
+      setSnackbar({
+        open: true,
+        message: 'Erreur: ' + err.message,
+        severity: 'error',
+      });
+    }
+  };
+
+  const openEditDialogForUser = (user) => {
+    setEditUser({
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      first_name: user.first_name || '',
+      last_name: user.last_name || '',
+      is_active: user.is_active,
+      is_staff: user.is_staff,
+      is_superuser: user.is_superuser,
+    });
+    setOpenEditDialog(true);
+  };
+
+  const handleMenuOpen = (event, user) => {
+    setAnchorEl(event.currentTarget);
+    setMenuUser(user);
+  };
+
+  const handleMenuClose = () => {
+    setAnchorEl(null);
+    setMenuUser(null);
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
+  const handleCloseSnackbar = () => {
+    setSnackbar({ ...snackbar, open: false });
+  };
+
+  const handleDrawerToggle = () => {
+    if (isMobile) {
+      setMobileOpen(!mobileOpen);
+    } else {
+      setDrawerOpen(!drawerOpen);
+    }
+  };
+
+  const menuItems = [
+    {
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: <DashboardIcon />,
+      path: '/admin-dashboard',
+    },
+    {
+      id: 'notifications',
+      label: 'Notifications',
+      icon: <NotificationsIcon />,
+      path: '/notifications',
+      badge: user?.unread_notifications || 0,
+    },
+    {
+      id: 'reglesalertes',
+      label: 'Alert Rules',
+      icon: <FlashOnIcon />,
+      path: '/regles-alertes',
+    },
+    {
+      id: 'modules',
+      label: 'ERP Modules',
+      icon: <StorageIcon />,
+      path: '/modulesERP',
+    },
+    {
+      id: 'admin',
+      label: 'Admin Panel',
+      icon: <AdminIcon />,
+      path: '/admin-panel',
+    }, 
+    {
+      id: 'history',
+      label: 'History',
+      icon: <CalendarIcon />,
+      path: '/history',
+    },
+    {
+      id: 'profile',
+      label: 'Profile',
+      icon: <PeopleIcon />,
+      path: '/profile',
+    },
+    {
+      id: 'settings',
+      label: 'Paramètres',
+      icon: <SettingsIcon />,
+      path: '/settings',
+    },
+    {
+      id: 'deconnexion',
+      label: 'Déconnexion',
+      icon: <LogoutIcon />,
+      action: handleLogout,
+    },
+  ];
+
+  const drawerContent = (
+    <Box
+      sx={{
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        bgcolor: 'black',
+        borderRight: '1px solid rgba(59, 130, 246, 0.1)',
+      }}
+    >
+      {/* Logo et titre */}
+      <Box
+        sx={{
+          p: 2.5,
+          borderBottom: '1px solid rgba(59, 130, 246, 0.1)',
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: drawerOpen ? 'flex-start' : 'center',
+        }}
+      >
+        {drawerOpen ? (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+            <Box
+              sx={{
+                width: 50,
+                height: 50,
+                borderRadius: '50%',
+                bgcolor: 'black',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden',
+              }}
+            >
+              <img
+                src={notif}
+                alt="SmartAlerte Logo"
+                width="80"
+                height="80"
+              />
+            </Box>
+            <Box>
+              <Typography
+                variant="h6"
+                sx={{
+                  fontWeight: 700,
+                  fontSize: '1.25rem',
+                  color: 'white',
+                  lineHeight: 1,
+                }}
+              >
+                SmartNotify
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: '#64748b',
+                  fontSize: '0.7rem',
+                  letterSpacing: '0.5px',
+                }}
+              >
+                ADMIN PANEL
+              </Typography>
+            </Box>
+          </Box>
+        ) : (
+          <img
+            src={notif}
+            alt="SmartAlerte Logo"
+            width="60"
+            height="60"
+            style={{ objectFit: 'contain' }}
+          />
+        )}
+      </Box>
+
+      {/* Menu principal */}
+      <Box sx={{ flex: 1, overflowY: 'auto', py: 2 }}>
+        <List sx={{ px: 2 }}>
+          {menuItems.map((item) => (
+            <ListItem
+              key={item.id}
+              button
+              onClick={() => {
+                if (item.action) {
+                  item.action();
+                } else if (item.path) {
+                  navigate(item.path);
+                }
+                if (isMobile) {
+                  setMobileOpen(false);
+                }
+              }}
+              selected={location.pathname === item.path}
+              sx={{
+                mb: 0.5,
+                borderRadius: 2,
+                transition: 'all 0.2s ease',
+                justifyContent: drawerOpen ? 'flex-start' : 'center',
+                px: drawerOpen ? 2 : 1,
+                '&:hover': {
+                  bgcolor: 'rgba(59, 130, 246, 0.08)',
+                },
+                '&.Mui-selected': {
+                  bgcolor: 'rgba(59, 130, 246, 0.15)',
+                  '&:hover': {
+                    bgcolor: 'rgba(59, 130, 246, 0.2)',
+                  },
+                  '& .MuiListItemIcon-root': {
+                    color: '#3b82f6',
+                  },
+                  '& .MuiListItemText-primary': {
+                    color: '#60a5fa',
+                    fontWeight: 600,
+                  },
+                },
+              }}
+            >
+              <ListItemIcon
+                sx={{
+                  minWidth: drawerOpen ? 36 : 'auto',
+                  color: location.pathname === item.path ? '#3b82f6' : '#64748b',
+                  justifyContent: 'center',
+                }}
+              >
+                {item.icon}
+              </ListItemIcon>
+              {drawerOpen && (
+                <ListItemText
+                  primary={item.label}
+                  primaryTypographyProps={{
+                    fontSize: '0.9rem',
+                    fontWeight: location.pathname === item.path ? 600 : 400,
+                    color: location.pathname === item.path ? '#60a5fa' : '#94a3b8',
+                  }}
+                />
+              )}
+              {drawerOpen && item.badge > 0 && (
+                <Box
+                  sx={{
+                    bgcolor: '#ef4444',
+                    color: 'white',
+                    fontSize: '0.7rem',
+                    fontWeight: 600,
+                    px: 1,
+                    py: 0.25,
+                    borderRadius: 2,
+                    minWidth: 20,
+                    textAlign: 'center',
+                  }}
+                >
+                  {item.badge}
+                </Box>
+              )}
+            </ListItem>
+          ))}
+        </List>
+      </Box>
+
+      {/* Footer du drawer */}
+      {drawerOpen && (
+        <Box
+          sx={{
+            p: 2,
+            m: 2,
+            bgcolor: 'rgba(16, 185, 129, 0.1)',
+            borderRadius: 2,
+            border: '1px solid rgba(16, 185, 129, 0.2)',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box
+              sx={{
+                width: 8,
+                height: 8,
+                borderRadius: '50%',
+                bgcolor: '#10b981',
+                boxShadow: '0 0 8px rgba(16, 185, 129, 0.5)',
+              }}
+            />
+            <Box>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: '#10b981',
+                  fontWeight: 600,
+                  display: 'block',
+                  fontSize: '0.85rem',
+                }}
+              >
+                System Active
+              </Typography>
+              <Typography
+                variant="caption"
+                sx={{
+                  color: '#64748b',
+                  fontSize: '0.75rem',
+                }}
+              >
+                Admin mode enabled
+              </Typography>
+            </Box>
+          </Box>
+        </Box>
+      )}
+    </Box>
+  );
+
+  if (loading) {
+    return (
+      <Box sx={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        minHeight: '100vh',
+        bgcolor: 'black',
+      }}>
+        <CircularProgress sx={{ color: '#3b82f6' }} />
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'black' }}>
+      {/* Drawer pour desktop */}
+      {!isMobile && (
+        <Box
+          sx={{
+            width: drawerOpen ? drawerWidth : collapsedDrawerWidth,
+            flexShrink: 0,
+            transition: 'width 0.3s ease',
+            position: 'relative',
+          }}
+        >
+          <Box
+            sx={{
+              width: drawerOpen ? drawerWidth : collapsedDrawerWidth,
+              height: '100vh',
+              position: 'fixed',
+              left: 0,
+              top: 0,
+              bgcolor: 'black',
+              borderRight: '1px solid rgba(59, 130, 246, 0.1)',
+              transition: 'width 0.3s ease',
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              '&::-webkit-scrollbar': {
+                width: '6px',
+              },
+              '&::-webkit-scrollbar-track': {
+                bgcolor: 'transparent',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                bgcolor: 'rgba(59, 130, 246, 0.3)',
+                borderRadius: '3px',
+                '&:hover': {
+                  bgcolor: 'rgba(59, 130, 246, 0.5)',
+                },
+              },
+            }}
+          >
+            {drawerContent}
+          </Box>
+
+          {/* Bouton toggle */}
+          <IconButton
+            onClick={handleDrawerToggle}
+            sx={{
+              position: 'fixed',
+              left: drawerOpen ? drawerWidth - 20 : collapsedDrawerWidth - 20,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              zIndex: 1300,
+              bgcolor: '#3b82f6',
+              color: 'white',
+              width: 40,
+              height: 40,
+              boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)',
+              transition: 'all 0.3s ease',
+              '&:hover': {
+                bgcolor: '#2563eb',
+                boxShadow: '0 6px 16px rgba(59, 130, 246, 0.6)',
+              },
+            }}
+          >
+            {drawerOpen ? <ChevronLeftIcon /> : <ChevronRightIcon />}
+          </IconButton>
+        </Box>
+      )}
+
+      {/* Drawer mobile */}
+      {isMobile && (
+        <Drawer
+          variant="temporary"
+          open={mobileOpen}
+          onClose={handleDrawerToggle}
+          sx={{
+            '& .MuiDrawer-paper': {
+              width: drawerWidth,
+              boxSizing: 'border-box',
+              border: 'none',
+              bgcolor: 'black',
+            },
+          }}
+        >
+          {drawerContent}
+        </Drawer>
+      )}
+
+      {/* Contenu principal */}
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          width: isMobile ? '100%' : `calc(100% - ${drawerOpen ? drawerWidth : collapsedDrawerWidth}px)`,
+          minHeight: '100vh',
+          bgcolor: 'black',
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          transition: 'width 0.3s ease',
+          '&::-webkit-scrollbar': {
+            width: '8px',
+          },
+          '&::-webkit-scrollbar-track': {
+            bgcolor: 'rgba(15, 23, 42, 0.4)',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            bgcolor: 'rgba(59, 130, 246, 0.3)',
+            borderRadius: '4px',
+            '&:hover': {
+              bgcolor: 'rgba(59, 130, 246, 0.5)',
+            },
+          },
+        }}
+      >
+        {/* Header */}
+        <Box
+          sx={{
+            p: 1.2,
+            borderBottom: '1px solid rgba(59, 130, 246, 0.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 2,
+          }}
+        >
+          {/* Menu mobile icon */}
+          {isMobile && (
+            <IconButton
+              onClick={handleDrawerToggle}
+              sx={{
+                color: 'white',
+                mr: 1,
+                '&:hover': {
+                  bgcolor: 'rgba(59, 130, 246, 0.1)',
+                },
+              }}
+            >
+              <MenuIcon />
+            </IconButton>
+          )}
+
+          {/* Spacer */}
+          <Box sx={{ flex: 1 }} />
+
+          {/* Boutons d'action et profil */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <IconButton
+              onClick={fetchAdminData}
+              sx={{
+                color: '#64748b',
+                '&:hover': {
+                  bgcolor: 'rgba(59, 130, 246, 0.1)',
+                  color: '#3b82f6',
+                },
+              }}
+            >
+              <RefreshIcon />
+            </IconButton>
+
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'white',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                  }}
+                >
+                  {user?.first_name || user?.username}
+                </Typography>
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: '#64748b',
+                    fontSize: '0.75rem',
+                  }}
+                >
+                  Administrateur
+                </Typography>
+              </Box>
+              <Avatar
+                sx={{
+                  width: 40,
+                  height: 40,
+                  bgcolor: '#ef4444',
+                  fontWeight: 600,
+                  fontSize: '1rem',
+                }}
+              >
+                {user?.first_name?.charAt(0) || user?.username?.charAt(0) || 'A'}
+              </Avatar>
+            </Box>
+          </Box>
+        </Box>
+
+        {/* Contenu du dashboard */}
+        <Box sx={{ p: 2, pb: 6 }}>
+          {/* En-tête de la page */}
+          <Box sx={{ mb: 4 }}>
+            <Box sx={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              mb: 1,
+              flexWrap: 'wrap',
+              gap: 2
+            }}>
+              <Box>
+                <Typography
+                  variant="h4"
+                  sx={{
+                    color: 'white',
+                    fontWeight: 700,
+                    mb: 0.5,
+                  }}
+                >
+                  Panneau d'Administration
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: '#64748b',
+                    fontSize: '0.95rem',
+                  }}
+                >
+                  Gestion des utilisateurs et des permissions
+                </Typography>
+              </Box>
+
+              {/* Bouton Ajouter Utilisateur */}
+              <Button
+                variant="contained"
+                startIcon={<PersonAddIcon />}
+                onClick={() => setOpenAddDialog(true)}
+                sx={{
+                  bgcolor: '#3b82f6',
+                  color: 'white',
+                  fontWeight: 600,
+                  py: 1.2,
+                  px: 3,
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  fontSize: '0.95rem',
+                  boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+                  '&:hover': {
+                    bgcolor: '#2563eb',
+                    boxShadow: '0 6px 16px rgba(59, 130, 246, 0.4)',
+                  },
+                }}
+              >
+                Ajouter Utilisateur
+              </Button>
+            </Box>
+          </Box>
+
+          {error && (
+            <Alert 
+              severity="error" 
+              sx={{ 
+                mb: 3,
+                bgcolor: 'rgba(239, 68, 68, 0.1)',
+                border: '1px solid rgba(239, 68, 68, 0.2)',
+                color: '#fca5a5',
+              }}
+            >
+              {error}
+            </Alert>
+          )}
+
+          {/* Statistiques */}
+          {stats && (
+            <Grid container spacing={3} sx={{ mb: 4 }}>
+              <Grid item xs={12} sm={6} md={3}>
+                <Card
+                  sx={{
+                    bgcolor: 'rgba(59, 130, 246, 0.1)',
+                    border: '1px solid rgba(59, 130, 246, 0.2)',
+                    borderRadius: 3,
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: '0 8px 24px rgba(59, 130, 246, 0.2)',
+                    },
+                  }}
+                >
+                  <CardContent sx={{ p: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: '#94a3b8',
+                          fontSize: '0.85rem',
+                        }}
+                      >
+                        Total Utilisateurs
+                      </Typography>
+                      <Box
+                        sx={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 2,
+                          bgcolor: 'rgba(59, 130, 246, 0.15)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <PeopleIcon sx={{ color: '#3b82f6', fontSize: 20 }} />
+                      </Box>
+                    </Box>
+                    <Typography
+                      variant="h3"
+                      sx={{
+                        color: 'white',
+                        fontWeight: 700,
+                        mb: 1,
+                      }}
+                    >
+                      {stats.total_users}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              <Grid item xs={12} sm={6} md={3}>
+                <Card
+                  sx={{
+                    bgcolor: 'rgba(59, 130, 246, 0.1)',
+                    border: '1px solid rgba(59, 130, 246, 0.2)',
+                    borderRadius: 3,
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: '0 8px 24px rgba(59, 130, 246, 0.2)',
+                    },
+                  }}
+                >
+                  <CardContent sx={{ p: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: '#94a3b8',
+                          fontSize: '0.85rem',
+                        }}
+                      >
+                        Utilisateurs Actifs
+                      </Typography>
+                      <Box
+                        sx={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 2,
+                          bgcolor: 'rgba(16, 185, 129, 0.15)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <PeopleIcon sx={{ color: '#10b981', fontSize: 20 }} />
+                      </Box>
+                    </Box>
+                    <Typography
+                      variant="h3"
+                      sx={{
+                        color: 'white',
+                        fontWeight: 700,
+                        mb: 1,
+                      }}
+                    >
+                      {stats.active_users}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              <Grid item xs={12} sm={6} md={3}>
+                <Card
+                  sx={{
+                    bgcolor: 'rgba(59, 130, 246, 0.1)',
+                    border: '1px solid rgba(59, 130, 246, 0.2)',
+                    borderRadius: 3,
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: '0 8px 24px rgba(59, 130, 246, 0.2)',
+                    },
+                  }}
+                >
+                  <CardContent sx={{ p: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: '#94a3b8',
+                          fontSize: '0.85rem',
+                        }}
+                      >
+                        Administrateurs
+                      </Typography>
+                      <Box
+                        sx={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 2,
+                          bgcolor: 'rgba(239, 68, 68, 0.15)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <AdminIcon sx={{ color: '#ef4444', fontSize: 20 }} />
+                      </Box>
+                    </Box>
+                    <Typography
+                      variant="h3"
+                      sx={{
+                        color: 'white',
+                        fontWeight: 700,
+                        mb: 1,
+                      }}
+                    >
+                      {stats.admins_count}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+
+              <Grid item xs={12} sm={6} md={3}>
+                <Card
+                  sx={{
+                    bgcolor: 'rgba(59, 130, 246, 0.1)',
+                    border: '1px solid rgba(59, 130, 246, 0.2)',
+                    borderRadius: 3,
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: '0 8px 24px rgba(59, 130, 246, 0.2)',
+                    },
+                  }}
+                >
+                  <CardContent sx={{ p: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: '#94a3b8',
+                          fontSize: '0.85rem',
+                        }}
+                      >
+                        Inscriptions Aujourd'hui
+                      </Typography>
+                      <Box
+                        sx={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 2,
+                          bgcolor: 'rgba(251, 146, 60, 0.15)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <CalendarIcon sx={{ color: '#fb923c', fontSize: 20 }} />
+                      </Box>
+                    </Box>
+                    <Typography
+                      variant="h3"
+                      sx={{
+                        color: 'white',
+                        fontWeight: 700,
+                        mb: 1,
+                      }}
+                    >
+                      {stats.today_registrations}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            </Grid>
+          )}
+
+          {/* Tableau des utilisateurs */}
+          <Card
+            sx={{
+              bgcolor: 'rgba(59, 130, 246, 0.1)',
+              border: '1px solid rgba(59, 130, 246, 0.2)',
+              borderRadius: 3,
+              p: 3,
+            }}
+          >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Typography
+                variant="h6"
+                sx={{
+                  color: 'white',
+                  fontWeight: 600,
+                }}
+              >
+                Liste des Utilisateurs ({filteredUsers.length})
+              </Typography>
+           
+              {/* Barre de recherche */}
+              <Box
+                sx={{
+                  flex: 1,
+                  maxWidth: 500,
+                  position: 'relative',
+                }}
+              >
+                <SearchIcon
+                  sx={{
+                    position: 'absolute',
+                    left: 16,
+                    top: '50%',
+                    transform: 'translateY(-50%)',
+                    color: '#64748b',
+                    fontSize: 20,
+                  }}
+                />
+                <input
+                  type="text"
+                  placeholder="Rechercher un utilisateur..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '12px 16px 12px 48px',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    border: '1px solid rgba(59, 130, 246, 0.2)',
+                    borderRadius: '12px',
+                    color: '#94a3b8',
+                    fontSize: '0.9rem',
+                    outline: 'none',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.borderColor = '#3b82f6';
+                    e.target.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
+                  }}
+                  onBlur={(e) => {
+                    e.target.style.borderColor = 'rgba(59, 130, 246, 0.2)';
+                    e.target.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+                  }}
+                />
+              </Box>
+            </Box>
+
+            <TableContainer
+              sx={{
+                '& .MuiTable-root': {
+                  borderCollapse: 'separate',
+                  borderSpacing: '0 8px',
+                },
+              }}
+            >
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ color: '#94a3b8', borderBottom: 'none', fontSize: '0.85rem', fontWeight: 600 }}>ID</TableCell>
+                    <TableCell sx={{ color: '#94a3b8', borderBottom: 'none', fontSize: '0.85rem', fontWeight: 600 }}>Email</TableCell>
+                    <TableCell sx={{ color: '#94a3b8', borderBottom: 'none', fontSize: '0.85rem', fontWeight: 600 }}>Nom d'utilisateur</TableCell>
+                    <TableCell sx={{ color: '#94a3b8', borderBottom: 'none', fontSize: '0.85rem', fontWeight: 600 }}>Nom complet</TableCell>
+                    <TableCell sx={{ color: '#94a3b8', borderBottom: 'none', fontSize: '0.85rem', fontWeight: 600 }}>Statut</TableCell>
+                    <TableCell sx={{ color: '#94a3b8', borderBottom: 'none', fontSize: '0.85rem', fontWeight: 600 }}>Inscription</TableCell>
+                    <TableCell align="right" sx={{ color: '#94a3b8', borderBottom: 'none', fontSize: '0.85rem', fontWeight: 600 }}>Actions</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {Array.isArray(filteredUsers) && filteredUsers.length > 0 ? (
+                    filteredUsers.map((userItem) => (
+                      <TableRow 
+                        key={userItem.id}
+                        sx={{
+                          bgcolor: 'rgba(15, 23, 42, 0.6)',
+                          '&:hover': {
+                            bgcolor: 'rgba(59, 130, 246, 0.05)',
+                          },
+                          '& td': {
+                            borderTop: '1px solid rgba(59, 130, 246, 0.1)',
+                            borderBottom: '1px solid rgba(59, 130, 246, 0.1)',
+                          },
+                          '& td:first-of-type': {
+                            borderLeft: '1px solid rgba(59, 130, 246, 0.1)',
+                            borderTopLeftRadius: 8,
+                            borderBottomLeftRadius: 8,
+                          },
+                          '& td:last-of-type': {
+                            borderRight: '1px solid rgba(59, 130, 246, 0.1)',
+                            borderTopRightRadius: 8,
+                            borderBottomRightRadius: 8,
+                          },
+                        }}
+                      >
+                        <TableCell sx={{ color: '#94a3b8', fontSize: '0.85rem' }}>{userItem.id}</TableCell>
+                        <TableCell>
+                          <Box display="flex" alignItems="center">
+                            <Typography sx={{ color: 'white', fontSize: '0.85rem' }}>{userItem.email}</Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell sx={{ color: '#94a3b8', fontSize: '0.85rem' }}>{userItem.username}</TableCell>
+                        <TableCell sx={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+                          {userItem.first_name && userItem.last_name ? `${userItem.first_name} ${userItem.last_name}` : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Box>
+                            {userItem.is_superuser && (
+                              <Chip label=" Admin" size="small" sx={{ bgcolor: '#ef4444', color: 'white', mr: 0.5, fontWeight: 600 }} />
+                            )}
+                            {userItem.is_staff && !userItem.is_superuser && (
+                              <Chip label="Admin" size="small" sx={{ bgcolor: '#3b82f6', color: 'white', mr: 0.5, fontWeight: 600 }} />
+                            )}
+                            {!userItem.is_staff && (
+                              <Chip label="Utilisateur" size="small" sx={{ bgcolor: 'rgba(148, 163, 184, 0.2)', color: '#94a3b8', fontWeight: 600 }} />
+                            )}
+                            {!userItem.is_active && (
+                              <Chip label="Inactif" size="small" sx={{ bgcolor: 'rgba(100, 116, 139, 0.2)', color: '#64748b', ml: 0.5, fontWeight: 600 }} />
+                            )}
+                          </Box>
+                        </TableCell>
+                        <TableCell sx={{ color: '#94a3b8', fontSize: '0.85rem' }}>
+                          {new Date(userItem.date_joined).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell align="right">
+                          <Tooltip title={userItem.is_staff ? "Rétrograder" : "Promouvoir Admin"}>
+                            <IconButton
+                              size="small"
+                              onClick={() => handleToggleAdmin(userItem.id, userItem.is_staff)}
+                              sx={{
+                                color: userItem.is_staff ? '#fb923c' : '#3b82f6',
+                                '&:hover': {
+                                  bgcolor: userItem.is_staff ? 'rgba(251, 146, 60, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                                },
+                              }}
+                            >
+                              {userItem.is_staff ? <PersonRemoveIcon /> : <AdminIcon />}
+                            </IconButton>
+                          </Tooltip>
+
+                          <Tooltip title="Plus d'actions">
+                            <IconButton
+                              size="small"
+                              onClick={(e) => handleMenuOpen(e, userItem)}
+                              sx={{
+                                color: '#64748b',
+                                '&:hover': {
+                                  bgcolor: 'rgba(59, 130, 246, 0.1)',
+                                },
+                              }}
+                            >
+                              <MoreVertIcon />
+                            </IconButton>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={7} align="center" sx={{ color: '#64748b', py: 4 }}>
+                        {!Array.isArray(filteredUsers) ? 
+                          'Erreur de chargement des données' : 
+                          'Aucun utilisateur trouvé'
+                        }
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Card>
+        </Box>
+      </Box>
+
+      {/* Dialog pour ajouter un utilisateur */}
+      <Dialog 
+        open={openAddDialog} 
+        onClose={() => setOpenAddDialog(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: 'rgba(15, 23, 42, 0.95)',
+            border: '1px solid rgba(59, 130, 246, 0.2)',
+            borderRadius: 3,
+          }
+        }}
+      >
+        <DialogTitle sx={{ color: 'white', borderBottom: '1px solid rgba(59, 130, 246, 0.1)' }}>
+          ➕ Ajouter un Nouvel Utilisateur
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Email"
+                  required
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      color: 'white',
+                      '& fieldset': {
+                        borderColor: 'rgba(59, 130, 246, 0.2)',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: 'rgba(59, 130, 246, 0.4)',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#3b82f6',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#94a3b8',
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Nom d'utilisateur"
+                  required
+                  value={newUser.username}
+                  onChange={(e) => setNewUser({ ...newUser, username: e.target.value })}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      color: 'white',
+                      '& fieldset': {
+                        borderColor: 'rgba(59, 130, 246, 0.2)',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: 'rgba(59, 130, 246, 0.4)',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#3b82f6',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#94a3b8',
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Prénom"
+                  value={newUser.first_name}
+                  onChange={(e) => setNewUser({ ...newUser, first_name: e.target.value })}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      color: 'white',
+                      '& fieldset': {
+                        borderColor: 'rgba(59, 130, 246, 0.2)',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: 'rgba(59, 130, 246, 0.4)',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#3b82f6',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#94a3b8',
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Nom"
+                  value={newUser.last_name}
+                  onChange={(e) => setNewUser({ ...newUser, last_name: e.target.value })}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      color: 'white',
+                      '& fieldset': {
+                        borderColor: 'rgba(59, 130, 246, 0.2)',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: 'rgba(59, 130, 246, 0.4)',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#3b82f6',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#94a3b8',
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Mot de passe"
+                  type="password"
+                  required
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      color: 'white',
+                      '& fieldset': {
+                        borderColor: 'rgba(59, 130, 246, 0.2)',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: 'rgba(59, 130, 246, 0.4)',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#3b82f6',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#94a3b8',
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Confirmer le mot de passe"
+                  type="password"
+                  required
+                  value={newUser.password2}
+                  onChange={(e) => setNewUser({ ...newUser, password2: e.target.value })}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      color: 'white',
+                      '& fieldset': {
+                        borderColor: 'rgba(59, 130, 246, 0.2)',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: 'rgba(59, 130, 246, 0.4)',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#3b82f6',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#94a3b8',
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={newUser.is_staff}
+                      onChange={(e) => setNewUser({ ...newUser, is_staff: e.target.checked })}
+                      sx={{
+                        color: '#64748b',
+                        '&.Mui-checked': {
+                          color: '#3b82f6',
+                        },
+                      }}
+                    />
+                  }
+                  label={<Typography sx={{ color: '#94a3b8' }}>Administrateur (is_staff)</Typography>}
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={newUser.is_superuser}
+                      onChange={(e) => setNewUser({ ...newUser, is_superuser: e.target.checked })}
+                      disabled={!newUser.is_staff}
+                      sx={{
+                        color: '#64748b',
+                        '&.Mui-checked': {
+                          color: '#ef4444',
+                        },
+                      }}
+                    />
+                  }
+                  label={<Typography sx={{ color: '#94a3b8' }}>Super Administrateur (is_superuser)</Typography>}
+                />
+              </Grid>
+            </Grid>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ borderTop: '1px solid rgba(59, 130, 246, 0.1)', p: 2 }}>
+          <Button 
+            onClick={() => setOpenAddDialog(false)}
+            sx={{ color: '#94a3b8' }}
+          >
+            Annuler
+          </Button>
+          <Button 
+            onClick={handleAddUser} 
+            variant="contained" 
+            sx={{
+              bgcolor: '#3b82f6',
+              '&:hover': {
+                bgcolor: '#2563eb',
+              },
+            }}
+          >
+            Créer l'utilisateur
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Menu d'actions */}
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={handleMenuClose}
+        PaperProps={{
+          sx: {
+            bgcolor: 'rgba(15, 23, 42, 0.95)',
+            border: '1px solid rgba(59, 130, 246, 0.2)',
+            borderRadius: 2,
+          }
+        }}
+      >
+        <MenuItem 
+          onClick={() => {
+            if (menuUser) {
+              handleToggleAdmin(menuUser.id, menuUser.is_staff);
+            }
+            handleMenuClose();
+          }}
+          sx={{ color: '#94a3b8', '&:hover': { bgcolor: 'rgba(59, 130, 246, 0.1)' } }}
+        >
+          {menuUser?.is_staff ? 'Rétrograder en Utilisateur' : 'Promouvoir en Admin'}
+        </MenuItem>
+        <MenuItem 
+          onClick={() => {
+            if (menuUser) {
+              openEditDialogForUser(menuUser);
+            }
+            handleMenuClose();
+          }}
+          sx={{ color: '#94a3b8', '&:hover': { bgcolor: 'rgba(59, 130, 246, 0.1)' } }}
+        >
+          Modifier
+        </MenuItem>
+        <MenuItem 
+          onClick={() => {
+            if (menuUser) {
+              setSelectedUser(menuUser);
+              setOpenDeleteDialog(true);
+            }
+            handleMenuClose();
+          }}
+          sx={{ color: '#ef4444', '&:hover': { bgcolor: 'rgba(239, 68, 68, 0.1)' } }}
+        >
+          Supprimer
+        </MenuItem>
+      </Menu>
+
+      {/* Dialog de suppression */}
+      <Dialog 
+        open={openDeleteDialog} 
+        onClose={() => setOpenDeleteDialog(false)}
+        PaperProps={{
+          sx: {
+            bgcolor: 'rgba(15, 23, 42, 0.95)',
+            border: '1px solid rgba(59, 130, 246, 0.2)',
+            borderRadius: 3,
+          }
+        }}
+      >
+        <DialogTitle sx={{ color: 'white', borderBottom: '1px solid rgba(59, 130, 246, 0.1)' }}>
+          Confirmer la suppression
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <Typography sx={{ color: '#94a3b8' }}>
+            Êtes-vous sûr de vouloir supprimer l'utilisateur <strong style={{ color: 'white' }}>{selectedUser?.email}</strong> ?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ borderTop: '1px solid rgba(59, 130, 246, 0.1)', p: 2 }}>
+          <Button 
+            onClick={() => setOpenDeleteDialog(false)}
+            sx={{ color: '#94a3b8' }}
+          >
+            Annuler
+          </Button>
+          <Button 
+            onClick={handleDeleteUser} 
+            variant="contained" 
+            sx={{
+              bgcolor: '#ef4444',
+              '&:hover': {
+                bgcolor: '#dc2626',
+              },
+            }}
+          >
+            Supprimer
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Dialog pour modifier un utilisateur */}
+      <Dialog 
+        open={openEditDialog} 
+        onClose={() => setOpenEditDialog(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: 'rgba(15, 23, 42, 0.95)',
+            border: '1px solid rgba(59, 130, 246, 0.2)',
+            borderRadius: 3,
+          }
+        }}
+      >
+        <DialogTitle sx={{ color: 'white', borderBottom: '1px solid rgba(59, 130, 246, 0.1)' }}>
+          Modifier un Utilisateur
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <Grid container spacing={2}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Email"
+                  required
+                  value={editUser.email}
+                  onChange={(e) => setEditUser({ ...editUser, email: e.target.value })}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      color: 'white',
+                      '& fieldset': {
+                        borderColor: 'rgba(59, 130, 246, 0.2)',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: 'rgba(59, 130, 246, 0.4)',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#3b82f6',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#94a3b8',
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Nom d'utilisateur"
+                  required
+                  value={editUser.username}
+                  onChange={(e) => setEditUser({ ...editUser, username: e.target.value })}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      color: 'white',
+                      '& fieldset': {
+                        borderColor: 'rgba(59, 130, 246, 0.2)',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: 'rgba(59, 130, 246, 0.4)',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#3b82f6',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#94a3b8',
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Prénom"
+                  value={editUser.first_name}
+                  onChange={(e) => setEditUser({ ...editUser, first_name: e.target.value })}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      color: 'white',
+                      '& fieldset': {
+                        borderColor: 'rgba(59, 130, 246, 0.2)',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: 'rgba(59, 130, 246, 0.4)',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#3b82f6',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#94a3b8',
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  fullWidth
+                  label="Nom"
+                  value={editUser.last_name}
+                  onChange={(e) => setEditUser({ ...editUser, last_name: e.target.value })}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      color: 'white',
+                      '& fieldset': {
+                        borderColor: 'rgba(59, 130, 246, 0.2)',
+                      },
+                      '&:hover fieldset': {
+                        borderColor: 'rgba(59, 130, 246, 0.4)',
+                      },
+                      '&.Mui-focused fieldset': {
+                        borderColor: '#3b82f6',
+                      },
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: '#94a3b8',
+                    },
+                  }}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={editUser.is_active}
+                      onChange={(e) => setEditUser({ ...editUser, is_active: e.target.checked })}
+                      sx={{
+                        color: '#64748b',
+                        '&.Mui-checked': {
+                          color: '#10b981',
+                        },
+                      }}
+                    />
+                  }
+                  label={<Typography sx={{ color: '#94a3b8' }}>Compte actif</Typography>}
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={editUser.is_staff}
+                      onChange={(e) => setEditUser({ ...editUser, is_staff: e.target.checked })}
+                      sx={{
+                        color: '#64748b',
+                        '&.Mui-checked': {
+                          color: '#3b82f6',
+                        },
+                      }}
+                    />
+                  }
+                  label={<Typography sx={{ color: '#94a3b8' }}>Administrateur (is_staff)</Typography>}
+                />
+                <FormControlLabel
+                  control={
+                    <Checkbox
+                      checked={editUser.is_superuser}
+                      onChange={(e) => setEditUser({ ...editUser, is_superuser: e.target.checked })}
+                      disabled={!editUser.is_staff}
+                      sx={{
+                        color: '#64748b',
+                        '&.Mui-checked': {
+                          color: '#ef4444',
+                        },
+                      }}
+                    />
+                  }
+                  label={<Typography sx={{ color: '#94a3b8' }}>Super Administrateur (is_superuser)</Typography>}
+                />
+              </Grid>
+            </Grid>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ borderTop: '1px solid rgba(59, 130, 246, 0.1)', p: 2 }}>
+          <Button 
+            onClick={() => setOpenEditDialog(false)}
+            sx={{ color: '#94a3b8' }}
+          >
+            Annuler
+          </Button>
+          <Button 
+            onClick={handleEditUser} 
+            variant="contained"
+            sx={{
+              bgcolor: '#3b82f6',
+              '&:hover': {
+                bgcolor: '#2563eb',
+              },
+            }}
+          >
+            Modifier l'utilisateur
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar pour les notifications */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={handleCloseSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert 
+          onClose={handleCloseSnackbar} 
+          severity={snackbar.severity} 
+          sx={{ 
+            width: '100%',
+            bgcolor: snackbar.severity === 'success' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+            border: `1px solid ${snackbar.severity === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+            color: snackbar.severity === 'success' ? '#10b981' : '#ef4444',
+          }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
+    </Box>
+  );
+};
+
+export default AdminPaneau;
