@@ -39,6 +39,10 @@ export const AuthProvider = ({ children }) => {
         username: response.data.username,
         first_name: response.data.first_name,
         last_name: response.data.last_name,
+        phone_number: response.data.phone_number || '',
+        role: response.data.role || '',
+        company: response.data.company || '',
+        profile_picture: response.data.profile_picture || null,
         is_active: response.data.is_active,
         is_superuser: response.data.is_superuser || false,
         is_staff: response.data.is_staff || false,
@@ -76,6 +80,10 @@ export const AuthProvider = ({ children }) => {
         username: apiUserData.username,
         first_name: apiUserData.first_name,
         last_name: apiUserData.last_name,
+        phone_number: apiUserData.phone_number || '',
+        role: apiUserData.role || '',
+        company: apiUserData.company || '',
+        profile_picture: apiUserData.profile_picture || null,
         is_active: apiUserData.is_active,
         is_superuser: apiUserData.is_superuser || false,
         is_staff: apiUserData.is_staff || false,
@@ -172,9 +180,10 @@ export const AuthProvider = ({ children }) => {
         }
       );
       
+      const payloadUser = response.data.user || response.data;
       const updatedUser = {
         ...user,
-        ...response.data
+        ...payloadUser
       };
       
       setUser(updatedUser);
@@ -188,6 +197,40 @@ export const AuthProvider = ({ children }) => {
         success: false, 
         error: error.response?.data?.error || error.response?.data?.detail || 'Failed to update profile' 
       };
+    }
+  };
+
+  const changePassword = async (oldPassword, newPassword, newPassword2) => {
+    if (!token) {
+      return { success: false, error: 'No authentication token found' };
+    }
+
+    try {
+      const response = await axios.post(
+        'http://localhost:8000/api/auth/change-password/',
+        {
+          old_password: oldPassword,
+          new_password: newPassword,
+          new_password2: newPassword2,
+        },
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+
+      return { success: true, data: response.data };
+    } catch (error) {
+      const errorMessage = error.response?.data?.error ||
+        error.response?.data?.detail ||
+        error.response?.data?.old_password ||
+        error.response?.data?.new_password ||
+        error.response?.data?.new_password2 ||
+        'Failed to change password';
+
+      return { success: false, error: errorMessage };
     }
   };
 
@@ -232,6 +275,45 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const refreshUser = async () => {
+    if (!token) {
+      return { success: false, error: 'No authentication token' };
+    }
+    
+    try {
+      const response = await axios.get('http://localhost:8000/api/auth/user/', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      const updatedUser = {
+        id: response.data.id,
+        email: response.data.email,
+        username: response.data.username,
+        first_name: response.data.first_name,
+        last_name: response.data.last_name,
+        phone_number: response.data.phone_number || '',
+        role: response.data.role || '',
+        company: response.data.company || '',
+        profile_picture: response.data.profile_picture || null,
+        is_active: response.data.is_active,
+        is_superuser: response.data.is_superuser || false,
+        is_staff: response.data.is_staff || false,
+        is_primary_admin: response.data.is_primary_admin || false,
+        date_joined: response.data.date_joined,
+        last_login: response.data.last_login,
+      };
+      
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      return { success: true, data: updatedUser };
+    } catch (error) {
+      console.error('Error refreshing user:', error);
+      return { success: false, error: 'Failed to refresh user' };
+    }
+  };
+
   const value = {
     user,
     token,
@@ -240,10 +322,12 @@ export const AuthProvider = ({ children }) => {
     logout,
     register,
     updateProfile,
+    changePassword,
     isAdmin,
     checkEmailExists,
     checkPasswordStrength,
-    generatePassword
+    generatePassword,
+    refreshUser
   };
 
   return (

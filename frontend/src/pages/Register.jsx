@@ -15,14 +15,15 @@ import {
   Paper,
   CardContent,
 } from '@mui/material';
-import { 
-  Visibility, 
+import {
+  Visibility,
   VisibilityOff,
   Mail as MailIcon,
   Lock as LockIcon,
   Google as GoogleIcon,
   Person as PersonIcon,
   AccountCircle as AccountCircleIcon,
+  Phone as PhoneIcon,
   Notifications as NotificationsIcon,
   FlashOn as FlashOnIcon,
   BarChart as BarChartIcon,
@@ -39,6 +40,8 @@ const Register = () => {
   const [formData, setFormData] = useState({
     email: '',
     username: '',
+    role: '',
+    numero_telephone: '',
     password: '',
     password2: '',
     first_name: '',
@@ -67,6 +70,8 @@ const Register = () => {
   const [emailError, setEmailError] = useState('');
   const [emailValidating, setEmailValidating] = useState(false);
   const [usernameError, setUsernameError] = useState('');
+  const [numberError, setNumberError] = useState('');
+  const [numberValidating, setNumberValidating] = useState(false);
 
   // Fonction locale pour générer un mot de passe
   const generateSecurePassword = () => {
@@ -266,13 +271,17 @@ const Register = () => {
       const result = await register(formData);
 
       if (result.success) {
-        // Automatically log in the user after successful registration
-        const loginResult = await login(formData.email, formData.password);
-        if (loginResult.success) {
+        // Utiliser les tokens retournés par register() - ne pas appeler login()
+        // Car le compte est inactif et login() refuserait
+        const { access, refresh } = result.data;
+        
+        localStorage.setItem('access_token', access);
+        localStorage.setItem('refresh_token', refresh);
+        
+        // Attendre un petit délai pour que le context se mette à jour
+        setTimeout(() => {
           navigate('/dashboard');
-        } else {
-          setError('Inscription réussie mais connexion échouée. Veuillez vous connecter manuellement.');
-        }
+        }, 500);
       } else {
         // S'assurer que l'erreur est une string
         if (typeof result.error === 'object') {
@@ -449,7 +458,7 @@ const Register = () => {
             )}
             
             <Box component="form" onSubmit={handleSubmit} sx={{ mt: 0 }}>
-              {/* Champ Email */}
+              {/* Champ email*/}
               <Box sx={{ mb: 2 }}>
                 <Typography 
                   variant="body2" 
@@ -460,7 +469,7 @@ const Register = () => {
                     mb: 0.5
                   }}
                 >
-                  Adresse email *
+                  Adresse email
                 </Typography>
                 <TextField
                   fullWidth
@@ -512,7 +521,7 @@ const Register = () => {
                     mb: 0.5
                   }}
                 >
-                  Nom d'utilisateur *
+                  Nom d'utilisateur 
                 </Typography>
                 <TextField
                   fullWidth
@@ -630,6 +639,101 @@ const Register = () => {
                   />
                 </Box>
               </Box>
+                  {/* Champ Role */}
+              <Box sx={{ mb: 2 }}>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 600,
+                    color: '#1e293b',
+                    fontSize: '0.875rem',
+                    mb: 0.5
+                  }}
+                >
+                Role
+                </Typography>
+                <TextField
+                  fullWidth
+                  id="role"
+                  name="role"
+                  autoComplete="role"
+                  value={formData.role}
+                  onChange={handleChange}
+                  placeholder="Choisissez votre role (ex: admin, user, etc.)"
+                  required
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <AccountCircleIcon sx={{ color: '#9ca3af', fontSize: '1.1rem' }} />
+                      </InputAdornment>
+                    ),
+                    sx: {
+                      borderRadius: 1,
+                      '& .MuiOutlinedInput-input': {
+                        py: 1,
+                        fontSize: '0.9rem',
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#e5e7eb',
+                      }
+                    }
+                  }}
+                  size="small"
+                />
+              </Box>
+    {/* Champ email*/}
+              <Box sx={{ mb: 2 }}>
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    fontWeight: 600,
+                    color: '#1e293b',
+                    fontSize: '0.875rem',
+                    mb: 0.5
+                  }}
+                >
+                 Numéro de téléphone
+                </Typography>
+                <TextField
+                  fullWidth
+                  id="numero_telephone"
+                  name="numero_telephone"
+                  type="tel"
+                  inputProps={{ maxLength:15 , pattern: "[0-9]{15}" }}
+                  autoComplete="numero_telephone"
+                  value={formData.numero_telephone}
+                  onChange={handleChange}
+                  placeholder="Numéro de téléphone"
+                  required
+                  error={!!numberError}
+                  helperText={numberError}
+                  disabled={numberValidating}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <PhoneIcon sx={{ color: numberError ? '#ef4444' : '#9ca3af', fontSize: '1.1rem' }} />
+                      </InputAdornment>
+                    ),
+                    endAdornment: numberValidating && (
+                      <InputAdornment position="end">
+                        <CircularProgress size={16} />
+                      </InputAdornment>
+                    ),
+                    sx: {
+                      borderRadius: 1,
+                      '& .MuiOutlinedInput-input': {
+                        py: 1,
+                        fontSize: '0.9rem',
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: numberError ? '#ef4444' : '#e5e7eb',
+                      }
+                    }
+                  }}
+                  size="small"
+                />
+              </Box>
+
               
               {/* Champ Mot de passe */}
               <Box sx={{ mb: 2 }}>
@@ -642,7 +746,7 @@ const Register = () => {
                       fontSize: '0.875rem',
                     }}
                   >
-                    Mot de passe *
+                    Mot de passe 
                   </Typography>
                   <Button
                     startIcon={<RefreshIcon />}
@@ -845,7 +949,7 @@ const Register = () => {
                     mb: 0.5
                   }}
                 >
-                  Confirmer le mot de passe *
+                  Confirmer le mot de passe 
                 </Typography>
                 <TextField
                   fullWidth
@@ -898,25 +1002,7 @@ const Register = () => {
                 />
               </Box>
               
-              {/* Conseils de sécurité */}
-              <Box sx={{ 
-                mb: 3, 
-                p: 1.5, 
-                bgcolor: '#f8fafc', 
-                borderRadius: 2,
-                border: '1px solid #e2e8f0'
-              }}>
-                <Typography variant="body2" sx={{ color: '#374151', fontWeight: 600, mb: 0.5, fontSize: '0.8rem' }}>
-                  <InfoIcon sx={{ fontSize: '0.8rem', mr: 0.5, verticalAlign: 'middle' }} />
-                  Conseils de sécurité
-                </Typography>
-                <Typography variant="caption" sx={{ color: '#6b7280', fontSize: '0.75rem', display: 'block' }}>
-                  • Utilisez des mots de passe différents pour chaque site<br/>
-                  • Évitez les informations personnelles<br/>
-                  • Considérez l'utilisation d'un gestionnaire de mots de passe<br/>
-                  • Exemple : <code style={{ background: '#e5e7eb', padding: '1px 4px', borderRadius: 3 }}>M@nger2Pizz@sLeLundi?</code>
-                </Typography>
-              </Box>
+            
               
               {/* Bouton d'inscription */}
               <Button

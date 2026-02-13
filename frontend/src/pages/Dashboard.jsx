@@ -1,5 +1,5 @@
-﻿import React, { useEffect, useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+﻿import React, { useEffect, useState } from "react";
+import { useAuth } from "../context/AuthContext";
 import {
   Container,
   Typography,
@@ -24,7 +24,7 @@ import {
   useTheme,
   useMediaQuery,
   Collapse,
-} from '@mui/material';
+} from "@mui/material";
 import {
   Person as PersonIcon,
   Email as EmailIcon,
@@ -58,9 +58,9 @@ import {
   TrendingDown as TrendingDownIcon,
   MoreVert as MoreVertIcon,
   Add as AddIcon,
-} from '@mui/icons-material';
-import notif from '../assets/notif.png';
-import { useNavigate } from 'react-router-dom';
+} from "@mui/icons-material";
+import notif from "../assets/notif.png";
+import { useNavigate } from "react-router-dom";
 
 const drawerWidth = 280;
 const collapsedDrawerWidth = 80;
@@ -69,19 +69,19 @@ const Dashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const [lastLogin, setLastLogin] = useState('');
+  const isMobile = useMediaQuery(theme.breakpoints.down("md"));
+  const [lastLogin, setLastLogin] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [adminMenuOpen, setAdminMenuOpen] = useState(false);
-  const [selectedMenu, setSelectedMenu] = useState('dashboard');
+  const [selectedMenu, setSelectedMenu] = useState("dashboard");
 
   // Style global pour éliminer les espaces blancs
   useEffect(() => {
-    document.body.style.margin = '0';
-    document.body.style.padding = '0';
-    document.body.style.backgroundColor = 'black';
-    document.documentElement.style.backgroundColor = 'black';
+    document.body.style.margin = "0";
+    document.body.style.padding = "0";
+    document.body.style.backgroundColor = "black";
+    document.documentElement.style.backgroundColor = "black";
   }, []);
 
   const handleDrawerToggle = () => {
@@ -99,10 +99,10 @@ const Dashboard = () => {
   // Déclarer handleLogout AVANT menuItems
   const handleLogout = async () => {
     await logout();
-    navigate('/login');
+    navigate("/login");
   };
 
-  // Maintenant vous pouvez l'utiliser dans menuItems
+
   const menuItems = [
     {
       id: 'dashboard',
@@ -110,7 +110,13 @@ const Dashboard = () => {
       icon: <DashboardIcon />,
       path: '/dashboard',
     },
-     {
+    {
+      id: 'reglesalertes',
+      label: 'Alert Rules',
+      icon: <FlashOnIcon />,
+      path: '/alerts',
+    },
+    {
       id: 'notifications',
       label: 'Notifications',
       icon: <NotificationsIcon />,
@@ -118,19 +124,12 @@ const Dashboard = () => {
       badge: user?.unread_notifications || 0,
     },
     {
-      id: 'reglesalertes',
-      label: 'Alert Rules',
-      icon: <FlashOnIcon />,
-      path: '/regles-alertes',
-    },
-   
-    {
       id: 'modules',
       label: 'ERP Modules',
       icon: <StorageIcon />,
       path: '/modulesERP',
-      
     },
+  
     {
       id: 'history',
       label: 'History',
@@ -157,16 +156,14 @@ const Dashboard = () => {
     },
   ];
 
-
-
   useEffect(() => {
     if (user) {
-      console.log('DASHBOARD DEBUG - User object:', user);
-      console.log('is_superuser:', user.is_superuser);
-      console.log('is_staff:', user.is_staff);
-      console.log('is_active:', user.is_active);
+      console.log("DASHBOARD DEBUG - User object:", user);
+      console.log("is_superuser:", user.is_superuser);
+      console.log("is_staff:", user.is_staff);
+      console.log("is_active:", user.is_active);
 
-      setLastLogin(new Date().toLocaleString('fr-FR'));
+      setLastLogin(new Date().toLocaleString("fr-FR"));
     }
   }, [user]);
 
@@ -177,37 +174,39 @@ const Dashboard = () => {
     const days = [];
 
     return (
-      <Box sx={{ width: '100%', height: 300, position: 'relative', pt: 4 }}>
+      <Box sx={{ width: "100%", height: 300, position: "relative", pt: 4 }}>
         {/* Axes */}
-        <Box sx={{
-          position: 'absolute',
-          left: 40,
-          right: 20,
-          bottom: 30,
-          top: 0,
-          borderLeft: '1px solid rgba(59, 130, 246, 0.3)',
-          borderBottom: '1px solid rgba(59, 130, 246, 0.3)'
-        }}>
+        <Box
+          sx={{
+            position: "absolute",
+            left: 40,
+            right: 20,
+            bottom: 30,
+            top: 0,
+            borderLeft: "1px solid rgba(59, 130, 246, 0.3)",
+            borderBottom: "1px solid rgba(59, 130, 246, 0.3)",
+          }}
+        >
           {/* Lignes horizontales */}
           {[0, 10, 20, 30, 40].map((y) => (
             <Box
               key={y}
               sx={{
-                position: 'absolute',
+                position: "absolute",
                 left: 0,
                 right: 0,
                 bottom: `${(y / maxValue) * 100}%`,
-                borderTop: '1px solid rgba(59, 130, 246, 0.1)',
+                borderTop: "1px solid rgba(59, 130, 246, 0.1)",
                 height: 0,
               }}
             >
               <Typography
                 variant="caption"
                 sx={{
-                  position: 'absolute',
+                  position: "absolute",
                   left: -35,
                   top: -8,
-                  color: '#64748b',
+                  color: "#64748b",
                 }}
               >
                 {y}
@@ -216,87 +215,98 @@ const Dashboard = () => {
           ))}
 
           {/* Lignes de données */}
-          <Box sx={{
-            display: 'flex',
-            height: '100%',
-            alignItems: 'flex-end',
-            justifyContent: 'space-around',
-            pb: '30px',
-            pl: '20px',
-            pr: '20px'
-          }}>
+          <Box
+            sx={{
+              display: "flex",
+              height: "100%",
+              alignItems: "flex-end",
+              justifyContent: "space-around",
+              pb: "30px",
+              pl: "20px",
+              pr: "20px",
+            }}
+          >
             {data.map((value, index) => {
               const height = `${(value / maxValue) * 100}%`;
 
               return (
-                <Box key={index} sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  flex: 1,
-                  position: 'relative'
-                }}>
+                <Box
+                  key={index}
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    flex: 1,
+                    position: "relative",
+                  }}
+                >
                   {/* Barre du graphique */}
                   <Box
                     sx={{
-                      width: '60%',
+                      width: "60%",
                       height: height,
-                      bgcolor: 'rgba(59, 130, 246, 0.1)',
+                      bgcolor: "rgba(59, 130, 246, 0.1)",
                       borderTopLeftRadius: 4,
                       borderTopRightRadius: 4,
-                      position: 'relative',
+                      position: "relative",
                       mb: 1,
                     }}
                   >
                     {/* Ligne de tendance */}
                     <Box
                       sx={{
-                        position: 'absolute',
+                        position: "absolute",
                         bottom: 0,
                         left: 0,
                         right: 0,
-                        height: '2px',
-                        bgcolor: '#3b82f6',
+                        height: "2px",
+                        bgcolor: "#3b82f6",
                       }}
                     />
                     {/* Point de données */}
                     <Box
                       sx={{
-                        position: 'absolute',
+                        position: "absolute",
                         top: 0,
-                        left: '50%',
-                        transform: 'translateX(-50%)',
+                        left: "50%",
+                        transform: "translateX(-50%)",
                         width: 8,
                         height: 8,
-                        borderRadius: '50%',
-                        bgcolor: '#3b82f6',
-                        border: '2px solid #0a0e27',
+                        borderRadius: "50%",
+                        bgcolor: "#3b82f6",
+                        border: "2px solid #0a0e27",
                       }}
                     />
                   </Box>
 
                   {/* Jour */}
-                  <Typography variant="caption" sx={{
-                    color: '#94a3b8',
-                    fontSize: '0.75rem',
-                    position: 'absolute',
-                    bottom: -25,
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                  }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: "#94a3b8",
+                      fontSize: "0.75rem",
+                      position: "absolute",
+                      bottom: -25,
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                    }}
+                  >
                     {days[index]}
                   </Typography>
 
                   {/* Valeur */}
-                  <Typography variant="caption" sx={{
-                    position: 'absolute',
-                    top: `calc(${height} - 30px)`,
-                    fontSize: '0.75rem',
-                    fontWeight: 600,
-                    color: '#3b82f6',
-                    left: '50%',
-                    transform: 'translateX(-50%)',
-                  }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      position: "absolute",
+                      top: `calc(${height} - 30px)`,
+                      fontSize: "0.75rem",
+                      fontWeight: 600,
+                      color: "#3b82f6",
+                      left: "50%",
+                      transform: "translateX(-50%)",
+                    }}
+                  >
                     {value}
                   </Typography>
                 </Box>
@@ -311,65 +321,58 @@ const Dashboard = () => {
   const drawerContent = (
     <Box
       sx={{
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        bgcolor: 'black',
-        borderRight: '1px solid rgba(59, 130, 246, 0.1)',
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        bgcolor: "black",
+        borderRight: "1px solid rgba(59, 130, 246, 0.1)",
       }}
     >
       {/* Logo et titre */}
       <Box
         sx={{
           p: 2.5,
-          borderBottom: '1px solid rgba(59, 130, 246, 0.1)',
-          position: 'relative',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: drawerOpen ? 'flex-start' : 'center',
+          borderBottom: "1px solid rgba(59, 130, 246, 0.1)",
+          position: "relative",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: drawerOpen ? "flex-start" : "center",
         }}
       >
         {drawerOpen ? (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
             <Box
               sx={{
                 width: 50,
                 height: 50,
-                borderRadius: '50%',
-                bgcolor: 'black',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'hidden',
-
+                borderRadius: "50%",
+                bgcolor: "black",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                overflow: "hidden",
               }}
             >
-              <img
-                src={notif}
-                alt="SmartAlerte Logo"
-                width="80"
-                height="80"
-
-              />
+              <img src={notif} alt="SmartAlerte Logo" width="80" height="80" />
             </Box>
             <Box>
               <Typography
                 variant="h6"
                 sx={{
                   fontWeight: 700,
-                  fontSize: '1.25rem',
-                  color: 'white',
+                  fontSize: "1.25rem",
+                  color: "white",
                   lineHeight: 1,
                 }}
               >
-              SmartNotify
+                SmartNotify
               </Typography>
               <Typography
                 variant="caption"
                 sx={{
-                  color: '#64748b',
-                  fontSize: '0.7rem',
-                  letterSpacing: '0.5px',
+                  color: "#64748b",
+                  fontSize: "0.7rem",
+                  letterSpacing: "0.5px",
                 }}
               >
                 ERP NOTIFICATIONS
@@ -377,20 +380,18 @@ const Dashboard = () => {
             </Box>
           </Box>
         ) : (
-          
-            <img
-              src={notif}
-              alt="SmartAlerte Logo"
-              width="60"
-              height="60"
-              style={{ objectFit: 'contain' }}
-            />
-        
+          <img
+            src={notif}
+            alt="SmartAlerte Logo"
+            width="60"
+            height="60"
+            style={{ objectFit: "contain" }}
+          />
         )}
       </Box>
 
       {/* Menu principal */}
-      <Box sx={{ flex: 1, overflowY: 'auto', py: 2 }}>
+      <Box sx={{ flex: 1, overflowY: "auto", py: 2 }}>
         <List sx={{ px: 2 }}>
           {menuItems.map((item) => (
             <ListItem
@@ -409,22 +410,22 @@ const Dashboard = () => {
               sx={{
                 mb: 0.5,
                 borderRadius: 2,
-                transition: 'all 0.2s ease',
-                justifyContent: drawerOpen ? 'flex-start' : 'center',
+                transition: "all 0.2s ease",
+                justifyContent: drawerOpen ? "flex-start" : "center",
                 px: drawerOpen ? 2 : 1,
-                '&:hover': {
-                  bgcolor: 'rgba(59, 130, 246, 0.08)',
+                "&:hover": {
+                  bgcolor: "rgba(59, 130, 246, 0.08)",
                 },
-                '&.Mui-selected': {
-                  bgcolor: 'rgba(59, 130, 246, 0.15)',
-                  '&:hover': {
-                    bgcolor: 'rgba(59, 130, 246, 0.2)',
+                "&.Mui-selected": {
+                  bgcolor: "rgba(59, 130, 246, 0.15)",
+                  "&:hover": {
+                    bgcolor: "rgba(59, 130, 246, 0.2)",
                   },
-                  '& .MuiListItemIcon-root': {
-                    color: '#3b82f6',
+                  "& .MuiListItemIcon-root": {
+                    color: "#3b82f6",
                   },
-                  '& .MuiListItemText-primary': {
-                    color: '#3b82f6',
+                  "& .MuiListItemText-primary": {
+                    color: "#3b82f6",
                     fontWeight: 500,
                   },
                 },
@@ -432,9 +433,9 @@ const Dashboard = () => {
             >
               <ListItemIcon
                 sx={{
-                  minWidth: drawerOpen ? 36 : 'auto',
-                  color: selectedMenu === item.id ? '#3b82f6' : '#64748b',
-                  justifyContent: 'center',
+                  minWidth: drawerOpen ? 36 : "auto",
+                  color: selectedMenu === item.id ? "#3b82f6" : "#64748b",
+                  justifyContent: "center",
                 }}
               >
                 {item.icon}
@@ -444,9 +445,9 @@ const Dashboard = () => {
                   <ListItemText
                     primary={item.label}
                     primaryTypographyProps={{
-                      fontSize: '0.9rem',
+                      fontSize: "0.9rem",
                       fontWeight: selectedMenu === item.id ? 500 : 400,
-                      color: selectedMenu === item.id ? '#3b82f6' : '#94a3b8',
+                      color: selectedMenu === item.id ? "#3b82f6" : "#94a3b8",
                     }}
                   />
                   {item.badge && item.badge > 0 && (
@@ -456,13 +457,13 @@ const Dashboard = () => {
                       sx={{
                         height: 20,
                         minWidth: 20,
-                        bgcolor: '#ef4444',
-                        color: 'white',
+                        bgcolor: "#ef4444",
+                        color: "white",
                         fontWeight: 600,
-                        fontSize: '0.7rem',
-                        '& .MuiChip-label': {
+                        fontSize: "0.7rem",
+                        "& .MuiChip-label": {
                           px: 0.75,
-                        }
+                        },
                       }}
                     />
                   )}
@@ -479,29 +480,29 @@ const Dashboard = () => {
           sx={{
             p: 2,
             m: 2,
-            bgcolor: 'rgba(16, 185, 129, 0.1)',
+            bgcolor: "rgba(16, 185, 129, 0.1)",
             borderRadius: 2,
-            border: '1px solid rgba(16, 185, 129, 0.2)',
+            border: "1px solid rgba(16, 185, 129, 0.2)",
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <Box
               sx={{
                 width: 8,
                 height: 8,
-                borderRadius: '50%',
-                bgcolor: '#10b981',
-                boxShadow: '0 0 8px rgba(16, 185, 129, 0.5)',
+                borderRadius: "50%",
+                bgcolor: "#10b981",
+                boxShadow: "0 0 8px rgba(16, 185, 129, 0.5)",
               }}
             />
             <Box>
               <Typography
                 variant="caption"
                 sx={{
-                  color: '#10b981',
+                  color: "#10b981",
                   fontWeight: 600,
-                  display: 'block',
-                  fontSize: '0.85rem',
+                  display: "block",
+                  fontSize: "0.85rem",
                 }}
               >
                 System Active
@@ -509,8 +510,8 @@ const Dashboard = () => {
               <Typography
                 variant="caption"
                 sx={{
-                  color: '#64748b',
-                  fontSize: '0.75rem',
+                  color: "#64748b",
+                  fontSize: "0.75rem",
                 }}
               >
                 All services running
@@ -524,16 +525,18 @@ const Dashboard = () => {
 
   if (!user) {
     return (
-      <Box sx={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        minHeight: '100vh',
-        bgcolor: 'black',
-        m: 0,
-        p: 0,
-      }}>
-        <Typography variant="h4" sx={{ color: 'white' }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "100vh",
+          bgcolor: "black",
+          m: 0,
+          p: 0,
+        }}
+      >
+        <Typography variant="h4" sx={{ color: "white" }}>
           Chargement...
         </Typography>
       </Box>
@@ -541,40 +544,40 @@ const Dashboard = () => {
   }
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'black' }}>
+    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "black" }}>
       {/* Drawer pour desktop */}
       {!isMobile && (
         <Box
           sx={{
             width: drawerOpen ? drawerWidth : collapsedDrawerWidth,
             flexShrink: 0,
-            transition: 'width 0.3s ease',
-            position: 'relative',
+            transition: "width 0.3s ease",
+            position: "relative",
           }}
         >
           <Box
             sx={{
               width: drawerOpen ? drawerWidth : collapsedDrawerWidth,
-              height: '100vh',
-              position: 'fixed',
+              height: "100vh",
+              position: "fixed",
               left: 0,
               top: 0,
-              bgcolor: 'black',
-              borderRight: '1px solid rgba(59, 130, 246, 0.1)',
-              transition: 'width 0.3s ease',
-              overflowY: 'auto',
-              overflowX: 'hidden',
-              '&::-webkit-scrollbar': {
-                width: '6px',
+              bgcolor: "black",
+              borderRight: "1px solid rgba(59, 130, 246, 0.1)",
+              transition: "width 0.3s ease",
+              overflowY: "auto",
+              overflowX: "hidden",
+              "&::-webkit-scrollbar": {
+                width: "6px",
               },
-              '&::-webkit-scrollbar-track': {
-                bgcolor: 'transparent',
+              "&::-webkit-scrollbar-track": {
+                bgcolor: "transparent",
               },
-              '&::-webkit-scrollbar-thumb': {
-                bgcolor: 'rgba(59, 130, 246, 0.3)',
-                borderRadius: '3px',
-                '&:hover': {
-                  bgcolor: 'rgba(59, 130, 246, 0.5)',
+              "&::-webkit-scrollbar-thumb": {
+                bgcolor: "rgba(59, 130, 246, 0.3)",
+                borderRadius: "3px",
+                "&:hover": {
+                  bgcolor: "rgba(59, 130, 246, 0.5)",
                 },
               },
             }}
@@ -586,20 +589,20 @@ const Dashboard = () => {
           <IconButton
             onClick={handleDrawerToggle}
             sx={{
-              position: 'fixed',
+              position: "fixed",
               left: drawerOpen ? drawerWidth - 20 : collapsedDrawerWidth - 20,
-              top: '50%',
-              transform: 'translateY(-50%)',
+              top: "50%",
+              transform: "translateY(-50%)",
               zIndex: 1300,
-              bgcolor: '#3b82f6',
-              color: 'white',
+              bgcolor: "#3b82f6",
+              color: "white",
               width: 40,
               height: 40,
-              boxShadow: '0 4px 12px rgba(59, 130, 246, 0.4)',
-              transition: 'all 0.3s ease',
-              '&:hover': {
-                bgcolor: '#2563eb',
-                boxShadow: '0 6px 16px rgba(59, 130, 246, 0.6)',
+              boxShadow: "0 4px 12px rgba(59, 130, 246, 0.4)",
+              transition: "all 0.3s ease",
+              "&:hover": {
+                bgcolor: "#2563eb",
+                boxShadow: "0 6px 16px rgba(59, 130, 246, 0.6)",
               },
             }}
           >
@@ -615,11 +618,11 @@ const Dashboard = () => {
           open={mobileOpen}
           onClose={handleDrawerToggle}
           sx={{
-            '& .MuiDrawer-paper': {
+            "& .MuiDrawer-paper": {
               width: drawerWidth,
-              boxSizing: 'border-box',
-              border: 'none',
-              bgcolor: 'black',
+              boxSizing: "border-box",
+              border: "none",
+              bgcolor: "black",
             },
           }}
         >
@@ -632,30 +635,31 @@ const Dashboard = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          width: isMobile ? '100%' : `calc(100% - ${drawerOpen ? drawerWidth : collapsedDrawerWidth}px)`,
-          minHeight: '100vh',
-          bgcolor: 'black',
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          transition: 'width 0.3s ease',
-          '&::-webkit-scrollbar': {
-            width: '8px',
+          width: isMobile
+            ? "100%"
+            : `calc(100% - ${drawerOpen ? drawerWidth : collapsedDrawerWidth}px)`,
+          minHeight: "100vh",
+          bgcolor: "black",
+          overflowY: "auto",
+          overflowX: "hidden",
+          transition: "width 0.3s ease",
+          "&::-webkit-scrollbar": {
+            width: "8px",
           },
-          '&::-webkit-scrollbar-track': {
-            bgcolor: 'white(15, 23, 42, 0.4)',
+          "&::-webkit-scrollbar-track": {
+            bgcolor: "white(15, 23, 42, 0.4)",
           },
-
         }}
       >
         {/* Header */}
         <Box
           sx={{
             p: 1.2,
-            borderBottom: '1px solid rgba(59, 130, 246, 0.1)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            flexWrap: 'wrap',
+            borderBottom: "1px solid rgba(59, 130, 246, 0.1)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            flexWrap: "wrap",
             gap: 2,
           }}
         >
@@ -664,10 +668,10 @@ const Dashboard = () => {
             <IconButton
               onClick={handleDrawerToggle}
               sx={{
-                color: 'white',
+                color: "white",
                 mr: 1,
-                '&:hover': {
-                  bgcolor: 'rgba(59, 130, 246, 0.1)',
+                "&:hover": {
+                  bgcolor: "rgba(59, 130, 246, 0.1)",
                 },
               }}
             >
@@ -680,16 +684,16 @@ const Dashboard = () => {
             sx={{
               flex: 1,
               maxWidth: 500,
-              position: 'relative',
+              position: "relative",
             }}
           >
             <SearchIcon
               sx={{
-                position: 'absolute',
+                position: "absolute",
                 left: 16,
-                top: '50%',
-                transform: 'translateY(-50%)',
-                color: '#64748b',
+                top: "50%",
+                transform: "translateY(-50%)",
+                color: "#64748b",
                 fontSize: 20,
               }}
             />
@@ -697,35 +701,35 @@ const Dashboard = () => {
               type="text"
               placeholder="Search alerts, modules, notifications..."
               style={{
-                width: '100%',
-                padding: '12px 16px 12px 48px',
-                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                border: '1px solid rgba(59, 130, 246, 0.2)',
-                borderRadius: '12px',
-                color: '#94a3b8',
-                fontSize: '0.9rem',
-                outline: 'none',
-                transition: 'all 0.2s ease',
+                width: "100%",
+                padding: "12px 16px 12px 48px",
+                backgroundColor: "rgba(59, 130, 246, 0.1)",
+                border: "1px solid rgba(59, 130, 246, 0.2)",
+                borderRadius: "12px",
+                color: "#94a3b8",
+                fontSize: "0.9rem",
+                outline: "none",
+                transition: "all 0.2s ease",
               }}
               onFocus={(e) => {
-                e.target.style.borderColor = '#3b82f6';
-                e.target.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
+                e.target.style.borderColor = "#3b82f6";
+                e.target.style.backgroundColor = "rgba(59, 130, 246, 0.2)";
               }}
               onBlur={(e) => {
-                e.target.style.borderColor = 'rgba(59, 130, 246, 0.2)';
-                e.target.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+                e.target.style.borderColor = "rgba(59, 130, 246, 0.2)";
+                e.target.style.backgroundColor = "rgba(59, 130, 246, 0.1)";
               }}
             />
           </Box>
 
           {/* Boutons d'action */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             <IconButton
               sx={{
-                color: '#64748b',
-                position: 'relative',
-                '&:hover': {
-                  bgcolor: 'rgba(59, 130, 246, 0.1)',
+                color: "#64748b",
+                position: "relative",
+                "&:hover": {
+                  bgcolor: "rgba(59, 130, 246, 0.1)",
                 },
               }}
             >
@@ -733,19 +737,19 @@ const Dashboard = () => {
               {user?.unread_notifications > 0 && (
                 <Box
                   sx={{
-                    position: 'absolute',
+                    position: "absolute",
                     top: 8,
                     right: 8,
                     width: 18,
                     height: 18,
-                    borderRadius: '50%',
-                    bgcolor: '#ef4444',
-                    color: 'white',
-                    fontSize: '0.65rem',
+                    borderRadius: "50%",
+                    bgcolor: "#ef4444",
+                    color: "white",
+                    fontSize: "0.65rem",
                     fontWeight: 700,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
                   {user.unread_notifications}
@@ -753,14 +757,19 @@ const Dashboard = () => {
               )}
             </IconButton>
 
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-              <Box sx={{ textAlign: 'right', display: { xs: 'none', sm: 'block' } }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+              <Box
+                sx={{
+                  textAlign: "right",
+                  display: { xs: "none", sm: "block" },
+                }}
+              >
                 <Typography
                   variant="body2"
                   sx={{
-                    color: 'white',
+                    color: "white",
                     fontWeight: 600,
-                    fontSize: '0.9rem',
+                    fontSize: "0.9rem",
                   }}
                 >
                   {user?.first_name || user?.username}
@@ -768,24 +777,24 @@ const Dashboard = () => {
                 <Typography
                   variant="caption"
                   sx={{
-                    color: '#64748b',
-                    fontSize: '0.75rem',
+                    color: "#64748b",
+                    fontSize: "0.75rem",
                   }}
                 >
-                  {user?.is_superuser ? 'Administrateur' : 'Utilisateur'}
+                  {user?.is_superuser ? "Administrateur" : "Utilisateur"}
                 </Typography>
               </Box>
               <Avatar
                 sx={{
                   width: 40,
                   height: 40,
-                  bgcolor: '#3b82f6',
+                  bgcolor: "#3b82f6",
                   fontWeight: 600,
-                  fontSize: '1rem',
+                  fontSize: "1rem",
                 }}
                 src={user.avatar}
               >
-                {user.first_name?.charAt(0) || user?.username?.charAt(0) || 'U'}
+                {user.first_name?.charAt(0) || user?.username?.charAt(0) || "U"}
               </Avatar>
             </Box>
           </Box>
@@ -795,19 +804,21 @@ const Dashboard = () => {
         <Box sx={{ p: 3, pb: 6 }}>
           {/* En-tête de la page */}
           <Box sx={{ mb: 4 }}>
-            <Box sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              mb: 1,
-              flexWrap: 'wrap',
-              gap: 2
-            }}>
+            <Box
+              sx={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                mb: 1,
+                flexWrap: "wrap",
+                gap: 2,
+              }}
+            >
               <Box>
                 <Typography
                   variant="h4"
                   sx={{
-                    color: 'white',
+                    color: "white",
                     fontWeight: 700,
                     mb: 0.5,
                   }}
@@ -817,8 +828,8 @@ const Dashboard = () => {
                 <Typography
                   variant="body2"
                   sx={{
-                    color: '#64748b',
-                    fontSize: '0.95rem',
+                    color: "#64748b",
+                    fontSize: "0.95rem",
                   }}
                 >
                   Surveillance en temps réel de vos alertes ERP
@@ -831,23 +842,23 @@ const Dashboard = () => {
                   variant="contained"
                   startIcon={<AddIcon />}
                   sx={{
-                    bgcolor: '#3b82f6',
-                    color: 'white',
+                    bgcolor: "#3b82f6",
+                    color: "white",
                     fontWeight: 600,
                     py: 1.2,
                     px: 3,
                     borderRadius: 2,
-                    textTransform: 'none',
-                    fontSize: '0.95rem',
-                    boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
-                    '&:hover': {
-                      bgcolor: '#2563eb',
-                      boxShadow: '0 6px 16px rgba(59, 130, 246, 0.4)',
+                    textTransform: "none",
+                    fontSize: "0.95rem",
+                    boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
+                    "&:hover": {
+                      bgcolor: "#2563eb",
+                      boxShadow: "0 6px 16px rgba(59, 130, 246, 0.4)",
                     },
-                    minWidth: '140px',
-                    height: '42px',
+                    minWidth: "140px",
+                    height: "42px",
                   }}
-                  onClick={() => navigate('/admin')}
+                  onClick={() => navigate("/admin")}
                 >
                   Nouvelle Alerte
                 </Button>
@@ -861,23 +872,30 @@ const Dashboard = () => {
             <Grid item xs={12} sm={6} md={3}>
               <Card
                 sx={{
-                  bgcolor: 'rgba(59, 130, 246, 0.1)',
-                  border: '1px solid rgba(59, 130, 246, 0.2)',
+                  bgcolor: "rgba(59, 130, 246, 0.1)",
+                  border: "1px solid rgba(59, 130, 246, 0.2)",
                   borderRadius: 3,
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: '0 8px 24px rgba(59, 130, 246, 0.2)',
+                  transition: "all 0.3s ease",
+                  "&:hover": {
+                    transform: "translateY(-4px)",
+                    boxShadow: "0 8px 24px rgba(59, 130, 246, 0.2)",
                   },
                 }}
               >
                 <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      justifyContent: "space-between",
+                      mb: 2,
+                    }}
+                  >
                     <Typography
                       variant="body2"
                       sx={{
-                        color: '#94a3b8',
-                        fontSize: '0.85rem',
+                        color: "#94a3b8",
+                        fontSize: "0.85rem",
                       }}
                     >
                       Alertes Actives
@@ -887,34 +905,31 @@ const Dashboard = () => {
                         width: 40,
                         height: 40,
                         borderRadius: 2,
-                        bgcolor: 'rgba(251, 146, 60, 0.15)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
+                        bgcolor: "rgba(251, 146, 60, 0.15)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                       }}
                     >
-                      <WarningIcon sx={{ color: '#fb923c', fontSize: 20 }} />
+                      <WarningIcon sx={{ color: "#fb923c", fontSize: 20 }} />
                     </Box>
                   </Box>
                   <Typography
                     variant="h3"
                     sx={{
-                      color: 'white',
+                      color: "white",
                       fontWeight: 700,
                       mb: 1,
                     }}
-                  >
-
-                  </Typography>
+                  ></Typography>
                   <Typography
                     variant="caption"
                     sx={{
-                      color: '#ef4444',
-                      fontSize: '0.8rem',
+                      color: "#ef4444",
+                      fontSize: "0.8rem",
                       fontWeight: 500,
                     }}
-                  >
-                  </Typography>
+                  ></Typography>
                 </CardContent>
               </Card>
             </Grid>
@@ -923,23 +938,30 @@ const Dashboard = () => {
             <Grid item xs={12} sm={6} md={3}>
               <Card
                 sx={{
-                  bgcolor: 'rgba(59, 130, 246, 0.1)',
-                  border: '1px solid rgba(59, 130, 246, 0.2)',
+                  bgcolor: "rgba(59, 130, 246, 0.1)",
+                  border: "1px solid rgba(59, 130, 246, 0.2)",
                   borderRadius: 3,
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: '0 8px 24px rgba(59, 130, 246, 0.2)',
+                  transition: "all 0.3s ease",
+                  "&:hover": {
+                    transform: "translateY(-4px)",
+                    boxShadow: "0 8px 24px rgba(59, 130, 246, 0.2)",
                   },
                 }}
               >
                 <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      justifyContent: "space-between",
+                      mb: 2,
+                    }}
+                  >
                     <Typography
                       variant="body2"
                       sx={{
-                        color: '#94a3b8',
-                        fontSize: '0.85rem',
+                        color: "#94a3b8",
+                        fontSize: "0.85rem",
                       }}
                     >
                       Notifications Envoyées
@@ -949,34 +971,33 @@ const Dashboard = () => {
                         width: 40,
                         height: 40,
                         borderRadius: 2,
-                        bgcolor: 'rgba(59, 130, 246, 0.15)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
+                        bgcolor: "rgba(59, 130, 246, 0.15)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                       }}
                     >
-                      <NotificationsIcon sx={{ color: '#3b82f6', fontSize: 20 }} />
+                      <NotificationsIcon
+                        sx={{ color: "#3b82f6", fontSize: 20 }}
+                      />
                     </Box>
                   </Box>
                   <Typography
                     variant="h3"
                     sx={{
-                      color: 'white',
+                      color: "white",
                       fontWeight: 700,
                       mb: 1,
                     }}
-                  >
-                  </Typography>
+                  ></Typography>
                   <Typography
                     variant="caption"
                     sx={{
-                      color: '#10b981',
-                      fontSize: '0.8rem',
+                      color: "#10b981",
+                      fontSize: "0.8rem",
                       fontWeight: 500,
                     }}
-                  >
-
-                  </Typography>
+                  ></Typography>
                 </CardContent>
               </Card>
             </Grid>
@@ -985,23 +1006,30 @@ const Dashboard = () => {
             <Grid item xs={12} sm={6} md={3}>
               <Card
                 sx={{
-                  bgcolor: 'rgba(59, 130, 246, 0.1)',
-                  border: '1px solid rgba(59, 130, 246, 0.2)',
+                  bgcolor: "rgba(59, 130, 246, 0.1)",
+                  border: "1px solid rgba(59, 130, 246, 0.2)",
                   borderRadius: 3,
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: '0 8px 24px rgba(59, 130, 246, 0.2)',
+                  transition: "all 0.3s ease",
+                  "&:hover": {
+                    transform: "translateY(-4px)",
+                    boxShadow: "0 8px 24px rgba(59, 130, 246, 0.2)",
                   },
                 }}
               >
                 <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      justifyContent: "space-between",
+                      mb: 2,
+                    }}
+                  >
                     <Typography
                       variant="body2"
                       sx={{
-                        color: '#94a3b8',
-                        fontSize: '0.85rem',
+                        color: "#94a3b8",
+                        fontSize: "0.85rem",
                       }}
                     >
                       Alertes Résolues
@@ -1011,35 +1039,33 @@ const Dashboard = () => {
                         width: 40,
                         height: 40,
                         borderRadius: 2,
-                        bgcolor: 'rgba(16, 185, 129, 0.15)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
+                        bgcolor: "rgba(16, 185, 129, 0.15)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                       }}
                     >
-                      <CheckCircleIcon sx={{ color: '#10b981', fontSize: 20 }} />
+                      <CheckCircleIcon
+                        sx={{ color: "#10b981", fontSize: 20 }}
+                      />
                     </Box>
                   </Box>
                   <Typography
                     variant="h3"
                     sx={{
-                      color: 'white',
+                      color: "white",
                       fontWeight: 700,
                       mb: 1,
                     }}
-                  >
-
-                  </Typography>
+                  ></Typography>
                   <Typography
                     variant="caption"
                     sx={{
-                      color: '#10b981',
-                      fontSize: '0.8rem',
+                      color: "#10b981",
+                      fontSize: "0.8rem",
                       fontWeight: 500,
                     }}
-                  >
-
-                  </Typography>
+                  ></Typography>
                 </CardContent>
               </Card>
             </Grid>
@@ -1048,23 +1074,30 @@ const Dashboard = () => {
             <Grid item xs={12} sm={6} md={3}>
               <Card
                 sx={{
-                  bgcolor: 'rgba(59, 130, 246, 0.1)',
-                  border: '1px solid rgba(59, 130, 246, 0.2)',
+                  bgcolor: "rgba(59, 130, 246, 0.1)",
+                  border: "1px solid rgba(59, 130, 246, 0.2)",
                   borderRadius: 3,
-                  transition: 'all 0.3s ease',
-                  '&:hover': {
-                    transform: 'translateY(-4px)',
-                    boxShadow: '0 8px 24px rgba(59, 130, 246, 0.2)',
+                  transition: "all 0.3s ease",
+                  "&:hover": {
+                    transform: "translateY(-4px)",
+                    boxShadow: "0 8px 24px rgba(59, 130, 246, 0.2)",
                   },
                 }}
               >
                 <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      alignItems: "flex-start",
+                      justifyContent: "space-between",
+                      mb: 2,
+                    }}
+                  >
                     <Typography
                       variant="body2"
                       sx={{
-                        color: '#94a3b8',
-                        fontSize: '0.85rem',
+                        color: "#94a3b8",
+                        fontSize: "0.85rem",
                       }}
                     >
                       Règles Configurées
@@ -1074,35 +1107,31 @@ const Dashboard = () => {
                         width: 40,
                         height: 40,
                         borderRadius: 2,
-                        bgcolor: 'rgba(59, 130, 246, 0.15)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
+                        bgcolor: "rgba(59, 130, 246, 0.15)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                       }}
                     >
-                      <FlashOnIcon sx={{ color: '#3b82f6', fontSize: 20 }} />
+                      <FlashOnIcon sx={{ color: "#3b82f6", fontSize: 20 }} />
                     </Box>
                   </Box>
                   <Typography
                     variant="h3"
                     sx={{
-                      color: 'white',
+                      color: "white",
                       fontWeight: 700,
                       mb: 1,
                     }}
-                  >
-
-                  </Typography>
+                  ></Typography>
                   <Typography
                     variant="caption"
                     sx={{
-                      color: '#94a3b8',
-                      fontSize: '0.8rem',
+                      color: "#94a3b8",
+                      fontSize: "0.8rem",
                       fontWeight: 500,
                     }}
-                  >
-
-                  </Typography>
+                  ></Typography>
                 </CardContent>
               </Card>
             </Grid>
@@ -1114,23 +1143,30 @@ const Dashboard = () => {
             <Grid item xs={12} md={8}>
               <Card
                 sx={{
-                  bgcolor: 'rgba(59, 130, 246, 0.1)',
-                  border: '1px solid rgba(59, 130, 246, 0.2)',
+                  bgcolor: "rgba(59, 130, 246, 0.1)",
+                  border: "1px solid rgba(59, 130, 246, 0.2)",
                   borderRadius: 3,
                   p: 3,
                 }}
               >
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    mb: 3,
+                  }}
+                >
                   <Typography
                     variant="h6"
                     sx={{
-                      color: 'white',
+                      color: "white",
                       fontWeight: 600,
                     }}
                   >
                     Tendance des Alertes
                   </Typography>
-                  <IconButton size="small" sx={{ color: '#64748b' }}>
+                  <IconButton size="small" sx={{ color: "#64748b" }}>
                     <MoreVertIcon />
                   </IconButton>
                 </Box>
@@ -1139,7 +1175,6 @@ const Dashboard = () => {
                 <SimpleChart />
               </Card>
             </Grid>
-
           </Grid>
         </Box>
       </Box>

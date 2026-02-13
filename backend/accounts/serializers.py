@@ -15,7 +15,7 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'email', 'username', 'first_name', 'last_name',
-            'full_name', 'phone_number', 'company', 'profile_picture',
+            'full_name', 'phone_number', 'role', 'company', 'profile_picture',
             'is_active', 'is_staff', 'is_superuser', 'is_primary_admin',
             'is_admin', 'date_joined', 'last_login', 'created_at', 'updated_at'
         ]
@@ -69,7 +69,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         # Retirer password2 car non nécessaire pour la création
         validated_data.pop('password2')
 
-        # Créer l'utilisateur
+        # Créer l'utilisateur INACTIF par défaut (en attente de vérification)
         user = User.objects.create_user(
             email=validated_data['email'],
             username=validated_data['username'],
@@ -78,6 +78,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             last_name=validated_data.get('last_name', ''),
             phone_number=validated_data.get('phone_number', ''),
             company=validated_data.get('company', ''),
+            is_active=False  # Important: compte inactif jusqu'à approbation admin
         )
 
         return user
@@ -187,3 +188,32 @@ class ChangePasswordSerializer(serializers.Serializer):
         if not user.check_password(value):
             raise serializers.ValidationError("Mot de passe actuel incorrect.")
         return value
+
+
+class PasswordResetRequestSerializer(serializers.Serializer):
+    """Serializer pour demander la réinitialisation du mot de passe"""
+    email = serializers.EmailField(required=True)
+
+
+class PasswordResetConfirmSerializer(serializers.Serializer):
+    """Serializer pour confirmer la réinitialisation du mot de passe"""
+    uid = serializers.CharField(required=True)
+    token = serializers.CharField(required=True)
+    new_password = serializers.CharField(
+        required=True,
+        write_only=True,
+        validators=[validate_password],
+        style={'input_type': 'password'}
+    )
+    new_password2 = serializers.CharField(
+        required=True,
+        write_only=True,
+        style={'input_type': 'password'}
+    )
+
+    def validate(self, attrs):
+        if attrs['new_password'] != attrs['new_password2']:
+            raise serializers.ValidationError({
+                "new_password": "Les nouveaux mots de passe ne correspondent pas."
+            })
+        return attrs

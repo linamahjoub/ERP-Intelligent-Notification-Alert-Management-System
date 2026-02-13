@@ -49,9 +49,8 @@ const EditProfile = () => {
     last_name: '',
     email: '',
     username: '',
-    phone: '',
-    address: '',
-    bio: '',
+    phone_number: '',
+    role: '',
   });
 
   // Initialiser les données du formulaire avec les données utilisateur
@@ -63,9 +62,8 @@ const EditProfile = () => {
         last_name: user.last_name || '',
         email: user.email || '',
         username: user.username || '',
-        //phone: user.phone || user?.numero || '',
-        address: user.address || user?.adresse || '',
-        bio: user.bio || '',
+        phone_number: user.phone_number || '',
+        role: user.role || '',
       });
     }
   }, [user]);
@@ -90,16 +88,15 @@ const EditProfile = () => {
     setError(null);
 
     try {
-      // Créer FormData
-      const formDataToSend = new FormData();
-      
-      // Ajouter les champs texte
-      Object.keys(formData).forEach(key => {
-        formDataToSend.append(key, formData[key]);
-      });
-      
+      const payload = {
+        first_name: formData.first_name,
+        last_name: formData.last_name,
+        username: formData.username,
+        phone_number: formData.phone_number,
+      };
+
       // Appeler la fonction updateProfile du contexte
-      await updateProfile(formDataToSend);
+      await updateProfile(payload);
       
       console.log('✅ Profile update successful');
       setSuccess(true);
@@ -428,8 +425,8 @@ const EditProfile = () => {
                     <TextField
                       fullWidth
                       label="Téléphone"
-                      name="phone"
-                      value={formData.phone}
+                      name="phone_number"
+                      value={formData.phone_number}
                       onChange={handleInputChange}
                       variant="outlined"
                       sx={{
@@ -455,52 +452,20 @@ const EditProfile = () => {
                       InputProps={{
                         startAdornment: <PhoneIcon sx={{ mr: 1, color: '#64748b' }} />
                       }}
-                      placeholder="+33 1 23 45 67 89"
+                      placeholder="+216 12 345 678"
                     />
                   </Grid>
 
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      label="Adresse"
-                      name="address"
-                      value={formData.address}
-                      onChange={handleInputChange}
-                      variant="outlined"
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          color: 'white',
-                          '& fieldset': {
-                            borderColor: 'rgba(59, 130, 246, 0.3)',
-                          },
-                          '&:hover fieldset': {
-                            borderColor: '#3b82f6',
-                          },
-                          '&.Mui-focused fieldset': {
-                            borderColor: '#3b82f6',
-                          },
-                        },
-                        '& .MuiInputLabel-root': {
-                          color: '#94a3b8',
-                        },
-                        '& .MuiInputLabel-root.Mui-focused': {
-                          color: '#3b82f6',
-                        }
-                      }}
-                      InputProps={{
-                        startAdornment: <HomeIcon sx={{ mr: 1, color: '#64748b' }} />
-                      }}
-                      placeholder="123 Rue Exemple, 75000 Paris"
-                    />
-                  </Grid>
+                 
 
                   <Grid item xs={12}>
                     <TextField
                       fullWidth
-                      label="Bio"
-                      name="bio"
-                      value={formData.bio}
+                      label="Role"
+                      name="role"
+                      value={formData.role}
                       onChange={handleInputChange}
+                      disabled
                       variant="outlined"
                       sx={{
                         '& .MuiOutlinedInput-root': {
@@ -527,7 +492,7 @@ const EditProfile = () => {
                       }}
                       multiline
                       rows={4}
-                      placeholder="Parlez-nous un peu de vous..."
+                      placeholder="Rôle de l'utilisateur (ex: admin, utilisateur, etc.)"
                     />
                   </Grid>
                 </Grid>

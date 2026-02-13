@@ -672,7 +672,7 @@ const SuperAdminDashboard = () => {
           <TextField
             fullWidth
             margin="normal"
-            label="Email *"
+            label="email"
             type="email"
             value={newAccount.email}
             onChange={(e) => setNewAccount({...newAccount, email: e.target.value})}

@@ -23,6 +23,7 @@ import {
   Notifications as NotificationsIcon,
   CalendarToday as CalendarIcon,
   FlashOn as FlashOnIcon,
+  PersonAdd as PersonAddIcon,
   Storage as StorageIcon,
   AdminPanelSettings as AdminIcon,
 } from '@mui/icons-material';
@@ -51,114 +52,120 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
     setDrawerOpen(!drawerOpen);
   };
 
-  // Menu items selon le rôle
-  const menuItems = isAdmin ? [
-    {
-      id: 'dashboard',
-      label: 'Dashboard',
-      icon: <DashboardIcon />,
-      path: '/admin-dashboard',
-    },
-    {
-      id: 'notifications',
-      label: 'Notifications',
-      icon: <NotificationsIcon />,
-      path: '/notifications',
-      badge: user?.unread_notifications || 0,
-    },
-    {
-      id: 'reglesalertes',
-      label: 'Alert Rules',
-      icon: <FlashOnIcon />,
-      path: '/regles-alertes',
-    },
-    {
-      id: 'modules',
-      label: 'ERP Modules',
-      icon: <StorageIcon />,
-      path: '/modulesERP',
-    },
-    {
-      id: 'admin',
-      label: 'Admin Panel',
-      icon: <AdminIcon />,
-      path: '/admin-panel',
-    }, 
-    {
-      id: 'history',
-      label: 'History',
-      icon: <CalendarIcon />,
-      path: '/history',
-    },
-    {
-      id: 'profile',
-      label: 'Profile',
-      icon: <PeopleIcon />,
-      path: '/profile',
-    },
-    {
-      id: 'settings',
-      label: 'Paramètres',
-      icon: <SettingsIcon />,
-      path: '/settings',
-    },
-    {
-      id: 'deconnexion',
-      label: 'Déconnexion',
-      icon: <LogoutIcon />,
-      action: handleLogout,
-    },
-  ] : [
-    {
-      id: 'dashboard',
-      label: 'Dashboard',
-      icon: <DashboardIcon />,
-      path: '/dashboard',
-    },
-    {
-      id: 'notifications',
-      label: 'Notifications',
-      icon: <NotificationsIcon />,
-      path: '/notifications',
-      badge: user?.unread_notifications || 0,
-    },
-    {
-      id: 'reglesalertes',
-      label: 'Alert Rules',
-      icon: <FlashOnIcon />,
-      path: '/regles-alertes',
-    },
-    {
-      id: 'modules',
-      label: 'ERP Modules',
-      icon: <StorageIcon />,
-      path: '/modulesERP',
-    },
-    {
-      id: 'history',
-      label: 'History',
-      icon: <CalendarIcon />,
-      path: '/history',
-    },
-    {
-      id: 'profile',
-      label: 'Profile',
-      icon: <PeopleIcon />,
-      path: '/profile',
-    },
-    {
-      id: 'settings',
-      label: 'Paramètres',
-      icon: <SettingsIcon />,
-      path: '/settings',
-    },
-    {
-      id: 'deconnexion',
-      label: 'Déconnexion',
-      icon: <LogoutIcon />,
-      action: handleLogout,
-    },
-  ];
+// Menu items selon le rôle
+const menuItems = isAdmin ? [
+  {
+    id: 'dashboard',
+    label: 'Dashboard',
+    icon: <DashboardIcon />,
+    path: '/admin_dashboard', // Dashboard admin
+  },
+  {
+    id: 'reglesalertes',
+    label: 'Alert Rules',
+    icon: <FlashOnIcon />,
+    path: '/alert_rules', // ✅ Page admin (AlertRules.jsx)
+  },
+  {
+    id: 'notifications',
+    label: 'Notifications',
+    icon: <NotificationsIcon />,
+    path: '/notifications',
+    badge: user?.unread_notifications || 0,
+  },
+  {
+    id: 'modules',
+    label: 'ERP Modules',
+    icon: <StorageIcon />,
+    path: '/modulesERP',
+  },
+  {
+    id: 'admin',
+    label: 'Admin Panel',
+    icon: <AdminIcon />,
+    path: '/admin_panel',
+  }, 
+  {
+    id: 'clients',
+    label: 'Clients',
+    icon: <PersonAddIcon />,
+    path: '/clients_requests',
+  },
+  {
+    id: 'history',
+    label: 'History',
+    icon: <CalendarIcon />,
+    path: '/history',
+  },
+  {
+    id: 'profile',
+    label: 'Profile',
+    icon: <PeopleIcon />,
+    path: '/profile',
+  },
+  {
+    id: 'settings',
+    label: 'Paramètres',
+    icon: <SettingsIcon />,
+    path: '/settings',
+  },
+  {
+    id: 'deconnexion',
+    label: 'Déconnexion',
+    icon: <LogoutIcon />,
+    action: handleLogout,
+  },
+] : [
+  {
+    id: 'dashboard',
+    label: 'Dashboard',
+    icon: <DashboardIcon />,
+    path: '/dashboard', // Dashboard utilisateur
+  },
+  {
+    id: 'reglesalertes',
+    label: 'Mes Alertes', // Changé le label pour les utilisateurs
+    icon: <FlashOnIcon />,
+    path: '/alerts', // ✅ Page utilisateur (Alerts.jsx)
+  },
+  {
+    id: 'notifications',
+    label: 'Notifications',
+    icon: <NotificationsIcon />,
+    path: '/notifications',
+    badge: user?.unread_notifications || 0,
+  },
+  {
+    id: 'modules',
+    label: 'ERP Modules',
+    icon: <StorageIcon />,
+    path: '/modulesERP',
+  },
+  {
+    id: 'history',
+    label: 'History',
+    icon: <CalendarIcon />,
+    path: '/history',
+  },
+  {
+    id: 'profile',
+    label: 'Profile',
+    icon: <PeopleIcon />,
+    path: '/profile',
+  },
+  {
+    id: 'settings',
+    label: 'Paramètres',
+    icon: <SettingsIcon />,
+    path: '/settings',
+  },
+  {
+    id: 'deconnexion',
+    label: 'Déconnexion',
+    icon: <LogoutIcon />,
+    action: handleLogout,
+  },
+];
 
   const drawerContent = (
     <Box

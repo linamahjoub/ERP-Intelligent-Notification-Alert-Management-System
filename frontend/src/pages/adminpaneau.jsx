@@ -62,6 +62,11 @@ import {
   CalendarToday as CalendarIcon,
   FlashOn as FlashOnIcon,
   Storage as StorageIcon,
+  Today as TodayIcon,
+  Person as PersonIcon,
+  Block as BlockIcon,
+  AdminPanelSettings as AdminPanelSettingsIcon,
+  CheckCircle as CheckCircleIcon,
 } from '@mui/icons-material';
 import notif from '../assets/notif.png';
 
@@ -69,7 +74,7 @@ const drawerWidth = 280;
 const collapsedDrawerWidth = 80;
 
 const AdminPaneau = () => {
-    const { user, logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -82,6 +87,9 @@ const AdminPaneau = () => {
   const [users, setUsers] = useState([]);
   const [filteredUsers, setFilteredUsers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // États pour les filtres
+  const [filterType, setFilterType] = useState('all'); // 'all', 'active', 'inactive', 'today', 'admins'
   
   // États pour les dialogues
   const [openAddDialog, setOpenAddDialog] = useState(false);
@@ -143,18 +151,35 @@ const AdminPaneau = () => {
 
   // Filtrer les utilisateurs
   useEffect(() => {
+    let filtered = users;
+    
+    // Filtrer par terme de recherche
     if (searchTerm) {
-      const filtered = users.filter(user =>
+      filtered = filtered.filter(user =>
         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.username.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.last_name?.toLowerCase().includes(searchTerm.toLowerCase())
       );
-      setFilteredUsers(filtered);
-    } else {
-      setFilteredUsers(users);
     }
-  }, [searchTerm, users]);
+    
+    // Filtrer par type
+    if (filterType === 'active') {
+      filtered = filtered.filter(user => user.is_active);
+    } else if (filterType === 'inactive') {
+      filtered = filtered.filter(user => !user.is_active);
+    } else if (filterType === 'today') {
+      const today = new Date().toDateString();
+      filtered = filtered.filter(user => {
+        const userDate = new Date(user.date_joined).toDateString();
+        return userDate === today;
+      });
+    } else if (filterType === 'admins') {
+      filtered = filtered.filter(user => user.is_staff || user.is_superuser);
+    }
+    
+    setFilteredUsers(filtered);
+  }, [searchTerm, users, filterType]);
 
   const fetchAdminData = async () => {
     setLoading(true);
@@ -163,7 +188,7 @@ const AdminPaneau = () => {
     try {
       const token = localStorage.getItem('access_token');
       
-      // Récupérer les statistiques (optionnel - gérer l'erreur 404)
+      // Récupérer les statistiques
       try {
         const statsResponse = await fetch('http://localhost:8000/api/admin/stats/', {
           headers: { 'Authorization': 'Bearer ' + token }
@@ -184,25 +209,25 @@ const AdminPaneau = () => {
       
       if (usersResponse.ok) {
         const usersData = await usersResponse.json();
-        // Extraire le tableau 'results' de la réponse paginée
         const usersArray = usersData.results || [];
         setUsers(usersArray);
         setFilteredUsers(usersArray);
         
-        // Si stats n'est pas disponible, calculer les statistiques à partir des utilisateurs
-        if (!stats) {
-          const userStats = {
-            total_users: usersArray.length,
-            active_users: usersArray.filter(u => u.is_active).length,
-            admins_count: usersArray.filter(u => u.is_staff).length,
-            today_registrations: usersArray.filter(u => {
-              const today = new Date();
-              const userDate = new Date(u.date_joined);
-              return userDate.toDateString() === today.toDateString();
-            }).length
-          };
-          setStats(userStats);
-        }
+        // Calculer les statistiques à partir des utilisateurs
+        const today = new Date().toDateString();
+        const todayRegistrations = usersArray.filter(u => {
+          const userDate = new Date(u.date_joined).toDateString();
+          return userDate === today;
+        }).length;
+        
+        const userStats = {
+          total_users: usersArray.length,
+          active_users: usersArray.filter(u => u.is_active).length,
+          inactive_users: usersArray.filter(u => !u.is_active).length,
+          admins_count: usersArray.filter(u => u.is_staff || u.is_superuser).length,
+          today_registrations: todayRegistrations
+        };
+        setStats(userStats);
       } else {
         throw new Error('Erreur lors du chargement des utilisateurs');
       }
@@ -210,7 +235,6 @@ const AdminPaneau = () => {
     } catch (err) {
       console.error('Error:', err);
       setError('Erreur: ' + err.message);
-      // Assurer que filteredUsers reste un tableau même en cas d'erreur
       setFilteredUsers([]);
     } finally {
       setLoading(false);
@@ -409,6 +433,75 @@ const AdminPaneau = () => {
     }
   };
 
+  // Gérer l'activation/désactivation d'utilisateur (avec appel API)
+  const handleToggleActive = async (userItem) => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const newActiveState = !userItem.is_active;
+      
+      const response = await fetch(`http://localhost:8000/api/admin/users/${userItem.id}/`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          is_active: newActiveState
+        }),
+      });
+
+      if (response.ok) {
+        // Mettre à jour l'état local après confirmation du serveur
+        const updatedUsers = users.map(user => {
+          if (user.id === userItem.id) {
+            return { ...user, is_active: newActiveState };
+          }
+          return user;
+        });
+        
+        setUsers(updatedUsers);
+        
+        // Mettre à jour les statistiques
+        const today = new Date().toDateString();
+        const todayRegistrations = updatedUsers.filter(u => {
+          const userDate = new Date(u.date_joined).toDateString();
+          return userDate === today;
+        }).length;
+        
+        setStats({
+          total_users: updatedUsers.length,
+          active_users: updatedUsers.filter(u => u.is_active).length,
+          inactive_users: updatedUsers.filter(u => !u.is_active).length,
+          admins_count: updatedUsers.filter(u => u.is_staff || u.is_superuser).length,
+          today_registrations: todayRegistrations
+        });
+        
+        // Afficher la notification
+        const action = userItem.is_active ? 'désactivé' : 'activé';
+        setSnackbar({
+          open: true,
+          message: `Le compte de ${userItem.email} a été ${action} avec succès !`,
+          severity: 'success',
+        });
+      } else {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.message || 'Erreur lors de la modification');
+      }
+    } catch (err) {
+      setSnackbar({
+        open: true,
+        message: 'Erreur: ' + err.message,
+        severity: 'error',
+      });
+    }
+  };
+
+  // Gérer le clic sur les cartes de statistiques
+  const handleStatClick = (type) => {
+    setFilterType(type);
+    setSearchTerm('');
+  };
+
   const openEditDialogForUser = (user) => {
     setEditUser({
       id: user.id,
@@ -450,12 +543,23 @@ const AdminPaneau = () => {
     }
   };
 
+  const resetFilters = () => {
+    setFilterType('all');
+    setSearchTerm('');
+  };
+
   const menuItems = [
     {
       id: 'dashboard',
       label: 'Dashboard',
       icon: <DashboardIcon />,
-      path: '/admin-dashboard',
+      path: '/admin_dashboard',
+    },
+    {
+      id: 'reglesalertes',
+      label: 'Alert Rules',
+      icon: <FlashOnIcon />,
+      path: '/alert_rules',
     },
     {
       id: 'notifications',
@@ -463,12 +567,6 @@ const AdminPaneau = () => {
       icon: <NotificationsIcon />,
       path: '/notifications',
       badge: user?.unread_notifications || 0,
-    },
-    {
-      id: 'reglesalertes',
-      label: 'Alert Rules',
-      icon: <FlashOnIcon />,
-      path: '/regles-alertes',
     },
     {
       id: 'modules',
@@ -480,8 +578,14 @@ const AdminPaneau = () => {
       id: 'admin',
       label: 'Admin Panel',
       icon: <AdminIcon />,
-      path: '/admin-panel',
+      path: '/admin_panel',
     }, 
+    {
+      id: 'clients',
+      label: 'Clients',
+      icon: <PersonAddIcon />,
+      path: '/clients_requests',
+    },
     {
       id: 'history',
       label: 'History',
@@ -872,8 +976,50 @@ const AdminPaneau = () => {
             </IconButton>
           )}
 
-          {/* Spacer */}
-          <Box sx={{ flex: 1 }} />
+          {/* Barre de recherche */}
+          <Box
+            sx={{
+              flex: 1,
+              maxWidth: 500,
+              position: 'relative',
+            }}
+          >
+            <SearchIcon
+              sx={{
+                position: 'absolute',
+                left: 16,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: '#64748b',
+                fontSize: 20,
+              }}
+            />
+            <input
+              type="text"
+              placeholder="Rechercher un utilisateur..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '12px 16px 12px 48px',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                border: '1px solid rgba(59, 130, 246, 0.2)',
+                borderRadius: '12px',
+                color: '#94a3b8',
+                fontSize: '0.9rem',
+                outline: 'none',
+                transition: 'all 0.2s ease',
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#3b82f6';
+                e.target.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = 'rgba(59, 130, 246, 0.2)';
+                e.target.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
+              }}
+            />
+          </Box>
 
           {/* Boutons d'action et profil */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -929,7 +1075,7 @@ const AdminPaneau = () => {
 
         {/* Contenu du dashboard */}
         <Box sx={{ p: 2, pb: 6 }}>
-          {/* En-tête de la page */}
+          {/* En-tête de la page avec indicateur de filtre */}
           <Box sx={{ mb: 4 }}>
             <Box sx={{
               display: 'flex',
@@ -957,7 +1103,26 @@ const AdminPaneau = () => {
                     fontSize: '0.95rem',
                   }}
                 >
-                  Gestion des utilisateurs et des permissions
+                  {filterType !== 'all' && (
+                    <Chip
+                      label={`Filtre actif: ${
+                        filterType === 'active' ? 'Utilisateurs Actifs' :
+                        filterType === 'inactive' ? 'Comptes Inactifs' :
+                        filterType === 'today' ? 'Inscriptions du jour' :
+                        'Administrateurs'
+                      }`}
+                      size="small"
+                      onDelete={resetFilters}
+                      sx={{
+                        ml: 1,
+                        bgcolor: 'rgba(59, 130, 246, 0.2)',
+                        color: '#60a5fa',
+                        '& .MuiChip-deleteIcon': {
+                          color: '#60a5fa',
+                        },
+                      }}
+                    />
+                  )}
                 </Typography>
               </Box>
 
@@ -1001,19 +1166,22 @@ const AdminPaneau = () => {
             </Alert>
           )}
 
-          {/* Statistiques */}
+          {/* Statistiques cliquables */}
           {stats && (
             <Grid container spacing={3} sx={{ mb: 4 }}>
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid item xs={12} sm={6} md={2.4}>
                 <Card
+                  onClick={() => handleStatClick('all')}
                   sx={{
-                    bgcolor: 'rgba(59, 130, 246, 0.1)',
-                    border: '1px solid rgba(59, 130, 246, 0.2)',
+                    bgcolor: filterType === 'all' ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.1)',
+                    border: filterType === 'all' ? '2px solid #3b82f6' : '1px solid rgba(59, 130, 246, 0.2)',
                     borderRadius: 3,
                     transition: 'all 0.3s ease',
+                    cursor: 'pointer',
                     '&:hover': {
                       transform: 'translateY(-4px)',
                       boxShadow: '0 8px 24px rgba(59, 130, 246, 0.2)',
+                      bgcolor: 'rgba(59, 130, 246, 0.15)',
                     },
                   }}
                 >
@@ -1052,20 +1220,81 @@ const AdminPaneau = () => {
                     >
                       {stats.total_users}
                     </Typography>
+                 
                   </CardContent>
                 </Card>
               </Grid>
 
-              <Grid item xs={12} sm={6} md={3}>
+            
+
+              <Grid item xs={12} sm={6} md={2.4}>
                 <Card
+                  onClick={() => handleStatClick('inactive')}
                   sx={{
-                    bgcolor: 'rgba(59, 130, 246, 0.1)',
-                    border: '1px solid rgba(59, 130, 246, 0.2)',
+                    bgcolor: filterType === 'inactive' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(59, 130, 246, 0.1)',
+                    border: filterType === 'inactive' ? '2px solid #ef4444' : '1px solid rgba(59, 130, 246, 0.2)',
                     borderRadius: 3,
                     transition: 'all 0.3s ease',
+                    cursor: 'pointer',
                     '&:hover': {
                       transform: 'translateY(-4px)',
-                      boxShadow: '0 8px 24px rgba(59, 130, 246, 0.2)',
+                      boxShadow: '0 8px 24px rgba(239, 68, 68, 0.2)',
+                      bgcolor: 'rgba(239, 68, 68, 0.1)',
+                    },
+                  }}
+                >
+                  <CardContent sx={{ p: 3 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          color: '#94a3b8',
+                          fontSize: '0.85rem',
+                        }}
+                      >
+                        Comptes Inactifs
+                      </Typography>
+                      <Box
+                        sx={{
+                          width: 40,
+                          height: 40,
+                          borderRadius: 2,
+                          bgcolor: 'rgba(239, 68, 68, 0.15)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <BlockIcon sx={{ color: '#ef4444', fontSize: 20 }} />
+                      </Box>
+                    </Box>
+                    <Typography
+                      variant="h3"
+                      sx={{
+                        color: 'white',
+                        fontWeight: 700,
+                        mb: 1,
+                      }}
+                    >
+                      {stats.inactive_users}
+                    </Typography>
+                   
+                  </CardContent>
+                </Card>
+              </Grid>
+  <Grid item xs={12} sm={6} md={2.4}>
+                <Card
+                  onClick={() => handleStatClick('active')}
+                  sx={{
+                    bgcolor: filterType === 'active' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(59, 130, 246, 0.1)',
+                    border: filterType === 'active' ? '2px solid #10b981' : '1px solid rgba(59, 130, 246, 0.2)',
+                    borderRadius: 3,
+                    transition: 'all 0.3s ease',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: '0 8px 24px rgba(16, 185, 129, 0.2)',
+                      bgcolor: 'rgba(16, 185, 129, 0.1)',
                     },
                   }}
                 >
@@ -1091,7 +1320,7 @@ const AdminPaneau = () => {
                           justifyContent: 'center',
                         }}
                       >
-                        <PeopleIcon sx={{ color: '#10b981', fontSize: 20 }} />
+                        <PersonIcon sx={{ color: '#10b981', fontSize: 20 }} />
                       </Box>
                     </Box>
                     <Typography
@@ -1104,20 +1333,23 @@ const AdminPaneau = () => {
                     >
                       {stats.active_users}
                     </Typography>
+                  
                   </CardContent>
                 </Card>
               </Grid>
-
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid item xs={12} sm={6} md={2.4}>
                 <Card
+                  onClick={() => handleStatClick('admins')}
                   sx={{
-                    bgcolor: 'rgba(59, 130, 246, 0.1)',
-                    border: '1px solid rgba(59, 130, 246, 0.2)',
+                    bgcolor: filterType === 'admins' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(59, 130, 246, 0.1)',
+                    border: filterType === 'admins' ? '2px solid #ef4444' : '1px solid rgba(59, 130, 246, 0.2)',
                     borderRadius: 3,
                     transition: 'all 0.3s ease',
+                    cursor: 'pointer',
                     '&:hover': {
                       transform: 'translateY(-4px)',
-                      boxShadow: '0 8px 24px rgba(59, 130, 246, 0.2)',
+                      boxShadow: '0 8px 24px rgba(239, 68, 68, 0.2)',
+                      bgcolor: 'rgba(239, 68, 68, 0.1)',
                     },
                   }}
                 >
@@ -1143,7 +1375,7 @@ const AdminPaneau = () => {
                           justifyContent: 'center',
                         }}
                       >
-                        <AdminIcon sx={{ color: '#ef4444', fontSize: 20 }} />
+                        <AdminPanelSettingsIcon sx={{ color: '#ef4444', fontSize: 20 }} />
                       </Box>
                     </Box>
                     <Typography
@@ -1156,20 +1388,24 @@ const AdminPaneau = () => {
                     >
                       {stats.admins_count}
                     </Typography>
+                  
                   </CardContent>
                 </Card>
               </Grid>
 
-              <Grid item xs={12} sm={6} md={3}>
+              <Grid item xs={12} sm={6} md={2.4}>
                 <Card
+                  onClick={() => handleStatClick('today')}
                   sx={{
-                    bgcolor: 'rgba(59, 130, 246, 0.1)',
-                    border: '1px solid rgba(59, 130, 246, 0.2)',
+                    bgcolor: filterType === 'today' ? 'rgba(251, 146, 60, 0.2)' : 'rgba(59, 130, 246, 0.1)',
+                    border: filterType === 'today' ? '2px solid #fb923c' : '1px solid rgba(59, 130, 246, 0.2)',
                     borderRadius: 3,
                     transition: 'all 0.3s ease',
+                    cursor: 'pointer',
                     '&:hover': {
                       transform: 'translateY(-4px)',
-                      boxShadow: '0 8px 24px rgba(59, 130, 246, 0.2)',
+                      boxShadow: '0 8px 24px rgba(251, 146, 60, 0.2)',
+                      bgcolor: 'rgba(251, 146, 60, 0.1)',
                     },
                   }}
                 >
@@ -1195,7 +1431,7 @@ const AdminPaneau = () => {
                           justifyContent: 'center',
                         }}
                       >
-                        <CalendarIcon sx={{ color: '#fb923c', fontSize: 20 }} />
+                        <TodayIcon sx={{ color: '#fb923c', fontSize: 20 }} />
                       </Box>
                     </Box>
                     <Typography
@@ -1208,6 +1444,7 @@ const AdminPaneau = () => {
                     >
                       {stats.today_registrations}
                     </Typography>
+               
                   </CardContent>
                 </Card>
               </Grid>
@@ -1223,7 +1460,7 @@ const AdminPaneau = () => {
               p: 3,
             }}
           >
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
               <Typography
                 variant="h6"
                 sx={{
@@ -1233,50 +1470,23 @@ const AdminPaneau = () => {
               >
                 Liste des Utilisateurs ({filteredUsers.length})
               </Typography>
-           
-              {/* Barre de recherche */}
-              <Box
-                sx={{
-                  flex: 1,
-                  maxWidth: 500,
-                  position: 'relative',
-                }}
-              >
-                <SearchIcon
+              
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Button
+                  variant="outlined"
+                  startIcon={<RefreshIcon />}
+                  onClick={resetFilters}
                   sx={{
-                    position: 'absolute',
-                    left: 16,
-                    top: '50%',
-                    transform: 'translateY(-50%)',
-                    color: '#64748b',
-                    fontSize: 20,
+                    borderColor: 'rgba(59, 130, 246, 0.3)',
+                    color: '#3b82f6',
+                    '&:hover': {
+                      borderColor: '#3b82f6',
+                      bgcolor: 'rgba(59, 130, 246, 0.1)',
+                    },
                   }}
-                />
-                <input
-                  type="text"
-                  placeholder="Rechercher un utilisateur..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '12px 16px 12px 48px',
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    border: '1px solid rgba(59, 130, 246, 0.2)',
-                    borderRadius: '12px',
-                    color: '#94a3b8',
-                    fontSize: '0.9rem',
-                    outline: 'none',
-                    transition: 'all 0.2s ease',
-                  }}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = '#3b82f6';
-                    e.target.style.backgroundColor = 'rgba(59, 130, 246, 0.2)';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = 'rgba(59, 130, 246, 0.2)';
-                    e.target.style.backgroundColor = 'rgba(59, 130, 246, 0.1)';
-                  }}
-                />
+                >
+                  Réinitialiser
+                </Button>
               </Box>
             </Box>
 
@@ -1296,6 +1506,7 @@ const AdminPaneau = () => {
                     <TableCell sx={{ color: '#94a3b8', borderBottom: 'none', fontSize: '0.85rem', fontWeight: 600 }}>Nom d'utilisateur</TableCell>
                     <TableCell sx={{ color: '#94a3b8', borderBottom: 'none', fontSize: '0.85rem', fontWeight: 600 }}>Nom complet</TableCell>
                     <TableCell sx={{ color: '#94a3b8', borderBottom: 'none', fontSize: '0.85rem', fontWeight: 600 }}>Statut</TableCell>
+                    <TableCell sx={{ color: '#94a3b8', borderBottom: 'none', fontSize: '0.85rem', fontWeight: 600 }}>Rôle</TableCell>
                     <TableCell sx={{ color: '#94a3b8', borderBottom: 'none', fontSize: '0.85rem', fontWeight: 600 }}>Inscription</TableCell>
                     <TableCell align="right" sx={{ color: '#94a3b8', borderBottom: 'none', fontSize: '0.85rem', fontWeight: 600 }}>Actions</TableCell>
                   </TableRow>
@@ -1337,9 +1548,20 @@ const AdminPaneau = () => {
                           {userItem.first_name && userItem.last_name ? `${userItem.first_name} ${userItem.last_name}` : '-'}
                         </TableCell>
                         <TableCell>
+                          <Chip
+                            label={userItem.is_active ? "Actif" : "Inactif"}
+                            size="small"
+                            sx={{
+                              bgcolor: userItem.is_active ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                              color: userItem.is_active ? '#10b981' : '#ef4444',  
+                              fontWeight: 600,
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
                           <Box>
                             {userItem.is_superuser && (
-                              <Chip label=" Admin" size="small" sx={{ bgcolor: '#ef4444', color: 'white', mr: 0.5, fontWeight: 600 }} />
+                              <Chip label="Super Admin" size="small" sx={{ bgcolor: '#ef4444', color: 'white', mr: 0.5, fontWeight: 600 }} />
                             )}
                             {userItem.is_staff && !userItem.is_superuser && (
                               <Chip label="Admin" size="small" sx={{ bgcolor: '#3b82f6', color: 'white', mr: 0.5, fontWeight: 600 }} />
@@ -1347,27 +1569,40 @@ const AdminPaneau = () => {
                             {!userItem.is_staff && (
                               <Chip label="Utilisateur" size="small" sx={{ bgcolor: 'rgba(148, 163, 184, 0.2)', color: '#94a3b8', fontWeight: 600 }} />
                             )}
-                            {!userItem.is_active && (
-                              <Chip label="Inactif" size="small" sx={{ bgcolor: 'rgba(100, 116, 139, 0.2)', color: '#64748b', ml: 0.5, fontWeight: 600 }} />
-                            )}
                           </Box>
                         </TableCell>
                         <TableCell sx={{ color: '#94a3b8', fontSize: '0.85rem' }}>
                           {new Date(userItem.date_joined).toLocaleDateString()}
                         </TableCell>
                         <TableCell align="right">
-                          <Tooltip title={userItem.is_staff ? "Rétrograder" : "Promouvoir Admin"}>
+                          {/* Bouton Activer/Désactiver */}
+                          <Tooltip title={userItem.is_active ? "Désactiver le compte" : "Activer le compte"}>
                             <IconButton
                               size="small"
-                              onClick={() => handleToggleAdmin(userItem.id, userItem.is_staff)}
+                              onClick={() => handleToggleActive(userItem)}
                               sx={{
-                                color: userItem.is_staff ? '#fb923c' : '#3b82f6',
+                                color: userItem.is_active ? '#10b981' : '#ef4444',
                                 '&:hover': {
-                                  bgcolor: userItem.is_staff ? 'rgba(251, 146, 60, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                                  bgcolor: userItem.is_active ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
                                 },
                               }}
                             >
-                              {userItem.is_staff ? <PersonRemoveIcon /> : <AdminIcon />}
+                              {userItem.is_active ? <CheckCircleIcon /> : <BlockIcon />}
+                            </IconButton>
+                          </Tooltip>
+
+                          <Tooltip title="Modifier">
+                            <IconButton
+                              size="small"
+                              onClick={() => openEditDialogForUser(userItem)}
+                              sx={{
+                                color: '#3b82f6',
+                                '&:hover': {
+                                  bgcolor: 'rgba(59, 130, 246, 0.1)',
+                                },
+                              }}
+                            >
+                              <EditIcon />
                             </IconButton>
                           </Tooltip>
 
@@ -1390,7 +1625,7 @@ const AdminPaneau = () => {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={7} align="center" sx={{ color: '#64748b', py: 4 }}>
+                      <TableCell colSpan={8} align="center" sx={{ color: '#64748b', py: 4 }}>
                         {!Array.isArray(filteredUsers) ? 
                           'Erreur de chargement des données' : 
                           'Aucun utilisateur trouvé'
@@ -1420,7 +1655,7 @@ const AdminPaneau = () => {
         }}
       >
         <DialogTitle sx={{ color: 'white', borderBottom: '1px solid rgba(59, 130, 246, 0.1)' }}>
-          ➕ Ajouter un Nouvel Utilisateur
+           Ajouter un Nouvel Utilisateur
         </DialogTitle>
         <DialogContent>
           <Box sx={{ pt: 2 }}>

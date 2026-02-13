@@ -295,7 +295,7 @@ const AdminDashboard = () => {
 
   const isAdmin = user?.is_superuser || user?.is_staff;
   if (!isAdmin) {
-    navigate("/dashboard");
+    navigate("/admin_dashboard");
     return null;
   }
 

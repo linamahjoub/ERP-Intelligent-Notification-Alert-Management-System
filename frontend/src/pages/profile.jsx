@@ -40,7 +40,7 @@ const Profile = () => {
   };
 
   const handleEditProfile = () => {
-    navigate('/edit-profile');
+    navigate('/edit_profile');
   };
 
   const handleChangePassword = () => {
@@ -348,6 +348,9 @@ const Profile = () => {
                       { label: 'Prénom', value: user?.first_name || 'Non renseigné', icon: <PersonIcon /> },
                       { label: 'Nom', value: user?.last_name || 'Non renseigné', icon: <PersonIcon /> },
                       { label: 'Nom d\'utilisateur', value: user?.username || 'Non renseigné', icon: <BadgeIcon /> },
+                      { label: 'Email', value: user?.email || 'Non renseigné', icon: <EmailIcon /> },
+                      { label: 'Téléphone', value: user?.phone_number || 'Non renseigné', icon: <PhoneIcon /> },
+                      { label: 'Role', value: user?.role || 'Non renseigné', icon: <BadgeIcon /> },
                     ].map((field, index) => (
                       <Grid item xs={12} key={index}>
                         <Box sx={{ 
@@ -405,7 +408,7 @@ const Profile = () => {
                   <Grid container spacing={2}>
                     {[
                       { label: 'Email', value: user?.email || 'Non renseigné', icon: <EmailIcon /> },
-                      //{ label: 'Téléphone', value: user?.phone || user?.numero || 'Non renseigné', icon: <PhoneIcon /> },
+                      { label: 'Téléphone', value: user?.phone_number || 'Non renseigné', icon: <PhoneIcon /> },
                       { label: 'Adresse', value: user?.address || user?.adresse || 'Non renseigné', icon: <HomeIcon /> },
                     ].map((field, index) => (
                       <Grid item xs={12} key={index}>

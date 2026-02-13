@@ -38,25 +38,9 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [emailChecking, setEmailChecking] = useState(false);
-  const { login, user, checkEmailExists } = useAuth();
+  const { login, checkEmailExists } = useAuth();
   const navigate = useNavigate();
   const emailInputRef = useRef(null);
-
-  useEffect(() => {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      const userData = JSON.parse(localStorage.getItem('user') || '{}');
-      const isAdmin = userData?.is_superuser || userData?.is_staff;
-
-      setTimeout(() => {
-        if (isAdmin) {
-          navigate('/admin-dashboard');
-        } else {
-          navigate('/dashboard');
-        }
-      }, 500);
-    }
-  }, [user, navigate]);
 
   // Focus on email input when component mounts
   useEffect(() => {
@@ -111,16 +95,16 @@ const Login = () => {
       const result = await login(email, password);
       
       if (result.success) {
-        setTimeout(() => {
-          const userData = JSON.parse(localStorage.getItem('user') || '{}');
-          const isAdmin = userData?.is_superuser || userData?.is_staff;
-          
-          if (isAdmin) {
-            navigate('/admin-dashboard');
-          } else {
-            navigate('/dashboard');
-          }
-        }, 100);
+        // Récupérer l'utilisateur depuis le résultat de la connexion
+        const userData = result.user || JSON.parse(localStorage.getItem('user') || '{}');
+        const isAdmin = userData?.is_superuser || userData?.is_staff;
+        
+        // Redirection immédiate et unique
+        if (isAdmin) {
+          navigate('/admin_dashboard', { replace: true });
+        } else {
+          navigate('/dashboard', { replace: true });
+        }
       } else {
         const errorMessage = result.error || 'Échec de la connexion';
         

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import {
   Container,
   TextField,
@@ -12,8 +12,11 @@ import {
 } from '@mui/material';
 import notif from '../assets/notif.png';
 
-const ForgotPassword = () => {
-  const [email, setEmail] = useState('');
+const ResetPassword = () => {
+  const { uid, token } = useParams();
+  const navigate = useNavigate();
+  const [newPassword, setNewPassword] = useState('');
+  const [newPassword2, setNewPassword2] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
@@ -24,24 +27,41 @@ const ForgotPassword = () => {
     setSuccess('');
     setLoading(true);
 
-    // Placeholder for password reset logic
+    if (!newPassword || !newPassword2) {
+      setError('Veuillez remplir tous les champs');
+      setLoading(false);
+      return;
+    }
+
+    if (newPassword !== newPassword2) {
+      setError('Les mots de passe ne correspondent pas');
+      setLoading(false);
+      return;
+    }
+
     try {
-      const response = await fetch('http://localhost:8000/api/auth/password-reset/', {
+      const response = await fetch('http://localhost:8000/api/auth/password-reset-confirm/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email })
+        body: JSON.stringify({
+          uid,
+          token,
+          new_password: newPassword,
+          new_password2: newPassword2,
+        })
       });
 
+      const data = await response.json();
       if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data?.error || 'Erreur lors de l\'envoi du lien');
+        throw new Error(data?.error || 'Lien invalide ou expiré');
       }
 
-      setSuccess('Si cet email existe, un lien de réinitialisation a été envoyé.');
+      setSuccess('Mot de passe réinitialisé avec succès. Vous pouvez vous connecter.');
+      setTimeout(() => navigate('/login'), 1500);
     } catch (err) {
-      setError(err.message || 'Une erreur est survenue. Veuillez réessayer.');
+      setError(err.message || 'Une erreur est survenue.');
     } finally {
       setLoading(false);
     }
@@ -58,7 +78,6 @@ const ForgotPassword = () => {
         }}
       >
         <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-          {/* Logo et nom de l'application */}
           <Box
             sx={{
               display: 'flex',
@@ -86,7 +105,6 @@ const ForgotPassword = () => {
             </Typography>
           </Box>
 
-          {/* Titre */}
           <Typography
             component="h1"
             variant="h5"
@@ -94,7 +112,7 @@ const ForgotPassword = () => {
             gutterBottom
             sx={{ mb: 3 }}
           >
-            Mot de passe oublié
+            Réinitialiser le mot de passe
           </Typography>
 
           {error && (
@@ -114,14 +132,26 @@ const ForgotPassword = () => {
               margin="normal"
               required
               fullWidth
-              id="email"
-              label="Email"
-              name="email"
-              autoComplete="email"
-              autoFocus
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="votre@email.com"
+              id="new_password"
+              label="Nouveau mot de passe"
+              name="new_password"
+              type="password"
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+            />
+
+            <TextField
+              margin="normal"
+              required
+              fullWidth
+              id="new_password2"
+              label="Confirmer le mot de passe"
+              name="new_password2"
+              type="password"
+              autoComplete="new-password"
+              value={newPassword2}
+              onChange={(e) => setNewPassword2(e.target.value)}
             />
 
             <Button
@@ -131,7 +161,7 @@ const ForgotPassword = () => {
               sx={{ mt: 3, mb: 2 }}
               disabled={loading}
             >
-              {loading ? <CircularProgress size={24} /> : 'Envoyer le lien de réinitialisation'}
+              {loading ? <CircularProgress size={24} /> : 'Réinitialiser'}
             </Button>
 
             <Box textAlign="center">
@@ -148,4 +178,4 @@ const ForgotPassword = () => {
   );
 };
 
-export default ForgotPassword;
+export default ResetPassword;
