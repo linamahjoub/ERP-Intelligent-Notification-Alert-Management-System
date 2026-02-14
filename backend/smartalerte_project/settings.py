@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     
     # Local apps
     'accounts',
+    'alerts',
 ]
 
 MIDDLEWARE = [
@@ -129,6 +130,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:3004",
     "http://localhost:3005",
     "http://127.0.0.1:3005",
+    "http://localhost:3006",
+    "http://127.0.0.1:3006",
 ]
 
 CORS_ALLOW_CREDENTIALS = True

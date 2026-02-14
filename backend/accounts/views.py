@@ -57,43 +57,36 @@ def send_welcome_email(user):
             recipient_list=[user.email],
             fail_silently=False,
         )
-        print(f"✅ Email de bienvenue envoyé à {user.email}")
+        print(f" Email de bienvenue envoyé à {user.email}")
         return True
     except Exception as e:
-        print(f"❌ Erreur: {e}")
+        print(f" Erreur: {e}")
         return False
 
 def send_account_approved_email(user):
     """
     Envoie un email lorsque le compte est approuvé par l'admin
     """
-    print("\n" + "📧"*50)
-    print("📧 FONCTION send_account_approved_email EXÉCUTÉE")
-    print(f"📧 Utilisateur reçu: {user.username} (ID: {user.id})")
-    print(f"📧 Email destinataire: {user.email}")
-    print(f"📧 FROM_EMAIL: {settings.DEFAULT_FROM_EMAIL}")
-    print("📧"*50 + "\n")
-    
-    import traceback
-    
-    subject = '🎉 Félicitations - Votre compte SmartNotify est activé !'
+    subject = ' Votre compte SmartAlerte a été activé'
     
     message = f"""
-FÉLICITATIONS {user.username} !
+Bonjour {user.username},
 
-Votre compte SmartNotify a été approuvé par notre équipe.
+Bonne nouvelle ! Votre compte SmartAlerte a été approuvé par notre équipe administrative.
 
-Vous pouvez maintenant vous connecter : {settings.FRONTEND_URL}/login
+Vous pouvez maintenant vous connecter et commencer à créer vos alertes personnalisées.
 
-Email : {user.email}
+🔗 Connexion : {settings.FRONTEND_URL}/login
+📧 Email : {user.email}
+
+Nous sommes ravis de vous accueillir parmi nos utilisateurs !
 
 Cordialement,
-L'équipe SmartNotify
+L'équipe SmartAlerte
 """
     
     try:
-        print("📨 Tentative d'envoi...")
-        
+        print(f" Tentative d'envoi d'email d'activation à {user.email}...")
         result = send_mail(
             subject=subject,
             message=message,
@@ -101,13 +94,12 @@ L'équipe SmartNotify
             recipient_list=[user.email],
             fail_silently=False,
         )
-        
-        print(f"✅ Envoi réussi! Résultat: {result}")
+        print(f" Email d'activation envoyé avec succès à {user.email} (résultat: {result})")
         return True
         
     except Exception as e:
-        print(f"❌ ERREUR: {type(e).__name__}")
-        print(f"   Message: {str(e)}")
+        print(f" ERREUR lors de l'envoi de l'email d'activation: {str(e)}")
+        import traceback
         traceback.print_exc()
         return False
 # ==================== AUTHENTIFICATION ====================
@@ -507,69 +499,41 @@ def resend_welcome_email_view(request):
 @permission_classes([IsAuthenticated, IsAdminUser])
 def approve_user_view(request, pk):
     """Approuver un utilisateur (activer son compte)"""
-    print("\n" + "🔥"*60)
-    print("🔥 FONCTION approve_user_view EXÉCUTÉE")
-    print(f"🔥 PK reçu: {pk}")
-    print("🔥"*60 + "\n")
-    
+    print(f"\n🔥 APPROBATION UTILISATEUR ID={pk}")
     try:
-        # 1. Récupérer l'utilisateur
-        print(f"🔍 Recherche utilisateur avec PK={pk}...")
+        # Récupérer l'utilisateur
         user = User.objects.get(pk=pk)
-        print(f"✅ Utilisateur trouvé: {user.username}")
-        print(f"   - Email: {user.email}")
-        print(f"   - is_active avant: {user.is_active}")
+        print(f"✅ Utilisateur trouvé: {user.username} ({user.email})")
         
-        # 2. Vérifier que l'utilisateur n'est pas un admin
+        # Vérifier que l'utilisateur n'est pas un admin
         if user.is_superuser or user.is_staff or user.is_primary_admin:
-            print("❌ Tentative d'approuver un admin - REFUSÉ")
             return Response({
                 'error': 'Impossible d\'approuver un administrateur'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # 3. Activer l'utilisateur
-        print("🔄 Activation de l'utilisateur...")
+        # Activer l'utilisateur
+        print(f"🔄 Activation du compte...")
         user.is_active = True
         user.save()
-        print(f"✅ Utilisateur activé! is_active après: {user.is_active}")
+        print(f" Compte activé (is_active={user.is_active})")
         
-        # 4. Envoyer l'email de confirmation
-        print("\n📧 Appel de send_account_approved_email...")
-        print(f"   Paramètre: user={user.username} (ID: {user.id})")
-        
-        # Vérifions que la fonction existe
-        print("   Vérification de la fonction...")
-        if 'send_account_approved_email' in dir():
-            print("   ✅ La fonction send_account_approved_email est accessible")
-        else:
-            print("   ❌ La fonction send_account_approved_email n'est PAS accessible")
-            return Response({
-                'error': 'Erreur interne: fonction email non trouvée'
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        
-        # Appel de la fonction
-        print("   Exécution de send_account_approved_email...")
+        # Envoyer l'email de confirmation
+        print(f" Envoi de l'email de confirmation...")
         email_sent = send_account_approved_email(user)
-        print(f"   ✅ Résultat email_sent: {email_sent}")
+        print(f" Résultat envoi email: {email_sent}")
         
-        # 5. Retourner la réponse
-        response_data = {
+        return Response({
             'message': f'Utilisateur {user.username} approuvé avec succès',
             'user': UserSerializer(user).data,
             'email_sent': email_sent
-        }
-        print(f"\n📤 Réponse API: {response_data}")
-        
-        return Response(response_data, status=status.HTTP_200_OK)
+        }, status=status.HTTP_200_OK)
         
     except User.DoesNotExist:
-        print(f"❌ Utilisateur avec PK {pk} non trouvé")
         return Response({
             'error': 'Utilisateur non trouvé'
         }, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
-        print(f"❌ Erreur inattendue: {type(e).__name__}")
-        print(f"   Message: {str(e)}")
+        print(f" Erreur lors de l'approbation: {str(e)}")
         import traceback
         traceback.print_exc()
         return Response({
