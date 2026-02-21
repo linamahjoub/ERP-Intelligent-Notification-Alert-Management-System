@@ -51,7 +51,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'email', 'username', 'password', 'password2',
-            'first_name', 'last_name', 'phone_number', 'company'
+            'first_name', 'last_name', 'phone_number', 'company', 'role'
         ]
         extra_kwargs = {
             'first_name': {'required': True},
@@ -78,6 +78,7 @@ class RegisterSerializer(serializers.ModelSerializer):
             last_name=validated_data.get('last_name', ''),
             phone_number=validated_data.get('phone_number', ''),
             company=validated_data.get('company', ''),
+            role=validated_data.get('role', 'employe'),
             is_active=False  # Important: compte inactif jusqu'à approbation admin
         )
 
@@ -125,7 +126,7 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'email', 'username', 'password', 'first_name', 'last_name',
-            'phone_number', 'company', 'is_active', 'is_staff',
+            'phone_number', 'company', 'role', 'is_active', 'is_staff',
             'is_superuser', 'is_primary_admin'
         ]
     
@@ -144,7 +145,7 @@ class AdminUserUpdateSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'email', 'username', 'first_name', 'last_name',
-            'phone_number', 'company', 'is_active', 'is_staff',
+            'phone_number', 'company', 'role', 'is_active', 'is_staff',
             'is_superuser', 'is_primary_admin'
         ]
     

@@ -134,6 +134,36 @@ export const AuthProvider = ({ children }) => {
   const register = async (userData) => {
     try {
       const response = await axios.post('http://localhost:8000/api/auth/register/', userData);
+      
+      const { access, refresh, user: apiUserData } = response.data;
+      
+      // Sauvegarder les tokens
+      localStorage.setItem('access_token', access);
+      localStorage.setItem('refresh_token', refresh);
+      setToken(access);
+      
+      // Sauvegarder les données utilisateur (avec is_active = false)
+      const fullUserData = {
+        id: apiUserData.id,
+        email: apiUserData.email,
+        username: apiUserData.username,
+        first_name: apiUserData.first_name,
+        last_name: apiUserData.last_name,
+        phone_number: apiUserData.phone_number || '',
+        role: apiUserData.role || '',
+        company: apiUserData.company || '',
+        profile_picture: apiUserData.profile_picture || null,
+        is_active: apiUserData.is_active,
+        is_superuser: apiUserData.is_superuser || false,
+        is_staff: apiUserData.is_staff || false,
+        is_primary_admin: apiUserData.is_primary_admin || false,
+        date_joined: apiUserData.date_joined,
+        last_login: apiUserData.last_login,
+      };
+      
+      setUser(fullUserData);
+      localStorage.setItem('user', JSON.stringify(fullUserData));
+      
       return { success: true, data: response.data };
     } catch (error) {
       console.error('Registration error:', error.response?.data || error);

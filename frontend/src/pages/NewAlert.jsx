@@ -14,46 +14,41 @@ import {
   Select,
   MenuItem,
   Chip,
-  Switch,
-  FormControlLabel,
-  Divider,
-  IconButton,
   Alert,
   Snackbar,
   Stepper,
   Step,
   StepLabel,
-  Autocomplete,
-  Tooltip,
   Fade,
-  Slide,
   Stack,
-  LinearProgress,
-  Badge,
+  Divider,
+  InputAdornment,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
-  Cancel as CancelIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
   Notifications as NotificationsIcon,
-  FlashOn as FlashOnIcon,
   Settings as SettingsIcon,
   Schedule as ScheduleIcon,
-  CheckCircle as CheckCircleIcon,
-  Warning as WarningIcon,
-  Error as ErrorIcon,
-  Info as InfoIcon,
-  TrendingUp as TrendingUpIcon,
   Speed as SpeedIcon,
   Timeline as TimelineIcon,
   Email as EmailIcon,
   Sms as SmsIcon,
   Webhook as WebhookIcon,
   NotificationsActive as NotificationsActiveIcon,
-  HelpOutline as HelpOutlineIcon,
   PlayArrow as PlayArrowIcon,
+  Inventory as InventoryIcon,
+  People as PeopleIcon,
+  Description as DescriptionIcon,
+  Build as BuildIcon,
+  Factory as FactoryIcon,
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
+  TrendingUp as TrendingUpIcon,
+  Close as CloseIcon,
+  ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -68,7 +63,6 @@ const NewAlert = () => {
   const [validationErrors, setValidationErrors] = useState({});
   const [isAnimating, setIsAnimating] = useState(false);
 
-  // Données du formulaire
   const [formData, setFormData] = useState({
     name: '',
     description: '',
@@ -86,48 +80,37 @@ const NewAlert = () => {
   });
 
   const [customRecipient, setCustomRecipient] = useState('');
-  const [customTag, setCustomTag] = useState('');
 
-  // Options pour les sélecteurs avec icônes
   const modules = [
-    { value: 'finance', label: 'Finance',  color: '#3f51b5' },
-    { value: 'rh', label: 'Ressources Humaines', color: '#3f51b5' },
-    { value: 'production', label: 'Production', color: '#3f51b5' },
-    { value: 'sales', label: 'Ventes',  color: '#3f51b5' },
-    { value: 'purchasing', label: 'Achats',  color: '#3f51b5' },
-    { value: 'accounting', label: 'Comptabilité',  color: '#3f51b5' },
+    { value: 'stock', label: 'Stock', icon: <InventoryIcon />, color: '#4285f4' },
+    { value: 'crm', label: 'CRM', icon: <PeopleIcon />, color: '#34A853' },
+    { value: 'facturation', label: 'Facturation', icon: <DescriptionIcon />, color: '#FBBC04' },
+    { value: 'gmao', label: 'GMAO', icon: <BuildIcon />, color: '#EA4335' },
+    { value: 'gpao', label: 'GPAO', icon: <FactoryIcon />, color: '#9C27B0' },
+    { value: 'rh', label: 'RH', icon: <PeopleIcon />, color: '#00BCD4' },
   ];
 
   const severityOptions = [
     { 
-      value: 'low', 
-      label: 'Faible',  
-      color: '#3F1AD3',
-      bgColor: 'rgba(33, 150, 243, 0.1)',
-      description: 'Notification informative'
-    },
-    { 
-      value: 'medium', 
-      label: 'Moyenne',  
-      color: '#3F1AD3',
-       bgColor: 'rgba(33, 150, 243, 0.1)',
-      description: 'Attention requise'
+      value: 'critical', 
+      label: 'Critique',  
+      color: '#dc3545',
     },
     { 
       value: 'high', 
       label: 'Haute', 
-      color: '#3F1AD3',
-       bgColor: 'rgba(33, 150, 243, 0.1)',
-      description: 'Action urgente nécessaire'
+      color: '#fd7e14',
     },
-     { 
-      value: 'critical', 
-      label: 'Critique', 
-      color: '#3F1AD3',
-      bgColor: 'rgba(33, 150, 243, 0.1)',
-      description: 'Action critique immédiate requise'
+    { 
+      value: 'medium', 
+      label: 'Moyenne',  
+      color: '#0dcaf0',
     },
-   
+    { 
+      value: 'low', 
+      label: 'Basse',  
+      color: '#198754',
+    },
   ];
 
   const conditionTypes = [
@@ -142,9 +125,8 @@ const NewAlert = () => {
     { value: 'less_than', label: 'Inférieur à', symbol: '<' },
     { value: 'equal_to', label: 'Égal à', symbol: '=' },
     { value: 'not_equal', label: 'Différent de', symbol: '≠' },
-    { value: 'between', label: 'Entre', symbol: '⟷' },
-    { value: 'greater_equal', label: 'Supérieur ou égal à', symbol: '≥' },
-    { value: 'less_equal', label: 'Inférieur ou égal à', symbol: '≤' },
+    { value: 'greater_equal', label: 'Supérieur ou égal', symbol: '≥' },
+    { value: 'less_equal', label: 'Inférieur ou égal', symbol: '≤' },
   ];
 
   const notificationChannels = [
@@ -162,33 +144,30 @@ const NewAlert = () => {
     { value: 'daily', label: 'Quotidien', icon: <ScheduleIcon />, description: 'Une fois par jour' },
     { value: 'weekly', label: 'Hebdomadaire', icon: <ScheduleIcon />, description: 'Une fois par semaine' },
     { value: 'monthly', label: 'Mensuel', icon: <ScheduleIcon />, description: 'Une fois par mois' },
-    { value: 'custom', label: 'Personnalisé', icon: <SettingsIcon />, description: 'Expression CRON' },
   ];
 
-  const steps = [
-    { label: 'Configuration', icon: <SettingsIcon /> },
-    { label: 'Conditions & Notifications', icon: <NotificationsIcon /> },
-    { label: 'Planification & Révision', icon: <ScheduleIcon /> },
-  ];
+  const steps = ['Informations de base', 'Conditions', 'Notifications'];
 
-  // Validation
   const validateStep = (step) => {
     const errors = {};
     
     if (step === 0) {
       if (!formData.name.trim()) errors.name = 'Le nom est requis';
-      if (!formData.module) errors.module = 'Le module est requis';
+      if (!formData.module) errors.module = 'Veuillez sélectionner un module';
     }
     
     if (step === 1) {
-      if (formData.conditionType === 'threshold' && !formData.thresholdValue) {
-        errors.thresholdValue = 'La valeur du seuil est requise';
+      if (!formData.thresholdValue) {
+        errors.thresholdValue = 'Cette valeur est requise pour le type de condition sélectionné';
       }
+    }
+    
+    if (step === 2) {
       if (formData.notificationChannels.length === 0) {
-        errors.channels = 'Au moins un canal de notification est requis';
+        errors.channels = 'Sélectionnez au moins un canal';
       }
       if (formData.recipients.length === 0) {
-        errors.recipients = 'Au moins un destinataire est requis';
+        errors.recipients = 'Ajoutez au moins un destinataire';
       }
     }
     
@@ -202,7 +181,6 @@ const NewAlert = () => {
       ...formData,
       [field]: value,
     });
-    // Clear validation error for this field
     if (validationErrors[field]) {
       setValidationErrors({ ...validationErrors, [field]: undefined });
     }
@@ -229,11 +207,13 @@ const NewAlert = () => {
       ...formData,
       notificationChannels: currentChannels,
     });
+    if (validationErrors.channels) {
+      setValidationErrors({ ...validationErrors, channels: undefined });
+    }
   };
 
   const handleAddRecipient = () => {
     if (customRecipient && !formData.recipients.includes(customRecipient)) {
-      // Validation basique d'email
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (emailRegex.test(customRecipient) || customRecipient.startsWith('@')) {
         setFormData({
@@ -259,30 +239,13 @@ const NewAlert = () => {
     });
   };
 
-  const handleAddTag = () => {
-    if (customTag && !formData.tags.includes(customTag)) {
-      setFormData({
-        ...formData,
-        tags: [...formData.tags, customTag],
-      });
-      setCustomTag('');
-    }
-  };
-
-  const handleRemoveTag = (tag) => {
-    setFormData({
-      ...formData,
-      tags: formData.tags.filter(t => t !== tag),
-    });
-  };
-
   const handleNext = () => {
     if (validateStep(activeStep)) {
       setIsAnimating(true);
       setTimeout(() => {
         setActiveStep((prevStep) => prevStep + 1);
         setIsAnimating(false);
-      }, 300);
+      }, 200);
     } else {
       setSnackbarMessage('Veuillez remplir tous les champs requis');
       setSnackbarSeverity('error');
@@ -295,893 +258,772 @@ const NewAlert = () => {
     setTimeout(() => {
       setActiveStep((prevStep) => prevStep - 1);
       setIsAnimating(false);
-    }, 300);
+    }, 200);
   };
 
- const handleSubmit = async () => {
-  if (!validateStep(activeStep)) {
-    setSnackbarMessage('Veuillez vérifier tous les champs');
-    setSnackbarSeverity('error');
-    setOpenSnackbar(true);
-    return;
-  }
+  const handleSubmit = async () => {
+    if (!validateStep(activeStep)) {
+      setSnackbarMessage('Veuillez vérifier tous les champs');
+      setSnackbarSeverity('error');
+      setOpenSnackbar(true);
+      return;
+    }
 
-  try {
-    // Récupérer l'ID de l'utilisateur
-    const userId = user?.id || 'guest';
-    const storageKey = `alerts_${userId}`;
-    
-    // Récupérer les alertes existantes pour cet utilisateur
-    const existingAlerts = localStorage.getItem(storageKey);
-    const alerts = existingAlerts ? JSON.parse(existingAlerts) : [];
-    
-    // Créer la nouvelle alerte avec un ID unique
-    const newAlert = {
-      id: Date.now().toString(), // ID unique basé sur le timestamp
-      ...formData,
-      createdAt: new Date().toISOString(),
-      createdBy: userId,
-    };
-    
-    // Ajouter la nouvelle alerte
-    alerts.push(newAlert);
-    
-    // Sauvegarder dans localStorage avec la clé spécifique à l'utilisateur
-    localStorage.setItem(storageKey, JSON.stringify(alerts));
-    
-    console.log('Alerte créée:', newAlert);
-    console.log('Toutes les alertes pour', userId, ':', alerts);
-    
-    setSnackbarMessage('Règle d\'alerte créée avec succès !');
-    setSnackbarSeverity('success');
-    setOpenSnackbar(true);
-    
-    // Rediriger vers la page des alertes de l'utilisateur APRÈS 2 secondes
-    setTimeout(() => {
-      navigate('/alerts'); // Note: c'est '/alerts' en minuscules
-    }, 2000);
-    
-  } catch (error) {
-    console.error('Erreur:', error);
-    setSnackbarMessage('Erreur lors de la création de la règle');
-    setSnackbarSeverity('error');
-    setOpenSnackbar(true);
-  }
-};
-   
+    try {
+      const token = localStorage.getItem('access_token');
+      
+      // Préparer les données pour l'API
+      const alertData = {
+        name: formData.name,
+        description: formData.description,
+        module: formData.module,
+        severity: formData.severity,
+        condition_type: formData.conditionType,
+        threshold_value: formData.thresholdValue,
+        comparison_operator: formData.comparisonOperator,
+        notification_channels: formData.notificationChannels,
+        recipients: formData.recipients,
+        schedule: formData.schedule,
+        custom_schedule: formData.customSchedule,
+        is_active: formData.isActive,
+        tags: formData.tags,
+      };
+      
+      // Envoyer au serveur
+      const response = await fetch('http://localhost:8000/api/alerts/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(alertData),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erreur lors de la création de l\'alerte');
+      }
+      
+      const result = await response.json();
+      
+      setSnackbarMessage('Règle d\'alerte créée avec succès !');
+      setSnackbarSeverity('success');
+      setOpenSnackbar(true);
+      
+      setTimeout(() => {
+        navigate('/alerts');
+      }, 2000);
+      
+    } catch (error) {
+      console.error('Erreur:', error);
+      setSnackbarMessage('Erreur lors de la création de la règle: ' + error.message);
+      setSnackbarSeverity('error');
+      setOpenSnackbar(true);
+    }
+  };
 
   const handleCloseSnackbar = () => {
     setOpenSnackbar(false);
   };
 
-  const getCompletionPercentage = () => {
-    let completed = 0;
-    let total = 8;
-    
-    if (formData.name) completed++;
-    if (formData.module) completed++;
-    if (formData.severity) completed++;
-    if (formData.conditionType) completed++;
-    if (formData.thresholdValue) completed++;
-    if (formData.notificationChannels.length > 0) completed++;
-    if (formData.recipients.length > 0) completed++;
-    if (formData.schedule) completed++;
-    
-    return (completed / total) * 100;
-  };
-
   const renderStepContent = (step) => {
     switch (step) {
       case 0:
-  return (
-    <Fade in={!isAnimating} timeout={500}>
-      <Box sx={{ mt: 2 }}>
-        <Grid container spacing={3}>
-          
-          {/* Nom de la règle - Pleine largeur */}
-          <Grid item xs={12}>
-            <Typography variant="h6" sx={{ color: 'white', mb: 2, fontSize: '0.95rem' }}>
-              Nom de la règle
-            </Typography>
-            <TextField
-              fullWidth
-              placeholder="Ex: Stock Critique Composants"
-              variant="outlined"
-              value={formData.name}
-              onChange={handleInputChange('name')}
-              required
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  bgcolor: '#0a0e27',
-                  color: 'rgba(255,255,255,0.6)',
-                  fontSize: '0.9rem',
-                  '& fieldset': {
-                    borderColor: 'rgba(255,255,255,0.1)',
-                  },
-                  '&:hover fieldset': {
-                    borderColor: 'rgba(255,255,255,0.2)',
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: '#3b82f6',
-                  },
-                },
-                '& .MuiInputBase-input::placeholder': {
-                  color: 'rgba(255,255,255,0.3)',
-                  opacity: 1,
-                },
-              }}
-            />
-          </Grid>
+        return (
+          <Fade in={!isAnimating} timeout={400}>
+            <Box>
+              <Stack spacing={4}>
+                {/* Nom et Description */}
+                <Box>
+                  <Typography variant="h6" sx={{ color: 'white', mb: 3, fontWeight: 600 }}>
+                    Informations générales
+                  </Typography>
+                  <Stack spacing={3}>
+                    <TextField
+                      fullWidth
+                      label="Nom de la règle"
+                      placeholder="Ex: Alerte Stock Critique"
+                      variant="outlined"
+                      value={formData.name}
+                      onChange={handleInputChange('name')}
+                      error={!!validationErrors.name}
+                      helperText={validationErrors.name}
+                      required
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          bgcolor: 'rgba(255,255,255,0.05)',
+                          color: 'white',
+                          '& fieldset': {
+                            borderColor: 'rgba(255,255,255,0.15)',
+                          },
+                          '&:hover fieldset': {
+                            borderColor: 'rgba(255,255,255,0.25)',
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#4285f4',
+                          },
+                        },
+                        '& .MuiInputLabel-root': {
+                          color: 'rgba(255,255,255,0.7)',
+                        },
+                        '& .MuiFormHelperText-root': {
+                          color: '#f44336',
+                        },
+                      }}
+                    />
+                    
+                    <TextField
+                      fullWidth
+                      label="Description (optionnel)"
+                      placeholder="Décrivez le but de cette règle..."
+                      variant="outlined"
+                      multiline
+                      rows={3}
+                      value={formData.description}
+                      onChange={handleInputChange('description')}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          bgcolor: 'rgba(255,255,255,0.05)',
+                          color: 'white',
+                          '& fieldset': {
+                            borderColor: 'rgba(255,255,255,0.15)',
+                          },
+                          '&:hover fieldset': {
+                            borderColor: 'rgba(255,255,255,0.25)',
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#4285f4',
+                          },
+                        },
+                        '& .MuiInputLabel-root': {
+                          color: 'rgba(255,255,255,0.7)',
+                        },
+                      }}
+                    />
+                  </Stack>
+                </Box>
 
-          {/* Module ERP avec cartes */}
-          <Grid item xs={12}>
-            <Typography variant="subtitle1" sx={{ color: 'white', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-              Module ERP 
-              <Tooltip title="Sélectionnez le module à surveiller">
-                <HelpOutlineIcon sx={{ color: 'rgba(255,255,255,0.5)', fontSize: 20 }} />
-              </Tooltip>
-            </Typography>
-            <Grid container spacing={2}>
-              {modules.map((module) => (
-                <Grid item xs={6} sm={4} md={3} key={module.value}>
-                  <Card
-                    onClick={() => {
-                      setFormData({ ...formData, module: module.value });
-                      if (validationErrors.module) {
-                        setValidationErrors({ ...validationErrors, module: undefined });
-                      }
-                    }}
-                    sx={{
-                      bgcolor: formData.module === module.value 
-                        ? `${module.color}20` 
-                        : 'rgba(255,255,255,0.03)',
-                      border: formData.module === module.value 
-                        ? `2px solid ${module.color}` 
-                        : validationErrors.module
-                        ? '2px solid #f44336'
-                        : '2px solid rgba(255,255,255,0.1)',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease',
-                      '&:hover': {
-                        bgcolor: formData.module === module.value 
-                          ? `${module.color}30` 
-                          : 'rgba(255,255,255,0.05)',
-                        transform: 'translateY(-4px)',
-                        boxShadow: `0 4px 12px ${module.color}40`,
-                      },
-                    }}
-                  >
-                    <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                      <Typography variant="h4" sx={{ mb: 1 }}>
-                        {module.icon}
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: 'white', fontWeight: 500 }}>
-                        {module.label}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-            {validationErrors.module && (
-              <Typography variant="caption" sx={{ color: '#f44336', mt: 1, display: 'block' }}>
-                {validationErrors.module}
-              </Typography>
-            )}
-          </Grid>
-          
-          {/* Niveau de sévérité avec cartes */}
-          <Grid item xs={12}>
-            <Typography variant="subtitle1" sx={{ color: 'white', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-              Niveau de sévérité
-              <Tooltip title="Définit l'importance de l'alerte">
-                <HelpOutlineIcon sx={{ color: 'rgba(255,255,255,0.5)', fontSize: 20 }} />
-              </Tooltip>
-            </Typography>
-            <Grid container spacing={2}>
-              {severityOptions.map((severity) => (
-                <Grid item xs={12} sm={6} md={3} key={severity.value}>
-                  <Card
-                    onClick={() => setFormData({ ...formData, severity: severity.value })}
-                    sx={{
-                      bgcolor: formData.severity === severity.value 
-                        ? severity.bgColor 
-                        : 'rgba(255,255,255,0.03)',
-                      border: formData.severity === severity.value 
-                        ? `2px solid ${severity.color}` 
-                        : '2px solid rgba(255,255,255,0.1)',
-                      cursor: 'pointer',
-                      transition: 'all 0.3s ease',
-                      '&:hover': {
-                        bgcolor: formData.severity === severity.value 
-                          ? severity.bgColor 
-                          : 'rgba(255,255,255,0.05)',
-                        transform: 'translateY(-4px)',
-                        boxShadow: `0 4px 12px ${severity.color}40`,
-                      },
-                    }}
-                  >
-                    <CardContent>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <Box sx={{ color: severity.color }}>
-                          {severity.icon}
-                        </Box>
-                        <Typography variant="h6" sx={{ color: 'white', fontWeight: 600 }}>
-                          {severity.label}
-                        </Typography>
-                      </Box>
-                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
-                        {severity.description}
-                      </Typography>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              ))}
-            </Grid>
-          </Grid>
+                <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
 
-          {/* Description - Pleine largeur */}
-          <Grid item xs={12}>
-            <Typography variant="subtitle1" sx={{ color: 'white', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-              Description
-            </Typography>
-            <TextField
-              fullWidth
-              label="Description"
-              variant="outlined"
-              multiline
-              rows={3}
-              value={formData.description}
-              onChange={handleInputChange('description')}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  bgcolor: 'rgba(255,255,255,0.05)',
-                  color: 'white',
-                  '& fieldset': {
-                    borderColor: 'rgba(255,255,255,0.1)',
-                  },
-                  '&:hover fieldset': {
-                    borderColor: 'rgba(255,255,255,0.2)',
-                  },
-                  '&.Mui-focused fieldset': {
-                    borderColor: '#4285f4',
-                  },
-                },
-                '& .MuiInputLabel-root': {
-                  color: 'rgba(255,255,255,0.7)',
-                },
-                '& .MuiFormHelperText-root': {
-                  color: 'rgba(255,255,255,0.5)',
-                },
-              }}
-            />
-          </Grid>
-        </Grid>
-      </Box>
-    </Fade>
-  );
+                {/* Module */}
+                <Box>
+                  <Typography variant="h6" sx={{ color: 'white', mb: 1, fontWeight: 600 }}>
+                    Module ERP
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', mb: 3 }}>
+                    Sélectionnez le module concerné par cette règle
+                  </Typography>
+                  <Grid container spacing={2}>
+                    {modules.map((module) => (
+                      <Grid item xs={12} sm={6} md={4} key={module.value}>
+                        <Card
+                          onClick={() => {
+                            setFormData({ ...formData, module: module.value });
+                            if (validationErrors.module) {
+                              setValidationErrors({ ...validationErrors, module: undefined });
+                            }
+                          }}
+                          sx={{
+                            bgcolor: formData.module === module.value 
+                              ? `${module.color}15` 
+                              : 'rgba(255,255,255,0.04)',
+                            border: formData.module === module.value 
+                              ? `2px solid ${module.color}` 
+                              : '1px solid rgba(255,255,255,0.1)',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            height: '100%',
+                            '&:hover': {
+                              bgcolor: formData.module === module.value 
+                                ? `${module.color}20` 
+                                : 'rgba(255,255,255,0.08)',
+                              transform: 'translateY(-4px)',
+                              boxShadow: formData.module === module.value 
+                                ? `0 8px 24px ${module.color}40`
+                                : '0 4px 12px rgba(0,0,0,0.2)',
+                            },
+                          }}
+                        >
+                          <CardContent sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: 2,
+                            py: 2.5,
+                          }}>
+                            <Box sx={{ 
+                              color: formData.module === module.value ? module.color : 'rgba(255,255,255,0.5)',
+                              display: 'flex',
+                              transition: 'color 0.2s ease',
+                            }}>
+                              {React.cloneElement(module.icon, { sx: { fontSize: 32 } })}
+                            </Box>
+                            <Typography 
+                              variant="body1" 
+                              sx={{ 
+                                color: 'white', 
+                                fontWeight: 600,
+                                fontSize: '0.95rem',
+                              }}
+                            >
+                              {module.label}
+                            </Typography>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+                    ))}
+                  </Grid>
+                  {validationErrors.module && (
+                    <Typography variant="caption" sx={{ color: '#f44336', mt: 1.5, display: 'block' }}>
+                      {validationErrors.module}
+                    </Typography>
+                  )}
+                </Box>
+
+                <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+
+                {/* Priorité */}
+                <Box>
+                  <Typography variant="h6" sx={{ color: 'white', mb: 1, fontWeight: 600 }}>
+                    Niveau de priorité
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', mb: 3 }}>
+                    Définissez l'importance de cette alerte
+                  </Typography>
+                  <Grid container spacing={2}>
+                    {severityOptions.map((severity) => (
+                      <Grid item xs={6} sm={3} key={severity.value}>
+                        <Card
+                          onClick={() => setFormData({ ...formData, severity: severity.value })}
+                          sx={{
+                            bgcolor: formData.severity === severity.value 
+                              ? `${severity.color}15` 
+                              : 'rgba(255,255,255,0.04)',
+                            border: formData.severity === severity.value 
+                              ? `2px solid ${severity.color}` 
+                              : '1px solid rgba(255,255,255,0.1)',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            '&:hover': {
+                              bgcolor: `${severity.color}10`,
+                              borderColor: severity.color,
+                              transform: 'translateY(-2px)',
+                            },
+                          }}
+                        >
+                          <CardContent sx={{ textAlign: 'center', py: 2 }}>
+                            <Typography 
+                              variant="body1" 
+                              sx={{ 
+                                color: severity.color,
+                                fontWeight: 700,
+                                fontSize: '0.9rem',
+                              }}
+                            >
+                              {severity.label}
+                            </Typography>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+              </Stack>
+            </Box>
+          </Fade>
+        );
+
       case 1:
         return (
-          <Fade in={!isAnimating} timeout={500}>
-            <Box sx={{ mt: 2 }}>
-              <Grid container spacing={4}>
-                {/* Section Conditions */}
-                <Grid item xs={12}>
-                  <Card sx={{ 
-                    bgcolor: 'rgba(66,133,244,0.05)', 
-                    border: '1px solid rgba(66,133,244,0.2)',
-                    borderRadius: 2,
-                  }}>
-                    <CardContent>
-                      <Typography variant="h6" sx={{ color: 'white', mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <SpeedIcon sx={{ color: '#4285f4' }} />
-                        Conditions de déclenchement
-                      </Typography>
-                      
-                      <Grid container spacing={3}>
-                        {/* Type de condition avec cartes */}
-                        <Grid item xs={12}>
-                          <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 2 }}>
-                            Type de condition
-                          </Typography>
-                          <Grid container spacing={2}>
-                            {conditionTypes.map((type) => (
-                              <Grid item xs={12} sm={6} key={type.value}>
-                                <Card
-                                  onClick={() => setFormData({ ...formData, conditionType: type.value })}
-                                  sx={{
-                                    bgcolor: formData.conditionType === type.value 
-                                      ? 'rgba(66,133,244,0.2)' 
-                                      : 'rgba(255,255,255,0.03)',
-                                    border: formData.conditionType === type.value 
-                                      ? '2px solid #4285f4' 
-                                      : '2px solid rgba(255,255,255,0.1)',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.3s ease',
-                                    '&:hover': {
-                                      bgcolor: 'rgba(66,133,244,0.1)',
-                                      transform: 'translateY(-2px)',
-                                    },
-                                  }}
-                                >
-                                  <CardContent sx={{ py: 2 }}>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                      <Box sx={{ color: '#4285f4' }}>
-                                        {type.icon}
-                                      </Box>
-                                      <Box sx={{ flex: 1 }}>
-                                        <Typography variant="body1" sx={{ color: 'white', fontWeight: 600 }}>
-                                          {type.label}
-                                        </Typography>
-                                        <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
-                                          {type.description}
-                                        </Typography>
-                                      </Box>
-                                    </Box>
-                                  </CardContent>
-                                </Card>
-                              </Grid>
-                            ))}
-                          </Grid>
-                        </Grid>
-                        
-                        {formData.conditionType === 'threshold' && (
-                          <>
-                            <Grid item xs={12} md={6}>
-                              <FormControl fullWidth>
-                                <InputLabel sx={{ color: 'rgba(255,255,255,0.7)' }}>Opérateur de comparaison</InputLabel>
-                                <Select
-                                  value={formData.comparisonOperator}
-                                  onChange={handleInputChange('comparisonOperator')}
-                                  label="Opérateur de comparaison"
-                                  sx={{
-                                    bgcolor: 'rgba(255,255,255,0.05)',
-                                    color: 'white',
-                                    '& .MuiOutlinedInput-notchedOutline': {
-                                      borderColor: 'rgba(255,255,255,0.1)',
-                                    },
-                                  }}
-                                >
-                                  {comparisonOperators.map((operator) => (
-                                    <MenuItem key={operator.value} value={operator.value}>
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                        <Typography sx={{ fontFamily: 'monospace', fontSize: '1.2rem', color: '#4285f4' }}>
-                                          {operator.symbol}
-                                        </Typography>
-                                        {operator.label}
-                                      </Box>
-                                    </MenuItem>
-                                  ))}
-                                </Select>
-                              </FormControl>
-                            </Grid>
-                            
-                            <Grid item xs={12} md={6}>
-                              <TextField
-                                fullWidth
-                                label="Valeur du seuil"
-                                variant="outlined"
-                                type="number"
-                                value={formData.thresholdValue}
-                                onChange={handleInputChange('thresholdValue')}
-                                error={!!validationErrors.thresholdValue}
-                                helperText={validationErrors.thresholdValue}
-                                required
-                                sx={{
-                                  '& .MuiOutlinedInput-root': {
-                                    bgcolor: 'rgba(255,255,255,0.05)',
-                                    color: 'white',
-                                    '& fieldset': {
-                                      borderColor: validationErrors.thresholdValue ? '#f44336' : 'rgba(255,255,255,0.1)',
-                                    },
-                                  },
-                                  '& .MuiInputLabel-root': {
-                                    color: 'rgba(255,255,255,0.7)',
-                                  },
-                                }}
-                              />
-                            </Grid>
-                          </>
-                        )}
-                        
-                        {/* Aperçu de la condition */}
-                        <Grid item xs={12}>
-                          <Card sx={{ 
-                            bgcolor: 'rgba(0,0,0,0.3)', 
-                            border: '1px solid rgba(66,133,244,0.3)',
-                            borderLeft: '4px solid #4285f4',
-                          }}>
-                            <CardContent>
-                              <Typography variant="subtitle2" sx={{ color: '#4285f4', mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <CheckCircleIcon fontSize="small" />
-                                Aperçu de la règle
+          <Fade in={!isAnimating} timeout={400}>
+            <Box>
+              <Stack spacing={4}>
+                <Box>
+                  <Typography variant="h6" sx={{ color: 'white', mb: 1, fontWeight: 600 }}>
+                    Conditions de déclenchement
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', mb: 3 }}>
+                    Définissez quand cette règle doit être déclenchée
+                  </Typography>
+                  
+                  {/* Type de condition */}
+                  <Grid container spacing={2} sx={{ mb: 4 }}>
+                    {conditionTypes.map((type) => (
+                      <Grid item xs={12} sm={6} key={type.value}>
+                        <Card
+                          onClick={() => setFormData({ ...formData, conditionType: type.value })}
+                          sx={{
+                            bgcolor: formData.conditionType === type.value 
+                              ? 'rgba(66,133,244,0.15)' 
+                              : 'rgba(255,255,255,0.04)',
+                            border: formData.conditionType === type.value 
+                              ? '2px solid #4285f4' 
+                              : '1px solid rgba(255,255,255,0.1)',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            height: '100%',
+                            '&:hover': {
+                              bgcolor: 'rgba(66,133,244,0.1)',
+                              transform: 'translateY(-2px)',
+                            },
+                          }}
+                        >
+                          <CardContent sx={{ p: 3 }}>
+                            <Box sx={{ display: 'flex', gap: 2, mb: 1.5 }}>
+                              <Box sx={{ color: '#4285f4', display: 'flex', alignItems: 'center' }}>
+                                {type.icon}
+                              </Box>
+                              <Typography variant="body1" sx={{ color: 'white', fontWeight: 600 }}>
+                                {type.label}
                               </Typography>
-                              <Typography sx={{ 
-                                color: 'rgba(255,255,255,0.9)', 
-                                fontFamily: 'monospace', 
-                                fontSize: '0.95rem',
-                                lineHeight: 1.8,
-                              }}>
-                                <span style={{ color: '#ff9800' }}>SI</span>{' '}
-                                <span style={{ color: '#4caf50' }}>
-                                  {modules.find(m => m.value === formData.module)?.label || '[MODULE]'}
-                                </span>
-                                .
-                                <span style={{ color: '#2196f3' }}>
-                                  {conditionTypes.find(c => c.value === formData.conditionType)?.label || '[CONDITION]'}
-                                </span>
-                                {' '}
-                                <span style={{ color: '#9c27b0' }}>
-                                  {comparisonOperators.find(o => o.value === formData.comparisonOperator)?.symbol || ''}
-                                </span>
-                                {' '}
-                                <span style={{ color: '#ff5722' }}>
-                                  {formData.thresholdValue || '[VALEUR]'}
-                                </span>
-                                <br />
-                                <span style={{ color: '#ff9800' }}>ALORS</span>{' '}
-                                <span style={{ color: 'white' }}>déclencher l'alerte</span>
-                              </Typography>
-                            </CardContent>
-                          </Card>
-                        </Grid>
-                      </Grid>
-                    </CardContent>
-                  </Card>
-                </Grid>
-
-                {/* Section Notifications */}
-                <Grid item xs={12}>
-                  <Card sx={{ 
-                    bgcolor: 'rgba(76,175,80,0.05)', 
-                    border: '1px solid rgba(76,175,80,0.2)',
-                    borderRadius: 2,
-                  }}>
-                    <CardContent>
-                      <Typography variant="h6" sx={{ color: 'white', mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <NotificationsActiveIcon sx={{ color: '#4caf50' }} />
-                        Configuration des notifications
-                      </Typography>
-                      
-                      <Grid container spacing={3}>
-                        {/* Canaux de notification */}
-                        <Grid item xs={12}>
-                          <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 2 }}>
-                            Canaux de notification *
-                          </Typography>
-                          <Grid container spacing={2}>
-                            {notificationChannels.map((channel) => (
-                              <Grid item xs={6} sm={4} md={2} key={channel.value}>
-                                <Card
-                                  onClick={() => handleChannelToggle(channel.value)}
-                                  sx={{
-                                    bgcolor: formData.notificationChannels.includes(channel.value)
-                                      ? `${channel.color}20`
-                                      : 'rgba(255,255,255,0.03)',
-                                    border: formData.notificationChannels.includes(channel.value)
-                                      ? `2px solid ${channel.color}`
-                                      : '2px solid rgba(255,255,255,0.1)',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.3s ease',
-                                    '&:hover': {
-                                      bgcolor: formData.notificationChannels.includes(channel.value)
-                                        ? `${channel.color}30`
-                                        : 'rgba(255,255,255,0.05)',
-                                      transform: 'scale(1.05)',
-                                    },
-                                  }}
-                                >
-                                  <CardContent sx={{ textAlign: 'center', py: 2 }}>
-                                    <Box sx={{ color: channel.color, mb: 1 }}>
-                                      {channel.icon}
-                                    </Box>
-                                    <Typography variant="caption" sx={{ color: 'white', fontWeight: 500 }}>
-                                      {channel.label}
-                                    </Typography>
-                                  </CardContent>
-                                </Card>
-                              </Grid>
-                            ))}
-                          </Grid>
-                          {validationErrors.channels && (
-                            <Typography variant="caption" sx={{ color: '#f44336', mt: 1, display: 'block' }}>
-                              {validationErrors.channels}
+                            </Box>
+                            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                              {type.description}
                             </Typography>
-                          )}
-                        </Grid>
-                        
-                        {/* Destinataires */}
-                        <Grid item xs={12}>
-                          <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 2 }}>
-                            Destinataires *
-                          </Typography>
-                          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                            <TextField
-                              fullWidth
-                              variant="outlined"
-                              placeholder="email@example.com ou @username"
-                              value={customRecipient}
-                              onChange={(e) => setCustomRecipient(e.target.value)}
-                              onKeyPress={(e) => e.key === 'Enter' && handleAddRecipient()}
-                              error={!!validationErrors.recipients}
-                              helperText={validationErrors.recipients}
+                          </CardContent>
+                        </Card>
+                      </Grid>
+                    ))}
+                  </Grid>
+                  
+                  {/* Configuration du seuil */}
+                  {formData.conditionType === 'threshold' && (
+                    <Box sx={{ 
+                      p: 3, 
+                      bgcolor: 'rgba(255,255,255,0.04)', 
+                      borderRadius: 2,
+                      border: '1px solid rgba(255,255,255,0.1)',
+                    }}>
+                      <Typography variant="subtitle1" sx={{ color: 'white', mb: 3, fontWeight: 600 }}>
+                        Configuration du seuil
+                      </Typography>
+                      <Grid container spacing={3}>
+                        <Grid item xs={12} md={6}>
+                          <FormControl fullWidth>
+                            <InputLabel sx={{ color: 'rgba(255,255,255,0.7)' }}>
+                              Opérateur
+                            </InputLabel>
+                            <Select
+                              value={formData.comparisonOperator}
+                              onChange={handleInputChange('comparisonOperator')}
+                              label="Opérateur"
                               sx={{
-                                '& .MuiOutlinedInput-root': {
-                                  bgcolor: 'rgba(255,255,255,0.05)',
-                                  color: 'white',
-                                  '& fieldset': {
-                                    borderColor: validationErrors.recipients ? '#f44336' : 'rgba(255,255,255,0.1)',
-                                  },
-                                },
-                              }}
-                            />
-                            <Button
-                              variant="contained"
-                              onClick={handleAddRecipient}
-                              startIcon={<AddIcon />}
-                              sx={{
-                                bgcolor: '#4caf50',
+                                bgcolor: 'rgba(255,255,255,0.05)',
                                 color: 'white',
-                                minWidth: '120px',
-                                '&:hover': {
-                                  bgcolor: '#45a049',
+                                '& .MuiOutlinedInput-notchedOutline': {
+                                  borderColor: 'rgba(255,255,255,0.15)',
+                                },
+                                '&:hover .MuiOutlinedInput-notchedOutline': {
+                                  borderColor: 'rgba(255,255,255,0.25)',
+                                },
+                                '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                                  borderColor: '#4285f4',
                                 },
                               }}
                             >
-                              Ajouter
-                            </Button>
-                          </Box>
-                          
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, minHeight: 60, p: 2, bgcolor: 'rgba(0,0,0,0.2)', borderRadius: 1 }}>
-                            {formData.recipients.length === 0 ? (
-                              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.4)' }}>
-                                Aucun destinataire ajouté
-                              </Typography>
-                            ) : (
-                              formData.recipients.map((recipient) => (
-                                <Chip
-                                  key={recipient}
-                                  label={recipient}
-                                  onDelete={() => handleRemoveRecipient(recipient)}
-                                  deleteIcon={<DeleteIcon />}
-                                  sx={{
-                                    color: 'white',
-                                    bgcolor: 'rgba(76,175,80,0.3)',
-                                    '& .MuiChip-deleteIcon': {
-                                      color: 'rgba(255,255,255,0.7)',
-                                      '&:hover': {
-                                        color: '#f44336',
-                                      },
-                                    },
-                                  }}
-                                />
-                              ))
-                            )}
-                          </Box>
+                              {comparisonOperators.map((operator) => (
+                                <MenuItem key={operator.value} value={operator.value}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                    <Typography sx={{ 
+                                      fontFamily: 'monospace', 
+                                      fontSize: '1.1rem', 
+                                      color: '#4285f4',
+                                      fontWeight: 700,
+                                    }}>
+                                      {operator.symbol}
+                                    </Typography>
+                                    <Typography>{operator.label}</Typography>
+                                  </Box>
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        </Grid>
+                        
+                        <Grid item xs={12} md={6}>
+                          <TextField
+                            fullWidth
+                            label="Valeur du seuil"
+                            variant="outlined"
+                            type="number"
+                            placeholder="Ex: 100"
+                            value={formData.thresholdValue}
+                            onChange={handleInputChange('thresholdValue')}
+                            error={!!validationErrors.thresholdValue}
+                            helperText={validationErrors.thresholdValue}
+                            required
+                            sx={{
+                              '& .MuiOutlinedInput-root': {
+                                bgcolor: 'rgba(255,255,255,0.05)',
+                                color: 'white',
+                                '& fieldset': {
+                                  borderColor: validationErrors.thresholdValue 
+                                    ? '#f44336' 
+                                    : 'rgba(255,255,255,0.15)',
+                                },
+                                '&:hover fieldset': {
+                                  borderColor: 'rgba(255,255,255,0.25)',
+                                },
+                                '&.Mui-focused fieldset': {
+                                  borderColor: '#4285f4',
+                                },
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: 'rgba(255,255,255,0.7)',
+                              },
+                              '& .MuiFormHelperText-root': {
+                                color: '#f44336',
+                              },
+                            }}
+                          />
                         </Grid>
                       </Grid>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </Grid>
+                    </Box>
+                  )}
+
+                  {/* Configuration pour absence de données */}
+                  {formData.conditionType === 'absence' && (
+                    <Box sx={{ 
+                      p: 3, 
+                      bgcolor: 'rgba(255,255,255,0.04)', 
+                      borderRadius: 2,
+                      border: '1px solid rgba(255,255,255,0.1)',
+                    }}>
+                      <Typography variant="subtitle1" sx={{ color: 'white', mb: 3, fontWeight: 600 }}>
+                        Délai avant alerte
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        label="Durée sans données (minutes)"
+                        variant="outlined"
+                        type="number"
+                        placeholder="Ex: 30"
+                        value={formData.thresholdValue}
+                        onChange={handleInputChange('thresholdValue')}
+                        error={!!validationErrors.thresholdValue}
+                        helperText={validationErrors.thresholdValue}
+                        required
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            bgcolor: 'rgba(255,255,255,0.05)',
+                            color: 'white',
+                          },
+                        }}
+                      />
+                    </Box>
+                  )}
+
+                  {/* Configuration pour anomalie */}
+                  {formData.conditionType === 'anomaly' && (
+                    <Box sx={{ 
+                      p: 3, 
+                      bgcolor: 'rgba(255,255,255,0.04)', 
+                      borderRadius: 2,
+                      border: '1px solid rgba(255,255,255,0.1)',
+                    }}>
+                      <Typography variant="subtitle1" sx={{ color: 'white', mb: 3, fontWeight: 600 }}>
+                        Sensibilité de détection
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        label="Déviation standard (écarts-types)"
+                        variant="outlined"
+                        type="number"
+                        step="0.1"
+                        placeholder="Ex: 2.5"
+                        value={formData.thresholdValue}
+                        onChange={handleInputChange('thresholdValue')}
+                        error={!!validationErrors.thresholdValue}
+                        helperText={validationErrors.thresholdValue || "Plus élevé = moins sensible"}
+                        required
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            bgcolor: 'rgba(255,255,255,0.05)',
+                            color: 'white',
+                          },
+                        }}
+                      />
+                    </Box>
+                  )}
+
+                  {/* Configuration pour tendance */}
+                  {formData.conditionType === 'trend' && (
+                    <Box sx={{ 
+                      p: 3, 
+                      bgcolor: 'rgba(255,255,255,0.04)', 
+                      borderRadius: 2,
+                      border: '1px solid rgba(255,255,255,0.1)',
+                    }}>
+                      <Typography variant="subtitle1" sx={{ color: 'white', mb: 3, fontWeight: 600 }}>
+                        Pourcentage d'augmentation
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        label="% d'augmentation"
+                        variant="outlined"
+                        type="number"
+                        placeholder="Ex: 20"
+                        value={formData.thresholdValue}
+                        onChange={handleInputChange('thresholdValue')}
+                        error={!!validationErrors.thresholdValue}
+                        helperText={validationErrors.thresholdValue}
+                        required
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            bgcolor: 'rgba(255,255,255,0.05)',
+                            color: 'white',
+                          },
+                        }}
+                      />
+                    </Box>
+                  )}
+                </Box>
+              </Stack>
             </Box>
           </Fade>
         );
         
       case 2:
         return (
-          <Fade in={!isAnimating} timeout={500}>
-            <Box sx={{ mt: 2 }}>
-              <Grid container spacing={4}>
-                {/* Section Planification */}
-                <Grid item xs={12}>
-                  <Card sx={{ 
-                    bgcolor: 'rgba(255,152,0,0.05)', 
-                    border: '1px solid rgba(255,152,0,0.2)',
-                    borderRadius: 2,
-                  }}>
-                    <CardContent>
-                      <Typography variant="h6" sx={{ color: 'white', mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <ScheduleIcon sx={{ color: '#ff9800' }} />
-                        Planification et fréquence
-                      </Typography>
-                      
-                      <Grid container spacing={3}>
-                        <Grid item xs={12}>
-                          <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 2 }}>
-                            Fréquence d'exécution
-                          </Typography>
-                          <Grid container spacing={2}>
-                            {scheduleOptions.map((schedule) => (
-                              <Grid item xs={12} sm={6} md={4} key={schedule.value}>
-                                <Card
-                                  onClick={() => setFormData({ ...formData, schedule: schedule.value })}
-                                  sx={{
-                                    bgcolor: formData.schedule === schedule.value 
-                                      ? 'rgba(255,152,0,0.2)' 
-                                      : 'rgba(255,255,255,0.03)',
-                                    border: formData.schedule === schedule.value 
-                                      ? '2px solid #ff9800' 
-                                      : '2px solid rgba(255,255,255,0.1)',
-                                    cursor: 'pointer',
-                                    transition: 'all 0.3s ease',
-                                    '&:hover': {
-                                      bgcolor: 'rgba(255,152,0,0.1)',
-                                      transform: 'translateY(-2px)',
-                                    },
-                                  }}
-                                >
-                                  <CardContent>
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
-                                      <Box sx={{ color: '#ff9800' }}>
-                                        {schedule.icon}
-                                      </Box>
-                                      <Typography variant="body1" sx={{ color: 'white', fontWeight: 600 }}>
-                                        {schedule.label}
-                                      </Typography>
-                                    </Box>
-                                    <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)' }}>
-                                      {schedule.description}
-                                    </Typography>
-                                  </CardContent>
-                                </Card>
-                              </Grid>
-                            ))}
-                          </Grid>
-                        </Grid>
-                        
-                        {formData.schedule === 'custom' && (
-                          <Grid item xs={12}>
-                            <TextField
-                              fullWidth
-                              label="Expression CRON"
-                              variant="outlined"
-                              value={formData.customSchedule}
-                              onChange={handleInputChange('customSchedule')}
-                              placeholder="0 9 * * * (Chaque jour à 9h00)"
-                              helperText="Format: minute heure jour mois jour-semaine"
-                              sx={{
-                                '& .MuiOutlinedInput-root': {
-                                  bgcolor: 'rgba(255,255,255,0.05)',
-                                  color: 'white',
-                                  fontFamily: 'monospace',
-                                  '& fieldset': {
-                                    borderColor: 'rgba(255,255,255,0.1)',
-                                  },
-                                },
-                                '& .MuiInputLabel-root': {
-                                  color: 'rgba(255,255,255,0.7)',
-                                },
-                                '& .MuiFormHelperText-root': {
-                                  color: 'rgba(255,255,255,0.5)',
-                                },
-                              }}
-                            />
-                          </Grid>
-                        )}
-
-                        <Grid item xs={12}>
-                          <FormControlLabel
-                            control={
-                              <Switch
-                                checked={formData.isActive}
-                                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                                sx={{
-                                  '& .MuiSwitch-switchBase.Mui-checked': {
-                                    color: '#4caf50',
-                                  },
-                                  '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                                    bgcolor: '#4caf50',
-                                  },
-                                }}
-                              />
-                            }
-                            label={
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Typography sx={{ color: 'white', fontWeight: 500 }}>
-                                  Activer cette règle immédiatement
-                                </Typography>
-                                {formData.isActive && (
-                                  <Chip 
-                                    label="Active" 
-                                    size="small" 
-                                    sx={{ 
-                                      bgcolor: '#4caf50',
-                                      color: 'white',
-                                      fontWeight: 600,
-                                    }} 
-                                  />
-                                )}
-                              </Box>
-                            }
-                          />
-                        </Grid>
-                      </Grid>
-                    </CardContent>
-                  </Card>
-                </Grid>
-
-                {/* Récapitulatif complet */}
-                <Grid item xs={12}>
-                  <Card sx={{ 
-                    bgcolor: 'rgba(156,39,176,0.05)', 
-                    border: '1px solid rgba(156,39,176,0.2)',
-                    borderRadius: 2,
-                  }}>
-                    <CardContent>
-                      <Typography variant="h6" sx={{ color: 'white', mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <CheckCircleIcon sx={{ color: '#9c27b0' }} />
-                        Récapitulatif de la règle
-                      </Typography>
-                      
-                      <Grid container spacing={3}>
-                            
-                        <Grid item xs={12} md={6}>
-                        
-                          <Box sx={{ mb: 2 }}>
-                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-                              NOM DE LA RÈGLE
-                            </Typography>
-                            <Typography variant="h6" sx={{ color: 'white', mt: 0.5 }}>
-                              {formData.name || 'Non défini'}
-                            </Typography>
-                          </Box>
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                          <Box sx={{ mb: 2 }}>
-                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-                              MODULE
-                            </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                              <Typography variant="h6">
-                                {modules.find(m => m.value === formData.module)?.icon}
-                              </Typography>
-                              <Typography variant="h6" sx={{ color: 'white' }}>
-                                {modules.find(m => m.value === formData.module)?.label || 'Non défini'}
-                              </Typography>
+          <Fade in={!isAnimating} timeout={400}>
+            <Box>
+              <Stack spacing={4}>
+                {/* Canaux de notification */}
+                <Box>
+                  <Typography variant="h6" sx={{ color: 'white', mb: 1, fontWeight: 600 }}>
+                    Canaux de notification
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', mb: 3 }}>
+                    Choisissez comment vous souhaitez recevoir les alertes
+                  </Typography>
+                  <Grid container spacing={2}>
+                    {notificationChannels.map((channel) => (
+                      <Grid item xs={6} sm={4} md={2} key={channel.value}>
+                        <Card
+                          onClick={() => handleChannelToggle(channel.value)}
+                          sx={{
+                            bgcolor: formData.notificationChannels.includes(channel.value)
+                              ? `${channel.color}20`
+                              : 'rgba(255,255,255,0.04)',
+                            border: formData.notificationChannels.includes(channel.value)
+                              ? `2px solid ${channel.color}`
+                              : '1px solid rgba(255,255,255,0.1)',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            '&:hover': {
+                              bgcolor: formData.notificationChannels.includes(channel.value)
+                                ? `${channel.color}30`
+                                : 'rgba(255,255,255,0.08)',
+                              transform: 'translateY(-2px)',
+                            },
+                          }}
+                        >
+                          <CardContent sx={{ textAlign: 'center', py: 2.5 }}>
+                            <Box sx={{ 
+                              color: formData.notificationChannels.includes(channel.value)
+                                ? channel.color
+                                : 'rgba(255,255,255,0.5)',
+                              mb: 1,
+                              display: 'flex',
+                              justifyContent: 'center',
+                            }}>
+                              {React.cloneElement(channel.icon, { sx: { fontSize: 28 } })}
                             </Box>
-                          </Box>
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                          <Box sx={{ mb: 2 }}>
-                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-                              SÉVÉRITÉ
-                            </Typography>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                              {severityOptions.find(s => s.value === formData.severity)?.icon}
-                              <Typography variant="body1" sx={{ 
-                                color: severityOptions.find(s => s.value === formData.severity)?.color,
+                            <Typography 
+                              variant="caption" 
+                              sx={{ 
+                                color: 'white', 
                                 fontWeight: 600,
-                              }}>
-                                {severityOptions.find(s => s.value === formData.severity)?.label}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                          <Box sx={{ mb: 2 }}>
-                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-                              TYPE DE CONDITION
+                                fontSize: '0.8rem',
+                              }}
+                            >
+                              {channel.label}
                             </Typography>
-                            <Typography variant="body1" sx={{ color: 'white', mt: 0.5 }}>
-                              {conditionTypes.find(c => c.value === formData.conditionType)?.label || 'Non défini'}
-                            </Typography>
-                          </Box>
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                          <Box sx={{ mb: 2 }}>
-                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-                              CANAUX DE NOTIFICATION
-                            </Typography>
-                            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                              {formData.notificationChannels.map(channel => {
-                                const channelInfo = notificationChannels.find(c => c.value === channel);
-                                return (
-                                  <Chip
-                                    key={channel}
-                                    icon={channelInfo?.icon}
-                                    label={channelInfo?.label}
-                                    size="small"
-                                    sx={{
-                                      bgcolor: `${channelInfo?.color}30`,
-                                      color: 'white',
-                                      '& .MuiChip-icon': {
-                                        color: channelInfo?.color,
-                                      },
-                                    }}
-                                  />
-                                );
-                              })}
-                            </Box>
-                          </Box>
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                          <Box sx={{ mb: 2 }}>
-                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-                              DESTINATAIRES
-                            </Typography>
-                            <Typography variant="body1" sx={{ color: 'white', mt: 0.5 }}>
-                              {formData.recipients.length} destinataire(s)
-                            </Typography>
-                          </Box>
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                          <Box sx={{ mb: 2 }}>
-                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-                              FRÉQUENCE
-                            </Typography>
-                            <Typography variant="body1" sx={{ color: 'white', mt: 0.5 }}>
-                              {scheduleOptions.find(s => s.value === formData.schedule)?.label || 'Non défini'}
-                            </Typography>
-                          </Box>
-                        </Grid>
-                        
-                        <Grid item xs={12} md={6}>
-                          <Box sx={{ mb: 2 }}>
-                            <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-                              STATUT
-                            </Typography>
-                            <Box sx={{ mt: 0.5 }}>
-                              <Chip
-                                label={formData.isActive ? 'Active' : 'Inactive'}
-                                size="small"
-                                sx={{
-                                  bgcolor: formData.isActive ? '#4caf50' : 'rgba(255,255,255,0.1)',
-                                  color: 'white',
-                                  fontWeight: 600,
-                                }}
-                              />
-                            </Box>
-                          </Box>
-                        </Grid>
-
-                        {formData.description && (
-                          <Grid item xs={12}>
-                            <Divider sx={{ my: 1, bgcolor: 'rgba(255,255,255,0.1)' }} />
-                            <Box sx={{ mt: 2 }}>
-                              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-                                DESCRIPTION
-                              </Typography>
-                              <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.8)', mt: 0.5 }}>
-                                {formData.description}
-                              </Typography>
-                            </Box>
-                          </Grid>
-                        )}
-
-                        {formData.tags.length > 0 && (
-                          <Grid item xs={12}>
-                            <Box sx={{ mt: 1 }}>
-                              <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-                                TAGS
-                              </Typography>
-                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-                                {formData.tags.map(tag => (
-                                  <Chip
-                                    key={tag}
-                                    label={tag}
-                                    size="small"
-                                    sx={{
-                                      bgcolor: 'rgba(66,133,244,0.2)',
-                                      color: 'white',
-                                    }}
-                                  />
-                                ))}
-                              </Box>
-                            </Box>
-                          </Grid>
-                        )}
+                          </CardContent>
+                        </Card>
                       </Grid>
-                    </CardContent>
-                  </Card>
-                </Grid>
-              </Grid>
+                    ))}
+                  </Grid>
+                  {validationErrors.channels && (
+                    <Typography variant="caption" sx={{ color: '#f44336', mt: 1.5, display: 'block' }}>
+                      {validationErrors.channels}
+                    </Typography>
+                  )}
+                </Box>
+                
+                <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+                
+                {/* Destinataires */}
+                <Box>
+                  <Typography variant="h6" sx={{ color: 'white', mb: 1, fontWeight: 600 }}>
+                    Destinataires
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', mb: 3 }}>
+                    Ajoutez les personnes qui recevront les notifications
+                  </Typography>
+                  
+                  <Box sx={{ 
+                    display: 'flex', 
+                    gap: 1.5, 
+                    mb: 3,
+                    flexDirection: { xs: 'column', sm: 'row' },
+                  }}>
+                    <TextField
+                      fullWidth
+                      variant="outlined"
+                      placeholder="email@example.com ou @username"
+                      value={customRecipient}
+                      onChange={(e) => setCustomRecipient(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleAddRecipient()}
+                      error={!!validationErrors.recipients}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <EmailIcon sx={{ color: 'rgba(255,255,255,0.5)' }} />
+                          </InputAdornment>
+                        ),
+                      }}
+                      sx={{
+                        '& .MuiOutlinedInput-root': {
+                          bgcolor: 'rgba(255,255,255,0.05)',
+                          color: 'white',
+                          '& fieldset': {
+                            borderColor: validationErrors.recipients 
+                              ? '#f44336' 
+                              : 'rgba(255,255,255,0.15)',
+                          },
+                          '&:hover fieldset': {
+                            borderColor: 'rgba(255,255,255,0.25)',
+                          },
+                          '&.Mui-focused fieldset': {
+                            borderColor: '#4285f4',
+                          },
+                        },
+                      }}
+                    />
+                    <Button
+                      variant="contained"
+                      onClick={handleAddRecipient}
+                      startIcon={<AddIcon />}
+                      sx={{
+                        bgcolor: '#4285f4',
+                        color: 'white',
+                        minWidth: { xs: '100%', sm: '140px' },
+                        height: '56px',
+                        fontWeight: 600,
+                        '&:hover': {
+                          bgcolor: '#357abd',
+                        },
+                      }}
+                    >
+                      Ajouter
+                    </Button>
+                  </Box>
+                  
+                  {validationErrors.recipients && (
+                    <Typography variant="caption" sx={{ color: '#f44336', mb: 2, display: 'block' }}>
+                      {validationErrors.recipients}
+                    </Typography>
+                  )}
+                  
+                  <Box sx={{ 
+                    display: 'flex', 
+                    flexWrap: 'wrap', 
+                    gap: 1.5, 
+                    minHeight: 80, 
+                    p: 2.5, 
+                    bgcolor: 'rgba(0,0,0,0.2)', 
+                    borderRadius: 2,
+                    border: '1px dashed rgba(255,255,255,0.1)',
+                    alignItems: 'flex-start',
+                  }}>
+                    {formData.recipients.length === 0 ? (
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          color: 'rgba(255,255,255,0.4)',
+                          fontStyle: 'italic',
+                          width: '100%',
+                          textAlign: 'center',
+                          py: 2,
+                        }}
+                      >
+                        Aucun destinataire ajouté
+                      </Typography>
+                    ) : (
+                      formData.recipients.map((recipient) => (
+                        <Chip
+                          key={recipient}
+                          label={recipient}
+                          onDelete={() => handleRemoveRecipient(recipient)}
+                          deleteIcon={<CloseIcon />}
+                          sx={{
+                            color: 'white',
+                            bgcolor: 'rgba(66,133,244,0.3)',
+                            fontWeight: 500,
+                            height: 36,
+                            '& .MuiChip-deleteIcon': {
+                              color: 'rgba(255,255,255,0.7)',
+                              '&:hover': {
+                                color: '#f44336',
+                              },
+                            },
+                          }}
+                        />
+                      ))
+                    )}
+                  </Box>
+                </Box>
+
+                <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)' }} />
+
+                {/* Planification */}
+                <Box>
+                  <Typography variant="h6" sx={{ color: 'white', mb: 1, fontWeight: 600 }}>
+                    Fréquence de vérification
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', mb: 3 }}>
+                    À quelle fréquence vérifier cette condition
+                  </Typography>
+                  <Grid container spacing={2}>
+                    {scheduleOptions.map((schedule) => (
+                      <Grid item xs={12} sm={6} md={4} key={schedule.value}>
+                        <Card
+                          onClick={() => setFormData({ ...formData, schedule: schedule.value })}
+                          sx={{
+                            bgcolor: formData.schedule === schedule.value 
+                              ? 'rgba(66,133,244,0.15)' 
+                              : 'rgba(255,255,255,0.04)',
+                            border: formData.schedule === schedule.value 
+                              ? '2px solid #4285f4' 
+                              : '1px solid rgba(255,255,255,0.1)',
+                            cursor: 'pointer',
+                            transition: 'all 0.2s ease',
+                            height: '100%',
+                            '&:hover': {
+                              bgcolor: 'rgba(66,133,244,0.1)',
+                              transform: 'translateY(-2px)',
+                            },
+                          }}
+                        >
+                          <CardContent sx={{ p: 2.5 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                              <Box sx={{ color: '#4285f4', display: 'flex' }}>
+                                {schedule.icon}
+                              </Box>
+                              <Typography variant="body1" sx={{ color: 'white', fontWeight: 600 }}>
+                                {schedule.label}
+                              </Typography>
+                            </Box>
+                            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.85rem' }}>
+                              {schedule.description}
+                            </Typography>
+                          </CardContent>
+                        </Card>
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Box>
+              </Stack>
             </Box>
           </Fade>
         );
@@ -1192,88 +1034,87 @@ const NewAlert = () => {
   };
 
   return (
-    <Box sx={{ bgcolor: '#0a0e27', minHeight: '100vh', py: 3 }}>
+    <Box sx={{ bgcolor: '#0a0e27', minHeight: '100vh', py: 4 }}>
       <Container maxWidth="lg">
-        {/* Header avec gradient */}
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          mb: 4,
-          p: 3,
-          background: 'linear-gradient(135deg, rgba(66,133,244,0.1) 0%, rgba(156,39,176,0.1) 100%)',
-          borderRadius: 2,
-          border: '1px solid rgba(255,255,255,0.1)',
-        }}>
-          <IconButton
-            onClick={() => navigate('/regles-alertes')}
-            sx={{ 
-              color: 'white', 
-              mr: 2,
-              bgcolor: 'rgba(255,255,255,0.1)',
-              '&:hover': {
-                bgcolor: 'rgba(255,255,255,0.2)',
-              },
-            }}
-          >
-            <ArrowBackIcon />
-          </IconButton>
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="h4" sx={{ color: 'white', fontWeight: 'bold', mb: 1 }}>
-              Créer une nouvelle règle d'alerte
-            </Typography>
-            <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.6)' }}>
-              Configurez une règle de surveillance personnalisée pour votre système ERP
-            </Typography>
-          </Box>
-       
-        </Box>
-
-       
-
-        {/* Stepper amélioré */}
+        {/* Header */}
         <Paper sx={{ 
           p: 3, 
+          mb: 4,
+          bgcolor: 'rgba(255,255,255,0.04)',
+          borderRadius: 2,
+          border: '1px solid rgba(255,255,255,0.1)',
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5 }}>
+              <Box sx={{ 
+                bgcolor: 'linear-gradient(135deg, #4285f4 0%, #357abd 100%)',
+                background: 'linear-gradient(135deg, #4285f4 0%, #357abd 100%)',
+                borderRadius: 2,
+                p: 1.5,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(66, 133, 244, 0.3)',
+              }}>
+                <NotificationsIcon sx={{ color: 'white', fontSize: 32 }} />
+              </Box>
+              <Box>
+                <Typography variant="h4" sx={{ color: 'white', fontWeight: 700, mb: 0.5 }}>
+                  Nouvelle règle d'alerte
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)' }}>
+                  Configurez une règle pour recevoir des notifications automatiques
+                </Typography>
+              </Box>
+            </Box>
+            <Button
+              onClick={() => navigate('/regles-alertes')}
+              startIcon={<ArrowBackIcon />}
+              sx={{ 
+                color: 'rgba(255,255,255,0.7)',
+                '&:hover': {
+                  color: 'white',
+                  bgcolor: 'rgba(255,255,255,0.1)',
+                },
+              }}
+            >
+              Retour
+            </Button>
+          </Box>
+        </Paper>
+
+        {/* Stepper */}
+        <Paper sx={{ 
+          p: 4, 
           mb: 4, 
-          bgcolor: 'rgba(255,255,255,0.03)',
+          bgcolor: 'rgba(255,255,255,0.04)',
           border: '1px solid rgba(255,255,255,0.1)',
           borderRadius: 2,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
         }}>
           <Stepper activeStep={activeStep} alternativeLabel>
-            {steps.map((step, index) => (
-              <Step key={step.label}>
+            {steps.map((label, index) => (
+              <Step key={label}>
                 <StepLabel 
-                  icon={
-                    <Box sx={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      bgcolor: activeStep >= index ? '#4285f4' : 'rgba(255,255,255,0.1)',
-                      color: 'white',
-                      transition: 'all 0.3s ease',
-                    }}>
-                      {activeStep > index ? <CheckCircleIcon /> : step.icon}
-                    </Box>
-                  }
                   sx={{
                     '& .MuiStepLabel-label': {
-                      color: 'rgba(255,255,255,0.6)',
-                      fontWeight: 500,
+                      color: activeStep >= index ? 'white' : 'rgba(255,255,255,0.4)',
+                      fontWeight: activeStep === index ? 700 : 500,
+                      fontSize: '0.95rem',
+                      mt: 1,
                     },
-                    '& .MuiStepLabel-label.Mui-active': {
-                      color: 'white',
-                      fontWeight: 600,
-                    },
-                    '& .MuiStepLabel-label.Mui-completed': {
-                      color: '#4285f4',
-                      fontWeight: 600,
+                    '& .MuiStepIcon-root': {
+                      color: activeStep >= index ? '#4285f4' : 'rgba(255,255,255,0.2)',
+                      fontSize: '2rem',
+                      '&.Mui-active': {
+                        color: '#4285f4',
+                      },
+                      '&.Mui-completed': {
+                        color: '#34A853',
+                      },
                     },
                   }}
                 >
-                  {step.label}
+                  {label}
                 </StepLabel>
               </Step>
             ))}
@@ -1282,81 +1123,101 @@ const NewAlert = () => {
 
         {/* Formulaire */}
         <Paper sx={{ 
-          p: 4, 
+          p: 5, 
           mb: 4,
-          bgcolor: 'rgba(255,255,255,0.03)',
+          bgcolor: 'rgba(255,255,255,0.04)',
           border: '1px solid rgba(255,255,255,0.1)',
           borderRadius: 2,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
           minHeight: 500,
         }}>
           {renderStepContent(activeStep)}
         </Paper>
 
-        {/* Boutons de navigation améliorés */}
-        <Box sx={{ display: 'flex', justifyContent: 'end', alignItems: 'center' }}>
-         
+        {/* Navigation */}
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          gap: 2,
+        }}>
+          <Button
+            onClick={handleBack}
+            disabled={activeStep === 0}
+            startIcon={<ArrowBackIcon />}
+            sx={{
+              color: 'rgba(255,255,255,0.7)',
+              fontWeight: 600,
+              px: 3,
+              py: 1.5,
+              '&:hover': {
+                bgcolor: 'rgba(255,255,255,0.1)',
+                color: 'white',
+              },
+              '&:disabled': {
+                color: 'rgba(255,255,255,0.3)',
+              },
+            }}
+          >
+            Retour
+          </Button>
           
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)' }}>
-              Étape {activeStep + 1} sur {steps.length}
-            </Typography>
-            
-            {activeStep === steps.length - 1 ? (
-              <Button
-                variant="contained"
-                onClick={handleSubmit}
-                startIcon={<SaveIcon />}
-                sx={{
-                  background: 'linear-gradient(135deg, #28a745 0%, #20c997 100%)',
-                  color: 'white',
-                  px: 4,
-                  py: 1.5,
-                  fontWeight: 600,
-                  boxShadow: '0 4px 12px rgba(40,167,69,0.4)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #218838 0%, #1aa179 100%)',
-                    boxShadow: '0 6px 16px rgba(40,167,69,0.6)',
-                  },
-                }}
-              >
-                Créer la règle
-              </Button>
-            ) : (
-              <Button
-                variant="contained"
-                onClick={handleNext}
-                endIcon={<ArrowBackIcon sx={{ transform: 'rotate(180deg)' }} />}
-                sx={{
-                  background: 'linear-gradient(135deg, #4285f4 0%, #4285f4 100%)',
-                  color: 'white',
-                  px: 4,
-                  py: 1.5,
-                  fontWeight: 600,
-                  boxShadow: '0 4px 12px rgba(66,133,244,0.4)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #357abd 0%, #4285f4 100%)',
-                    boxShadow: '0 6px 16px rgba(66,133,244,0.6)',
-                  },
-                }}
-              >
-                Suivant
-              </Button>
-            )}
-          </Box>
+          {activeStep === steps.length - 1 ? (
+            <Button
+              variant="contained"
+              onClick={handleSubmit}
+              startIcon={<SaveIcon />}
+              sx={{
+                bgcolor: '#4285f4',
+                color: 'white',
+                px: 5,
+                py: 1.5,
+                fontWeight: 700,
+                fontSize: '1rem',
+                boxShadow: '0 4px 12px rgba(66, 133, 244, 0.4)',
+                '&:hover': {
+                  bgcolor: '#357abd',
+                  boxShadow: '0 6px 16px rgba(66, 133, 244, 0.5)',
+                },
+              }}
+            >
+              Créer la règle
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              onClick={handleNext}
+              endIcon={<ChevronRightIcon />}
+              sx={{
+                bgcolor: '#4285f4',
+                color: 'white',
+                px: 5,
+                py: 1.5,
+                fontWeight: 700,
+                fontSize: '1rem',
+                boxShadow: '0 4px 12px rgba(66, 133, 244, 0.4)',
+                '&:hover': {
+                  bgcolor: '#357abd',
+                  boxShadow: '0 6px 16px rgba(66, 133, 244, 0.5)',
+                },
+              }}
+            >
+              Suivant
+            </Button>
+          )}
         </Box>
       </Container>
 
-      {/* Snackbar pour les notifications */}
+      {/* Snackbar */}
       <Snackbar
         open={openSnackbar}
-        autoHideDuration={6000}
+        autoHideDuration={4000}
         onClose={handleCloseSnackbar}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
       >
         <Alert 
           onClose={handleCloseSnackbar} 
           severity={snackbarSeverity}
+          variant="filled"
           sx={{ 
             width: '100%',
             boxShadow: '0 4px 12px rgba(0,0,0,0.3)',

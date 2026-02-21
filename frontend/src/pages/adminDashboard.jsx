@@ -89,6 +89,8 @@ const AdminDashboard = () => {
       resolvedAlerts: 0,
       configuredRules: 0,
       systemStatus: "active",
+      totalUsers: 0,
+      activeUsers: 0, 
     },
     users: [],
     alerts: [],
@@ -137,59 +139,130 @@ const AdminDashboard = () => {
         return <NotificationsIcon sx={{ fontSize: 20 }} />;
     }
   };
+useEffect(() => {
+  const fetchData = async () => {
+    try {
+      setLoading(true);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setLoading(true);
+      // 1. Récupérer le token d'authentification
+      const token = localStorage.getItem("access_token");
+      console.log("Token:", token);
 
-        // 1. Récupérer le token d'authentification
-        const token = localStorage.getItem("access_token");
+      // 2. Appeler l'API pour avoir la liste des utilisateurs
+      const usersResponse = await fetch("http://localhost:8000/api/admin/users/", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
-        // 2. Appeler votre API pour avoir la liste des utilisateurs
-        const response = await fetch("http://localhost:8000/api/admin/users/", {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        });
+      // 3. Appeler l'API pour avoir la liste des alertes
+      const alertsResponse = await fetch("http://localhost:8000/api/alerts/", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
 
-        if (response.ok) {
-          const usersData = await response.json();
+      console.log("Status usersResponse:", usersResponse.status);
+      console.log("Status alertsResponse:", alertsResponse.status);
 
-          // 3. Compter combien d'utilisateurs il y a
-          const totalUsers = usersData.length;
-          const activeUsers = usersData.filter((user) => user.is_active).length;
+      if (usersResponse.ok && alertsResponse.ok) {
+        const usersData = await usersResponse.json();
+        const alertsData = await alertsResponse.json();
 
-          // 4. Mettre à jour les données
-          setDashboardData({
-            stats: {
-              activeAlerts: 0,
-              sentNotifications: 0,
-              resolvedAlerts: 0,
-              configuredRules: 0,
-              totalUsers: totalUsers, // Ajouté ici
-              activeUsers: activeUsers, // Ajouté ici
-            },
-            users: usersData,
-            alerts: [],
-            notifications: [],
-            alertTrend: [],
-            moduleDistribution: [],
-            recentActivity: [],
-          });
+        // Afficher les données brutes pour debug
+        console.log("Données utilisateurs brutes:", usersData);
+        console.log("Données alertes brutes:", alertsData);
+        console.log("Type de alertsData:", typeof alertsData);
+        console.log("Est-ce un tableau?", Array.isArray(alertsData));
+
+        // Gérer les différents formats de réponse API pour les utilisateurs
+        const users = Array.isArray(usersData) ? usersData : (usersData.results || []);
+        
+        // Gérer les différents formats de réponse API pour les alertes
+        let allAlerts = [];
+        if (Array.isArray(alertsData)) {
+          allAlerts = alertsData;
+        } else if (alertsData.results && Array.isArray(alertsData.results)) {
+          allAlerts = alertsData.results;
+        } else if (alertsData.data && Array.isArray(alertsData.data)) {
+          allAlerts = alertsData.data;
+        } else {
+          console.log("Format d'alertes non reconnu:", alertsData);
+          allAlerts = [];
         }
-      } catch (err) {
-        console.log("Erreur:", err);
-        // Garder les données mock si erreur
-        setDashboardData(mockData);
-      } finally {
-        setLoading(false);
-      }
-    };
 
-    fetchUsers();
-  }, []);
+        console.log("Utilisateurs traités:", users);
+        console.log("Alertes traitées:", allAlerts);
+        
+        // Afficher la première alerte pour voir sa structure
+        if (allAlerts.length > 0) {
+          console.log("Structure d'une alerte:", allAlerts[0]);
+          console.log("Propriétés disponibles:", Object.keys(allAlerts[0]));
+        }
+
+        // Compter les utilisateurs
+        const totalUsers = users.length;
+        const activeUsers = users.filter((user) => user.is_active === true).length;
+        console.log("Total users:", totalUsers, "Actifs:", activeUsers);
+
+        // Compter les alertes actives - Vérifions quelle propriété utiliser
+        // Essayons différentes possibilités
+        const activeAlerts = allAlerts.filter((alert) => {
+          // Afficher la première alerte pour voir ses propriétés
+          console.log("Vérification alerte:", alert);
+          
+          // Essayer différentes propriétés possibles
+          return alert.is_active === true || 
+                 alert.status === "active" || 
+                 alert.status === "ACTIVE" ||
+                 alert.active === true ||
+                 (alert.state && alert.state === "active");
+        }).length;
+
+        console.log("Nombre d'alertes actives trouvées:", activeAlerts);
+        console.log("Nombre total d'alertes:", allAlerts.length);
+
+        // 4. Mettre à jour les données
+        setDashboardData({
+          stats: {
+            activeAlerts: activeAlerts,
+            sentNotifications: 0,
+            resolvedAlerts: 0,
+            configuredRules: allAlerts.length,
+            totalUsers: totalUsers,
+            activeUsers: activeUsers,
+          },
+          users: users,
+          alerts: allAlerts,
+          notifications: [],
+          alertTrend: [],
+          moduleDistribution: [],
+          recentActivity: [],
+        });
+        
+        console.log("DashboardData mis à jour avec", activeAlerts, "alertes actives");
+      } else {
+        console.log("Erreur de réponse:", usersResponse.status, alertsResponse.status);
+        if (!usersResponse.ok) {
+          const errorText = await usersResponse.text();
+          console.log("Erreur users:", errorText);
+        }
+        if (!alertsResponse.ok) {
+          const errorText = await alertsResponse.text();
+          console.log("Erreur alerts:", errorText);
+        }
+      }
+    } catch (err) {
+      console.log("Erreur catch:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchData();
+}, []);
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);

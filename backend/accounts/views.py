@@ -67,12 +67,12 @@ def send_account_approved_email(user):
     """
     Envoie un email lorsque le compte est approuvé par l'admin
     """
-    subject = ' Votre compte SmartAlerte a été activé'
+    subject = ' Votre compte SmartNotify a été activé'
     
     message = f"""
 Bonjour {user.username},
 
-Bonne nouvelle ! Votre compte SmartAlerte a été approuvé par notre équipe administrative.
+Bonne nouvelle ! Votre compte SmartNotify a été approuvé par notre équipe administrative.
 
 Vous pouvez maintenant vous connecter et commencer à créer vos alertes personnalisées.
 
@@ -82,7 +82,7 @@ Vous pouvez maintenant vous connecter et commencer à créer vos alertes personn
 Nous sommes ravis de vous accueillir parmi nos utilisateurs !
 
 Cordialement,
-L'équipe SmartAlerte
+L'équipe SmartNotify
 """
     
     try:
@@ -102,6 +102,80 @@ L'équipe SmartAlerte
         import traceback
         traceback.print_exc()
         return False
+
+def send_account_rejected_email(user):
+    """
+    Envoie un email lorsque le compte est rejeté par l'admin
+    """
+    print(f"\n DÉBUT ENVOI EMAIL DE REJET")
+    print(f" Utilisateur: {user.username} ({user.email})")
+    
+    subject = '📧 Statut de votre compte SmartNotify - Demande non retenue'
+    
+    # Message en texte brut (toujours nécessaire)
+    plain_message = f"""
+Bonjour {user.username},
+
+Nous avons bien reçu votre demande d'inscription sur SmartNotify.
+
+Malheureusement, après vérification par notre équipe administrative, nous ne pouvons pas valider votre compte à ce stade.
+
+ Raisons possibles :
+- Informations incomplètes ou incorrectes
+- Email non valide
+- Vous ne répondez pas aux critères requis
+
+ Que faire maintenant ?
+Vous pouvez :
+1. Vérifier vos informations et réessayer de vous inscrire
+2. Contacter notre support pour plus d'informations : support@smartnotify.com
+
+Nous restons à votre disposition pour toute question.
+
+Cordialement,
+L'équipe SmartNotify
+"""
+    
+    try:
+        # Vérifier la configuration email
+        print(f" Configuration email:")
+        print(f"   - EMAIL_HOST: {getattr(settings, 'EMAIL_HOST', 'Non défini')}")
+        print(f"   - EMAIL_PORT: {getattr(settings, 'EMAIL_PORT', 'Non défini')}")
+        print(f"   - EMAIL_USE_TLS: {getattr(settings, 'EMAIL_USE_TLS', 'Non défini')}")
+        print(f"   - DEFAULT_FROM_EMAIL: {getattr(settings, 'DEFAULT_FROM_EMAIL', 'Non défini')}")
+        
+        # Vérifier que l'email de l'utilisateur est valide
+        if not user.email or '@' not in user.email:
+            print(f" Email utilisateur invalide: {user.email}")
+            return False
+        
+        print(f" Tentative d'envoi d'email à {user.email}...")
+        
+        # Envoyer l'email
+        result = send_mail(
+            subject=subject,
+            message=plain_message,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+            fail_silently=False,  # Mettre à False pour voir les erreurs
+        )
+        
+        print(f" Résultat send_mail: {result}")
+        
+        if result == 1:  # send_mail retourne le nombre d'emails envoyés avec succès
+            print(f" Email de rejet envoyé avec SUCCÈS à {user.email}")
+            return True
+        else:
+            print(f" Échec de l'envoi - résultat: {result}")
+            return False
+        
+    except Exception as e:
+        print(f" ERREUR lors de l'envoi de l'email de rejet: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 # ==================== AUTHENTIFICATION ====================
 
 @api_view(['POST'])
@@ -499,11 +573,11 @@ def resend_welcome_email_view(request):
 @permission_classes([IsAuthenticated, IsAdminUser])
 def approve_user_view(request, pk):
     """Approuver un utilisateur (activer son compte)"""
-    print(f"\n🔥 APPROBATION UTILISATEUR ID={pk}")
+    print(f"\n APPROBATION UTILISATEUR ID={pk}")
     try:
         # Récupérer l'utilisateur
         user = User.objects.get(pk=pk)
-        print(f"✅ Utilisateur trouvé: {user.username} ({user.email})")
+        print(f" Utilisateur trouvé: {user.username} ({user.email})")
         
         # Vérifier que l'utilisateur n'est pas un admin
         if user.is_superuser or user.is_staff or user.is_primary_admin:
@@ -512,7 +586,7 @@ def approve_user_view(request, pk):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         # Activer l'utilisateur
-        print(f"🔄 Activation du compte...")
+        print(f" Activation du compte...")
         user.is_active = True
         user.save()
         print(f" Compte activé (is_active={user.is_active})")
@@ -540,31 +614,80 @@ def approve_user_view(request, pk):
             'error': f'Erreur lors de l\'approbation: {str(e)}'
         }, status=status.HTTP_400_BAD_REQUEST)
 
+
 @api_view(['PATCH', 'POST'])
 @permission_classes([IsAuthenticated, IsAdminUser])
 def reject_user_view(request, pk):
-    """Rejeter/Supprimer un utilisateur"""
+    """Rejeter un utilisateur et lui envoyer un email de notification"""
+    print(f"\n{'='*50}")
+    print(f" REJET UTILISATEUR - Début du processus")
+    print(f" ID Utilisateur: {pk}")
+    print(f" Admin: {request.user.username} ({request.user.email})")
+    print(f"{'='*50}")
+    
     try:
+        # Récupérer l'utilisateur
         user = User.objects.get(pk=pk)
+        print(f" Utilisateur trouvé:")
+        print(f"   - Username: {user.username}")
+        print(f"   - Email: {user.email}")
+        print(f"   - Actif: {user.is_active}")
+        print(f"   - Admin: {user.is_superuser or user.is_staff or user.is_primary_admin}")
         
         # Vérifier que l'utilisateur n'est pas un admin
         if user.is_superuser or user.is_staff or user.is_primary_admin:
+            print(f" Tentative de rejet d'un administrateur - Bloqué")
             return Response({
-                'error': 'Impossible de supprimer un administrateur'
+                'error': 'Impossible de rejeter un administrateur'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        username = user.username
-        user.delete()
+        # Envoyer l'email de rejet avant la suppression
+        print(f"\n ÉTAPE 1: Envoi de l'email de rejet...")
+        email_sent = send_account_rejected_email(user)
         
-        return Response({
-            'message': f'Utilisateur {username} rejeté avec succès'
-        }, status=status.HTTP_200_OK)
+        print(f"\n ÉTAPE 2: Résultat de l'envoi d'email: {' SUCCÈS' if email_sent else '❌ ÉCHEC'}")
+        
+        # Stocker les informations pour la réponse
+        username = user.username
+        email = user.email
+        
+        # Attendre un peu pour s'assurer que l'email est parti (optionnel)
+        import time
+        time.sleep(1)
+        
+        # Supprimer l'utilisateur
+        print(f"\n ÉTAPE 3: Suppression de l'utilisateur {username}...")
+        user.delete()
+        print(f" Utilisateur supprimé avec succès")
+        
+        # Réponse
+        response_data = {
+            'message': f'Utilisateur {username} rejeté avec succès',
+            'email_sent': email_sent,
+            'email': email
+        }
+        
+        if not email_sent:
+            response_data['warning'] = "L'utilisateur a été supprimé mais l'email de notification n'a pas pu être envoyé."
+            response_data['debug_info'] = "Vérifiez la configuration email dans les logs du serveur"
+        
+        print(f"\n{'='*50}")
+        print(f" PROCESSUS TERMINÉ - Réponse:")
+        print(f"   - Email envoyé: {email_sent}")
+        print(f"   - Destinataire: {email}")
+        print(f"{'='*50}")
+        
+        return Response(response_data, status=status.HTTP_200_OK)
         
     except User.DoesNotExist:
+        print(f" ERREUR: Utilisateur {pk} non trouvé")
         return Response({
             'error': 'Utilisateur non trouvé'
         }, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
+        print(f" ERREUR lors du rejet: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return Response({
             'error': f'Erreur lors du rejet: {str(e)}'
         }, status=status.HTTP_400_BAD_REQUEST)

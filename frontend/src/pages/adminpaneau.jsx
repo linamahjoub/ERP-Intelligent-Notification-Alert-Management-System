@@ -38,6 +38,9 @@ import {
   ListItemText,
   useTheme,
   useMediaQuery,
+  Select,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
@@ -72,6 +75,22 @@ import notif from '../assets/notif.png';
 
 const drawerWidth = 280;
 const collapsedDrawerWidth = 80;
+
+// Options de rôles disponibles
+const roleOptions = [
+  { value: 'responsable_stock', label: 'Responsable Stock' },
+  { value: 'commercial', label: 'Commercial' },
+  { value: 'achats', label: 'Achats' },
+  { value: 'employe', label: 'Employé' },
+  { value: 'client', label: 'Client' },
+  { value: 'fournisseur', label: 'Fournisseur' },
+];
+
+// Fonction pour obtenir le libellé du rôle
+const getRoleLabel = (roleValue) => {
+  const role = roleOptions.find(opt => opt.value === roleValue);
+  return role ? role.label : (roleValue || 'Non renseigné');
+};
 
 const AdminPaneau = () => {
   const { user, logout } = useAuth();
@@ -111,6 +130,7 @@ const AdminPaneau = () => {
     password2: '',
     is_superuser: false,
     is_staff: false,
+    role: 'employe',
   });
 
   // État pour l'édition d'utilisateur
@@ -123,6 +143,7 @@ const AdminPaneau = () => {
     is_active: true,
     is_staff: false,
     is_superuser: false,
+    role: 'employe',
   });
   
   // Snackbar (notifications)
@@ -255,6 +276,7 @@ const AdminPaneau = () => {
         last_name: newUser.last_name,
         is_superuser: newUser.is_superuser,
         is_staff: newUser.is_staff,
+        role: newUser.role,
       };
       
       const endpoint = newUser.is_staff ? 'http://localhost:8000/api/auth/create-admin/' : 'http://localhost:8000/api/auth/register/';
@@ -284,6 +306,7 @@ const AdminPaneau = () => {
           password2: '',
           is_superuser: false,
           is_staff: false,
+          role: 'employe',
         });
         
         setOpenAddDialog(false);
@@ -398,6 +421,7 @@ const AdminPaneau = () => {
           is_active: editUser.is_active,
           is_staff: editUser.is_staff,
           is_superuser: editUser.is_superuser,
+          role: editUser.role,
         }),
       });
 
@@ -417,6 +441,7 @@ const AdminPaneau = () => {
           is_active: true,
           is_staff: false,
           is_superuser: false,
+          role: 'employe',
         });
         fetchAdminData();
       } else {
@@ -512,6 +537,7 @@ const AdminPaneau = () => {
       is_active: user.is_active,
       is_staff: user.is_staff,
       is_superuser: user.is_superuser,
+      role: user.role || 'employe',
     });
     setOpenEditDialog(true);
   };
@@ -1107,7 +1133,6 @@ const AdminPaneau = () => {
                     <Chip
                       label={`Filtre actif: ${
                         filterType === 'active' ? 'Utilisateurs Actifs' :
-                        filterType === 'inactive' ? 'Comptes Inactifs' :
                         filterType === 'today' ? 'Inscriptions du jour' :
                         'Administrateurs'
                       }`}
@@ -1227,61 +1252,7 @@ const AdminPaneau = () => {
 
             
 
-              <Grid item xs={12} sm={6} md={2.4}>
-                <Card
-                  onClick={() => handleStatClick('inactive')}
-                  sx={{
-                    bgcolor: filterType === 'inactive' ? 'rgba(239, 68, 68, 0.2)' : 'rgba(59, 130, 246, 0.1)',
-                    border: filterType === 'inactive' ? '2px solid #ef4444' : '1px solid rgba(59, 130, 246, 0.2)',
-                    borderRadius: 3,
-                    transition: 'all 0.3s ease',
-                    cursor: 'pointer',
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: '0 8px 24px rgba(239, 68, 68, 0.2)',
-                      bgcolor: 'rgba(239, 68, 68, 0.1)',
-                    },
-                  }}
-                >
-                  <CardContent sx={{ p: 3 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          color: '#94a3b8',
-                          fontSize: '0.85rem',
-                        }}
-                      >
-                        Comptes Inactifs
-                      </Typography>
-                      <Box
-                        sx={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 2,
-                          bgcolor: 'rgba(239, 68, 68, 0.15)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <BlockIcon sx={{ color: '#ef4444', fontSize: 20 }} />
-                      </Box>
-                    </Box>
-                    <Typography
-                      variant="h3"
-                      sx={{
-                        color: 'white',
-                        fontWeight: 700,
-                        mb: 1,
-                      }}
-                    >
-                      {stats.inactive_users}
-                    </Typography>
-                   
-                  </CardContent>
-                </Card>
-              </Grid>
+
   <Grid item xs={12} sm={6} md={2.4}>
                 <Card
                   onClick={() => handleStatClick('active')}
@@ -1566,8 +1537,12 @@ const AdminPaneau = () => {
                             {userItem.is_staff && !userItem.is_superuser && (
                               <Chip label="Admin" size="small" sx={{ bgcolor: '#3b82f6', color: 'white', mr: 0.5, fontWeight: 600 }} />
                             )}
-                            {!userItem.is_staff && (
-                              <Chip label="Utilisateur" size="small" sx={{ bgcolor: 'rgba(148, 163, 184, 0.2)', color: '#94a3b8', fontWeight: 600 }} />
+                            {!userItem.is_staff && !userItem.is_superuser && (
+                              <Chip 
+                                label={getRoleLabel(userItem.role)} 
+                                size="small" 
+                                sx={{ bgcolor: 'rgba(148, 163, 184, 0.2)', color: '#94a3b8', fontWeight: 600 }} 
+                              />
                             )}
                           </Box>
                         </TableCell>
@@ -1815,6 +1790,37 @@ const AdminPaneau = () => {
                     },
                   }}
                 />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel sx={{ color: '#94a3b8' }}>Rôle</InputLabel>
+                  <Select
+                    value={newUser.role}
+                    onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
+                    label="Rôle"
+                    sx={{
+                      color: 'white',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(59, 130, 246, 0.2)',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(59, 130, 246, 0.4)',
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#3b82f6',
+                      },
+                      '& .MuiSvgIcon-root': {
+                        color: '#94a3b8',
+                      },
+                    }}
+                  >
+                    {roleOptions.map((option) => (
+                      <MenuItem key={option.value} value={option.value} sx={{ backgroundColor: '#1e293b', color: 'white', '&:hover': { backgroundColor: '#334155' } }}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12}>
                 <FormControlLabel
@@ -2086,6 +2092,37 @@ const AdminPaneau = () => {
                     },
                   }}
                 />
+              </Grid>
+              <Grid item xs={12}>
+                <FormControl fullWidth>
+                  <InputLabel sx={{ color: '#94a3b8' }}>Rôle</InputLabel>
+                  <Select
+                    value={editUser.role || 'employe'}
+                    onChange={(e) => setEditUser({ ...editUser, role: e.target.value })}
+                    label="Rôle"
+                    sx={{
+                      color: 'white',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(59, 130, 246, 0.2)',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(59, 130, 246, 0.4)',
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#3b82f6',
+                      },
+                      '& .MuiSvgIcon-root': {
+                        color: '#94a3b8',
+                      },
+                    }}
+                  >
+                    {roleOptions.map((option) => (
+                      <MenuItem key={option.value} value={option.value} sx={{ backgroundColor: '#1e293b', color: 'white', '&:hover': { backgroundColor: '#334155' } }}>
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12}>
                 <FormControlLabel

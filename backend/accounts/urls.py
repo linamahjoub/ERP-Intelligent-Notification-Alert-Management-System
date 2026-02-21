@@ -25,4 +25,5 @@ urlpatterns = [
     # ==================== UTILITAIRES ====================
     path('check-email/', views.check_email_exists, name='check_email'),
     path('resend-welcome-email/', views.resend_welcome_email_view, name='resend-welcome-email'),
+    
 ]

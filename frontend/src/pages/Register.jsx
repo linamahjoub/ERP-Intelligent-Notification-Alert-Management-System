@@ -14,6 +14,12 @@ import {
   Card,
   Paper,
   CardContent,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  FormHelperText,
+  OutlinedInput,
 } from '@mui/material';
 import {
   Visibility,
@@ -66,10 +72,21 @@ const Register = () => {
       noCommon: true
     }
   });
-  
+
+  // Options pour le dropdown des rôles
+  const roleOptions = [
+    { value: 'responsable_stock', label: 'Responsable Stock' },
+    { value: 'commercial', label: 'Commercial' },
+    { value: 'achats', label: 'Achats' },
+    { value: 'employe', label: 'Employé' },
+    { value: 'client', label: 'Client' },
+    { value: 'fournisseur', label: 'Fournisseur' },
+  ];
+
   const [emailError, setEmailError] = useState('');
   const [emailValidating, setEmailValidating] = useState(false);
   const [usernameError, setUsernameError] = useState('');
+  const [roleError, setRoleError] = useState('');
   const [numberError, setNumberError] = useState('');
   const [numberValidating, setNumberValidating] = useState(false);
 
@@ -180,6 +197,15 @@ const Register = () => {
       [name]: value,
     });
     
+    // Validation du rôle
+    if (name === 'role') {
+      if (!value) {
+        setRoleError('Veuillez sélectionner un rôle');
+      } else {
+        setRoleError('');
+      }
+    }
+    
     // Validation en temps réel
     switch (name) {
       case 'password':
@@ -261,7 +287,13 @@ const Register = () => {
       return;
     }
 
-    if (!formData.email || !formData.username || !formData.password || !formData.password2) {
+    if (roleError || !formData.role) {
+      setError('Veuillez sélectionner un rôle');
+      setLoading(false);
+      return;
+    }
+
+    if (!formData.email || !formData.username || !formData.role || !formData.password || !formData.password2) {
       setError('Veuillez remplir tous les champs obligatoires');
       setLoading(false);
       return;
@@ -271,19 +303,8 @@ const Register = () => {
       const result = await register(formData);
 
       if (result.success) {
-        // Utiliser les tokens retournés par register() - ne pas appeler login()
-        // Car le compte est inactif et login() refuserait
-        const { access, refresh } = result.data;
-        
-        localStorage.setItem('access_token', access);
-        localStorage.setItem('refresh_token', refresh);
-        
-        // Attendre un petit délai pour que le context se mette à jour
-        setTimeout(() => {
-          navigate('/dashboard');
-        }, 500);
+        navigate('/verification-pending', { replace: true });
       } else {
-        // S'assurer que l'erreur est une string
         if (typeof result.error === 'object') {
           const errorMessages = [];
           for (const key in result.error) {
@@ -458,7 +479,7 @@ const Register = () => {
             )}
             
             <Box component="form" onSubmit={handleSubmit} sx={{ mt: 0 }}>
-              {/* Champ email*/}
+              {/* Champ email */}
               <Box sx={{ mb: 2 }}>
                 <Typography 
                   variant="body2" 
@@ -639,7 +660,8 @@ const Register = () => {
                   />
                 </Box>
               </Box>
-                  {/* Champ Role */}
+
+              {/* Champ Role - Version avec Select corrigé */}
               <Box sx={{ mb: 2 }}>
                 <Typography
                   variant="body2"
@@ -650,38 +672,85 @@ const Register = () => {
                     mb: 0.5
                   }}
                 >
-                Role
+                  Rôle
                 </Typography>
-                <TextField
-                  fullWidth
-                  id="role"
-                  name="role"
-                  autoComplete="role"
-                  value={formData.role}
-                  onChange={handleChange}
-                  placeholder="Choisissez votre role (ex: admin, user, etc.)"
-                  required
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <AccountCircleIcon sx={{ color: '#9ca3af', fontSize: '1.1rem' }} />
-                      </InputAdornment>
-                    ),
-                    sx: {
-                      borderRadius: 1,
-                      '& .MuiOutlinedInput-input': {
-                        py: 1,
-                        fontSize: '0.9rem',
-                      },
-                      '& .MuiOutlinedInput-notchedOutline': {
-                        borderColor: '#e5e7eb',
+                <FormControl fullWidth size="small" required error={!!roleError}>
+                  <Select
+                    id="role"
+                    name="role"
+                    value={formData.role}
+                    onChange={handleChange}
+                    displayEmpty
+                    renderValue={(selected) => {
+                      if (!selected) {
+                        return <em style={{ color: '#9ca3af' }}>Sélectionnez votre rôle</em>;
                       }
+                      const selectedOption = roleOptions.find(opt => opt.value === selected);
+                      return selectedOption ? selectedOption.label : selected;
+                    }}
+                    input={
+                      <OutlinedInput
+                        sx={{
+                          borderRadius: 1,
+                          '& .MuiOutlinedInput-input': {
+                            py: 1,
+                            fontSize: '0.9rem',
+                          },
+                        }}
+                      />
                     }
+                    MenuProps={{
+                      PaperProps: {
+                        sx: {
+                          maxHeight: 300,
+                          mt: 0.5,
+                          boxShadow: '0 10px 30px rgba(0,0,0,0.1)',
+                          borderRadius: 2,
+                        }
+                      }
+                    }}
+                  >
+                 
+                    {roleOptions.map((option) => (
+                      <MenuItem 
+                        key={option.value} 
+                        value={option.value}
+                        sx={{
+                          fontSize: '0.9rem',
+                          py: 1,
+                          '&:hover': {
+                            bgcolor: 'rgba(59, 130, 246, 0.08)',
+                          },
+                          '&.Mui-selected': {
+                            bgcolor: 'rgba(59, 130, 246, 0.12)',
+                            '&:hover': {
+                              bgcolor: 'rgba(59, 130, 246, 0.2)',
+                            }
+                          }
+                        }}
+                      >
+                        {option.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  {roleError && (
+                    <FormHelperText error>{roleError}</FormHelperText>
+                  )}
+                </FormControl>
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    color: '#6b7280', 
+                    display: 'block',
+                    mt: 0.5,
+                    fontSize: '0.7rem'
                   }}
-                  size="small"
-                />
+                >
+                  Sélectionnez le rôle qui correspond à votre fonction
+                </Typography>
               </Box>
-    {/* Champ email*/}
+
+              {/* Champ Numéro de téléphone */}
               <Box sx={{ mb: 2 }}>
                 <Typography 
                   variant="body2" 
@@ -692,15 +761,15 @@ const Register = () => {
                     mb: 0.5
                   }}
                 >
-                 Numéro de téléphone
+                  Numéro de téléphone
                 </Typography>
                 <TextField
                   fullWidth
                   id="numero_telephone"
                   name="numero_telephone"
                   type="tel"
-                  inputProps={{ maxLength:15 , pattern: "[0-9]{15}" }}
-                  autoComplete="numero_telephone"
+                  inputProps={{ maxLength:8, pattern: "[0-9]{8}" }}
+                  autoComplete="tel"
                   value={formData.numero_telephone}
                   onChange={handleChange}
                   placeholder="Numéro de téléphone"
@@ -734,7 +803,6 @@ const Register = () => {
                 />
               </Box>
 
-              
               {/* Champ Mot de passe */}
               <Box sx={{ mb: 2 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
@@ -1002,8 +1070,6 @@ const Register = () => {
                 />
               </Box>
               
-            
-              
               {/* Bouton d'inscription */}
               <Button
                 type="submit"
@@ -1041,6 +1107,7 @@ const Register = () => {
                   !!usernameError ||
                   !formData.email ||
                   !formData.username ||
+                  !formData.role ||
                   !formData.password ||
                   !formData.password2 ||
                   formData.password !== formData.password2
@@ -1143,7 +1210,6 @@ const Register = () => {
           order: { xs: 1, md: 2 },
         }}
       >
-        {/* Même contenu que dans votre code original */}
         <Box sx={{ 
           flex: 1, 
           display: 'flex',

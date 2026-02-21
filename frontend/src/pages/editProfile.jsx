@@ -456,16 +456,13 @@ const EditProfile = () => {
                     />
                   </Grid>
 
-                 
-
-                  <Grid item xs={12}>
+                    <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth
                       label="Role"
                       name="role"
                       value={formData.role}
                       onChange={handleInputChange}
-                      disabled
                       variant="outlined"
                       sx={{
                         '& .MuiOutlinedInput-root': {
@@ -488,13 +485,14 @@ const EditProfile = () => {
                         }
                       }}
                       InputProps={{
-                        startAdornment: <DescriptionIcon sx={{ mr: 1, color: '#64748b' }} />
+                        startAdornment: <personIcon sx={{ mr: 1, color: '#64748b' }} />
                       }}
-                      multiline
-                      rows={4}
-                      placeholder="Rôle de l'utilisateur (ex: admin, utilisateur, etc.)"
+                      
+                      placeholder="Entrez votre role "
                     />
                   </Grid>
+
+               
                 </Grid>
 
                 <Divider sx={{ 

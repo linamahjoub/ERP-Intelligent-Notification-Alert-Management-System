@@ -126,7 +126,7 @@ const menuItems = isAdmin ? [
     id: 'reglesalertes',
     label: 'Mes Alertes', // Changé le label pour les utilisateurs
     icon: <FlashOnIcon />,
-    path: '/alerts', // ✅ Page utilisateur (Alerts.jsx)
+    path: '/alerts', // ✅ Page utilisateur et admin (AlertRules.jsx) - affiche les alertes selon le rôle
   },
   {
     id: 'notifications',

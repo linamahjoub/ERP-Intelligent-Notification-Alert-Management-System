@@ -1,5 +1,5 @@
 ﻿import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline, Container } from '@mui/material';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
@@ -14,7 +14,7 @@ import Profile from './pages/profile';
 import EditProfile from './pages/editProfile';
 import ModulesERP from './pages/ModulesERP';
 import Notifications from './pages/Notifications';
-
+import dashboardStock from './pages/dashboardStock';
 import NewAlert from './pages/NewAlert';
 //import History from './pages/History';
 import AlertRules from './pages/AlertRules';
@@ -25,7 +25,6 @@ import SharedSidebar from './components/SharedSidebar';
 import AdminPanel from './pages/adminpaneau';
 import AdminDashboard from './pages/adminDashboard';
 import ClientsRequests from './pages/clients_requests';
-import Alerts from './pages/Alerts';
 const theme = createTheme({
   palette: {
     primary: {
@@ -97,6 +96,7 @@ const RequireAdmin = ({ children }) => {
   return children;
 };
 
+
 const RequireUser = ({ children }) => {
   const { user } = useAuth();
   const isAdmin = user?.is_superuser || user?.is_staff;
@@ -123,6 +123,7 @@ const InnerRoutes = () => {
         {/* Routes publiques */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/verification-pending" element={<VerificationPending />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:uid/:token" element={<ResetPassword />} />
         <Route path="/change-password" element={
@@ -201,17 +202,19 @@ const InnerRoutes = () => {
             </RequireAdmin>
           </PrivateRoute>
         } />
-        <Route path="/alert_rules" element={
-          <PrivateRoute>
-            <RequireAdmin>
-              <AlertRules />
-            </RequireAdmin>
-          </PrivateRoute>
-        } />
- {/* Route pour éditer une alerte */}
+
+        {/* Route pour les alertes - fonctionne pour admin et utilisateurs */}
+        {/* Les alertes affichées varient selon le rôle de l'utilisateur */}
         <Route path="/alerts" element={
           <PrivateRoute>
-            <Alerts />
+            <AlertRules />
+          </PrivateRoute>
+        } />
+
+        {/* Alias pour la compatibilité */}
+        <Route path="/alert_rules" element={
+          <PrivateRoute>
+            <AlertRules />
           </PrivateRoute>
         } />
 

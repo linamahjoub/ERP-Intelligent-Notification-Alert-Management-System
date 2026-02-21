@@ -1,5 +1,4 @@
-// Dans VerificationPending.jsx
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
@@ -39,11 +38,12 @@ import {
 const VerificationPending = () => {
   const { user, logout, refreshUser, loading } = useAuth();
   const navigate = useNavigate();
-  const [isRefreshing, setIsRefreshing] = React.useState(false);
-  const [autoRefresh, setAutoRefresh] = React.useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [showSuccess, setShowSuccess] = useState(false);
 
-  // Auto-refresh toutes les 10 secondes pour vérifier l'approbation
-  React.useEffect(() => {
+  // Auto-refresh toutes les 10 secondes
+  useEffect(() => {
     if (!autoRefresh || loading) return;
 
     const interval = setInterval(async () => {
@@ -54,6 +54,24 @@ const VerificationPending = () => {
 
     return () => clearInterval(interval);
   }, [autoRefresh, refreshUser, loading]);
+
+  // Redirection quand le compte est activé
+  useEffect(() => {
+    if (!loading && user) {
+      if (user.is_active) {
+        setShowSuccess(true);
+        // Redirection après 2 secondes
+        const timer = setTimeout(() => {
+          if (user.is_superuser || user.is_staff) {
+            navigate("/admin_dashboard");
+          } else {
+            navigate("/dashboard");
+          }
+        }, 2000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [user?.is_active, loading, navigate, user]);
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
@@ -66,21 +84,7 @@ const VerificationPending = () => {
     navigate("/login");
   };
 
-  // Rediriger si l'utilisateur est approuvé
-  React.useEffect(() => {
-    if (!loading && user && user.is_active) {
-      // L'utilisateur a été approuvé, rediriger selon le rôle
-      setTimeout(() => {
-        if (user.is_superuser || user.is_staff) {
-          navigate("/admin_dashboard");
-        } else {
-          navigate("/dashboard");
-        }
-      }, 1000);
-    }
-  }, [user?.is_active, loading, navigate, user]);
-
-  // Afficher loader pendant le chargement
+  // Si en cours de chargement
   if (loading) {
     return (
       <Box
@@ -97,33 +101,45 @@ const VerificationPending = () => {
     );
   }
 
-  // Si l'utilisateur n'existe pas (ne devrait pas arriver à cause de la redirection)
+  // Si le compte est activé (montre le message de succès)
+  if (showSuccess || user?.is_active) {
+    return (
+      <Box
+        sx={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)",
+        }}
+      >
+        <Card sx={{ 
+          p: 4, 
+          textAlign: "center", 
+          bgcolor: "rgba(30, 41, 59, 0.9)",
+          border: "1px solid rgba(16, 185, 129, 0.3)",
+          borderRadius: 3,
+          maxWidth: 400
+        }}>
+          <CheckCircleIcon sx={{ fontSize: 60, color: "#10b981", mb: 2 }} />
+          <Typography variant="h5" sx={{ color: "white", fontWeight: 600, mb: 2 }}>
+            Compte activé !
+          </Typography>
+          <Typography variant="body1" sx={{ color: "#94a3b8", mb: 3 }}>
+            Votre compte a été validé avec succès.
+            <br />
+            Redirection vers votre dashboard...
+          </Typography>
+          <CircularProgress size={30} sx={{ color: "#3b82f6" }} />
+        </Card>
+      </Box>
+    );
+  }
+
+  // Si l'utilisateur n'existe pas
   if (!user) {
     return null;
   }
-
-  // Si l'utilisateur est actif (ne devrait pas arriver à cause de la redirection)
-  if (user.is_active) {
-    return null;
-  }
-
-  const verificationSteps = [
-    {
-      label: "Demande soumise",
-      status: "completed",
-      description: "Votre inscription a été enregistrée avec succès",
-    },
-    {
-      label: "Vérification des informations",
-      status: "in_progress",
-      description: "Notre équipe examine votre demande",
-    },
-    {
-      label: "Validation finale",
-      status: "pending",
-      description: "Activation de votre compte en cours",
-    },
-  ];
 
   return (
     <Box
@@ -136,15 +152,9 @@ const VerificationPending = () => {
         p: 3,
       }}
     >
-      {/* ... reste du code (identique à avant) ... */}
       <Box sx={{ maxWidth: 900, width: "100%" }}>
-        {/* En-tête professionnel */}
-        <Box
-          sx={{
-            textAlign: "center",
-            mb: 4,
-          }}
-        >
+        {/* En-tête */}
+        <Box sx={{ textAlign: "center", mb: 4 }}>
           <Box
             sx={{
               display: "inline-flex",
@@ -170,30 +180,16 @@ const VerificationPending = () => {
               }}
             />
           </Box>
-          <Typography
-            variant="h3"
-            sx={{
-              color: "white",
-              fontWeight: 700,
-              mb: 1,
-              letterSpacing: "-0.02em",
-            }}
-          >
+          <Typography variant="h3" sx={{ color: "white", fontWeight: 700, mb: 1 }}>
             Compte en cours de validation
           </Typography>
-          <Typography
-            variant="h6"
-            sx={{
-              color: "#94a3b8",
-              fontWeight: 400,
-            }}
-          >
+          <Typography variant="h6" sx={{ color: "#94a3b8", fontWeight: 400 }}>
             Merci pour votre patience
           </Typography>
         </Box>
 
         <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" } }}>
-          {/* Carte principale - Statut */}
+          {/* Carte statut */}
           <Card
             sx={{
               bgcolor: "rgba(30, 41, 59, 0.9)",
@@ -204,7 +200,6 @@ const VerificationPending = () => {
             }}
           >
             <CardContent sx={{ p: 4 }}>
-              {/* Statut principal */}
               <Box sx={{ mb: 4 }}>
                 <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
                   <Typography variant="h5" sx={{ color: "white", fontWeight: 600 }}>
@@ -212,7 +207,7 @@ const VerificationPending = () => {
                   </Typography>
                   <Chip
                     icon={<AccessTimeIcon sx={{ fontSize: 18 }} />}
-                    label="En cours"
+                    label="En attente"
                     sx={{
                       bgcolor: "rgba(251, 146, 60, 0.2)",
                       color: "#fb923c",
@@ -230,25 +225,16 @@ const VerificationPending = () => {
                     border: "1px solid rgba(59, 130, 246, 0.3)",
                     color: "#94a3b8",
                     borderRadius: 2,
-                    "& .MuiAlert-icon": {
-                      color: "#3b82f6",
-                    },
                   }}
                 >
-                  <Typography variant="body2" sx={{ color: "#e2e8f0", lineHeight: 1.6 }}>
-                    Votre demande d'accès est actuellement en cours d'examen par notre équipe administrative.
-                    Ce processus de vérification garantit la sécurité et l'intégrité de notre plateforme.
-                  </Typography>
+                  Votre demande est en cours d'examen par notre équipe.
+                  Vous recevrez un email dès que votre compte sera activé.
                 </Alert>
               </Box>
-
-         
-
-             
             </CardContent>
           </Card>
 
-          {/* Carte - Informations du compte */}
+          {/* Carte informations */}
           <Card
             sx={{
               bgcolor: "rgba(30, 41, 59, 0.9)",
@@ -259,87 +245,44 @@ const VerificationPending = () => {
           >
             <CardContent sx={{ p: 4 }}>
               <Typography variant="h6" sx={{ color: "white", fontWeight: 600, mb: 3 }}>
-                Informations du compte
+                Vos informations
               </Typography>
 
               <Stack spacing={2.5}>
                 <Box>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                     <EmailIcon sx={{ color: "#3b82f6", fontSize: 20 }} />
-                    <Typography variant="caption" sx={{ color: "#64748b", textTransform: "uppercase", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.05em" }}>
-                      Adresse e-mail
+                    <Typography variant="caption" sx={{ color: "#64748b", textTransform: "uppercase" }}>
+                      Email
                     </Typography>
                   </Box>
-                  <Typography
-                    variant="body1"
-                    sx={{
-                      color: "white",
-                      fontWeight: 500,
-                      wordBreak: "break-all",
-                      pl: 3.5,
-                    }}
-                  >
+                  <Typography sx={{ color: "white", pl: 3.5 }}>
                     {user?.email}
                   </Typography>
                 </Box>
 
-                {user?.name && (
-                  <Box>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                      <PersonIcon sx={{ color: "#3b82f6", fontSize: 20 }} />
-                      <Typography variant="caption" sx={{ color: "#64748b", textTransform: "uppercase", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.05em" }}>
-                        Nom complet
-                      </Typography>
-                    </Box>
-                    <Typography
-                      variant="body1"
-                      sx={{
-                        color: "white",
-                        fontWeight: 500,
-                        pl: 3.5,
-                      }}
-                    >
-                      {user?.name}
+                <Box>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+                    <PersonIcon sx={{ color: "#3b82f6", fontSize: 20 }} />
+                    <Typography variant="caption" sx={{ color: "#64748b", textTransform: "uppercase" }}>
+                      Nom d'utilisateur
                     </Typography>
                   </Box>
-                )}
+                  <Typography sx={{ color: "white", pl: 3.5 }}>
+                    {user?.username}
+                  </Typography>
+                </Box>
 
-                {user?.company && (
-                  <Box>
-                    <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
-                      <BusinessIcon sx={{ color: "#3b82f6", fontSize: 20 }} />
-                      <Typography variant="caption" sx={{ color: "#64748b", textTransform: "uppercase", fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.05em" }}>
-                        Organisation
-                      </Typography>
-                    </Box>
-                    <Typography
-                      variant="body1"
-                      sx={{
-                        color: "white",
-                        fontWeight: 500,
-                        pl: 3.5,
-                      }}
-                    >
-                      {user?.company}
-                    </Typography>
-                  </Box>
-                )}
-
-                <Divider sx={{ bgcolor: "rgba(100, 116, 139, 0.2)", my: 1 }} />
+                <Divider sx={{ bgcolor: "rgba(100, 116, 139, 0.2)" }} />
 
                 <Box>
-                  <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 1, fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>
-                    Statut du compte
-                  </Typography>
                   <Chip
                     icon={<AccessTimeIcon />}
                     label="En attente de validation"
-                    size="small"
                     sx={{
                       bgcolor: "rgba(251, 146, 60, 0.2)",
                       color: "#fb923c",
                       fontWeight: 600,
-                      border: "1px solid rgba(251, 146, 60, 0.3)",
                     }}
                   />
                 </Box>
@@ -347,57 +290,33 @@ const VerificationPending = () => {
 
               <Divider sx={{ bgcolor: "rgba(100, 116, 139, 0.2)", my: 3 }} />
 
-              {/* Actions rapides */}
+              {/* Boutons d'action */}
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 <FormControlLabel
                   control={
                     <Checkbox
                       checked={autoRefresh}
                       onChange={(e) => setAutoRefresh(e.target.checked)}
-                      sx={{
-                        color: "#64748b",
-                        "&.Mui-checked": {
-                          color: "#3b82f6",
-                        },
-                      }}
+                      sx={{ color: "#64748b" }}
                     />
                   }
-                  label={
-                    <Typography variant="body2" sx={{ color: "#94a3b8" }}>
-                      Vérification automatique (toutes les 10s)
-                    </Typography>
-                  }
+                  label={<Typography sx={{ color: "#94a3b8" }}>Vérification auto (10s)</Typography>}
                 />
 
                 <Button
                   fullWidth
                   variant="contained"
-                  startIcon={
-                    isRefreshing ? (
-                      <CircularProgress size={18} sx={{ color: "white" }} />
-                    ) : (
-                      <RefreshIcon />
-                    )
-                  }
+                  startIcon={isRefreshing ? <CircularProgress size={18} /> : <RefreshIcon />}
                   onClick={handleManualRefresh}
                   disabled={isRefreshing}
                   sx={{
                     bgcolor: "#3b82f6",
                     color: "white",
-                    fontWeight: 600,
                     py: 1.5,
-                    "&:hover": {
-                      bgcolor: "#2563eb",
-                    },
-                    "&:disabled": {
-                      bgcolor: "rgba(59, 130, 246, 0.3)",
-                      color: "rgba(255, 255, 255, 0.5)",
-                    },
-                    textTransform: "none",
-                    fontSize: "0.95rem",
+                    "&:hover": { bgcolor: "#2563eb" },
                   }}
                 >
-                  {isRefreshing ? "Vérification en cours..." : "Actualiser le statut"}
+                  {isRefreshing ? "Vérification..." : "Actualiser"}
                 </Button>
 
                 <Button
@@ -408,14 +327,7 @@ const VerificationPending = () => {
                   sx={{
                     borderColor: "#475569",
                     color: "#94a3b8",
-                    fontWeight: 600,
                     py: 1.5,
-                    "&:hover": {
-                      borderColor: "#64748b",
-                      bgcolor: "rgba(148, 163, 184, 0.1)",
-                    },
-                    textTransform: "none",
-                    fontSize: "0.95rem",
                   }}
                 >
                   Se déconnecter
@@ -424,146 +336,34 @@ const VerificationPending = () => {
             </CardContent>
           </Card>
 
-          {/* Carte - Support et assistance */}
+          {/* Carte support */}
           <Card
             sx={{
               bgcolor: "rgba(30, 41, 59, 0.9)",
               border: "1px solid rgba(59, 130, 246, 0.2)",
               borderRadius: 3,
-              backdropFilter: "blur(10px)",
             }}
           >
             <CardContent sx={{ p: 4 }}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
-                <Box
-                  sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: 2,
-                    bgcolor: "rgba(34, 197, 94, 0.1)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <SupportIcon sx={{ color: "#22c55e", fontSize: 28 }} />
-                </Box>
-                <Box>
-                  <Typography variant="h6" sx={{ color: "white", fontWeight: 600 }}>
-                    Besoin d'aide ?
-                  </Typography>
-                  <Typography variant="body2" sx={{ color: "#64748b" }}>
-                    Notre équipe est là pour vous
-                  </Typography>
-                </Box>
-              </Box>
-
-              <Stack spacing={2}>
-                <Paper
-                  sx={{
-                    bgcolor: "rgba(15, 23, 42, 0.5)",
-                    border: "1px solid rgba(59, 130, 246, 0.1)",
-                    p: 2,
-                    borderRadius: 2,
-                  }}
-                >
-                  <Typography variant="body2" sx={{ color: "#94a3b8", mb: 1.5 }}>
-                    <strong style={{ color: "white" }}>Questions fréquentes :</strong>
-                  </Typography>
-                  <List dense sx={{ py: 0 }}>
-                    <ListItem sx={{ px: 0, py: 0.5 }}>
-                      <ListItemIcon sx={{ minWidth: 28 }}>
-                        <CheckCircleIcon sx={{ color: "#3b82f6", fontSize: 16 }} />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary="La validation se fait en heures ouvrables"
-                        primaryTypographyProps={{
-                          variant: "body2",
-                          sx: { color: "#94a3b8", fontSize: "0.85rem" },
-                        }}
-                      />
-                    </ListItem>
-                    <ListItem sx={{ px: 0, py: 0.5 }}>
-                      <ListItemIcon sx={{ minWidth: 28 }}>
-                        <CheckCircleIcon sx={{ color: "#3b82f6", fontSize: 16 }} />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary="Vous recevrez un e-mail de confirmation"
-                        primaryTypographyProps={{
-                          variant: "body2",
-                          sx: { color: "#94a3b8", fontSize: "0.85rem" },
-                        }}
-                      />
-                    </ListItem>
-                    <ListItem sx={{ px: 0, py: 0.5 }}>
-                      <ListItemIcon sx={{ minWidth: 28 }}>
-                        <CheckCircleIcon sx={{ color: "#3b82f6", fontSize: 16 }} />
-                      </ListItemIcon>
-                      <ListItemText
-                        primary="Aucune action requise de votre part"
-                        primaryTypographyProps={{
-                          variant: "body2",
-                          sx: { color: "#94a3b8", fontSize: "0.85rem" },
-                        }}
-                      />
-                    </ListItem>
-                  </List>
-                </Paper>
-
-                <Box
-                  sx={{
-                    bgcolor: "rgba(59, 130, 246, 0.1)",
-                    border: "1px solid rgba(59, 130, 246, 0.2)",
-                    borderRadius: 2,
-                    p: 2.5,
-                    textAlign: "center",
-                  }}
-                >
-                  <Typography variant="body2" sx={{ color: "#94a3b8", mb: 2 }}>
-                    Validation urgente ou problème technique ?
-                  </Typography>
-                  <Button
-                    variant="outlined"
-                    startIcon={<EmailIcon />}
-                    fullWidth
-                    sx={{
-                      borderColor: "#3b82f6",
-                      color: "#3b82f6",
-                      fontWeight: 600,
-                      "&:hover": {
-                        borderColor: "#2563eb",
-                        bgcolor: "rgba(59, 130, 246, 0.1)",
-                      },
-                      textTransform: "none",
-                      mb: 1,
-                    }}
-                    href="mailto:support@example.com"
-                  >
-                    Contacter le support
-                  </Button>
-                  <Typography variant="caption" sx={{ color: "#64748b", display: "block" }}>
-                    support@example.com
-                  </Typography>
-                </Box>
-              </Stack>
+              <Typography variant="h6" sx={{ color: "white", fontWeight: 600, mb: 3 }}>
+                Support
+              </Typography>
+              
+              <Button
+                variant="outlined"
+                startIcon={<EmailIcon />}
+                fullWidth
+                sx={{
+                  borderColor: "#3b82f6",
+                  color: "#3b82f6",
+                  py: 1.5,
+                }}
+                href="mailto:support@votreapp.com"
+              >
+                Contacter le support
+              </Button>
             </CardContent>
           </Card>
-        </Box>
-
-        {/* Footer */}
-        <Box sx={{ textAlign: "center", mt: 4 }}>
-          <Typography
-            variant="body2"
-            sx={{
-              color: "#64748b",
-              fontSize: "0.85rem",
-              lineHeight: 1.6,
-            }}
-          >
-            Merci de votre confiance. Cette étape de sécurité est essentielle pour garantir
-            <br />
-            la protection de vos données et l'intégrité de notre plateforme.
-          </Typography>
         </Box>
       </Box>
     </Box>

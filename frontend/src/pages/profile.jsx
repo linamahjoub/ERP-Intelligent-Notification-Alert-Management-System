@@ -28,6 +28,22 @@ import {
 } from '@mui/icons-material';
 import SharedSidebar from '../components/SharedSidebar';
 
+// Options de rôles disponibles
+const roleOptions = [
+  { value: 'responsable_stock', label: 'Responsable Stock' },
+  { value: 'commercial', label: 'Commercial' },
+  { value: 'achats', label: 'Achats' },
+  { value: 'employe', label: 'Employé' },
+  { value: 'client', label: 'Client' },
+  { value: 'fournisseur', label: 'Fournisseur' },
+];
+
+// Fonction pour obtenir le libellé du rôle
+const getRoleLabel = (roleValue) => {
+  const role = roleOptions.find(opt => opt.value === roleValue);
+  return role ? role.label : (roleValue || 'Non renseigné');
+};
+
 const Profile = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -350,7 +366,7 @@ const Profile = () => {
                       { label: 'Nom d\'utilisateur', value: user?.username || 'Non renseigné', icon: <BadgeIcon /> },
                       { label: 'Email', value: user?.email || 'Non renseigné', icon: <EmailIcon /> },
                       { label: 'Téléphone', value: user?.phone_number || 'Non renseigné', icon: <PhoneIcon /> },
-                      { label: 'Role', value: user?.role || 'Non renseigné', icon: <BadgeIcon /> },
+                      { label: 'Rôle', value: getRoleLabel(user?.role), icon: <BadgeIcon /> },
                     ].map((field, index) => (
                       <Grid item xs={12} key={index}>
                         <Box sx={{ 

@@ -85,18 +85,18 @@ const Login = () => {
     setLoading(true);
 
     try {
-      const emailExists = await handleEmailCheck(email);
-      if (!emailExists) {
-        setError('Cet email n\'existe pas. Souhaitez-vous créer un compte ?');
-        setLoading(false);
-        return;
-      }
-
       const result = await login(email, password);
       
       if (result.success) {
         // Récupérer l'utilisateur depuis le résultat de la connexion
         const userData = result.user || JSON.parse(localStorage.getItem('user') || '{}');
+        
+        // Vérifier si le compte est actif
+        if (!userData.is_active) {
+          navigate('/verification-pending', { replace: true });
+          return;
+        }
+        
         const isAdmin = userData?.is_superuser || userData?.is_staff;
         
         // Redirection immédiate et unique
@@ -131,16 +131,6 @@ const Login = () => {
     
     if (value && !value.includes('@')) {
       setEmailError('Format d\'email invalide');
-    } else if (value.includes('@')) {
-      const timeoutId = setTimeout(() => {
-        handleEmailCheck(value).then(exists => {
-          if (value && !exists) {
-            setEmailError('Cet email n\'existe pas');
-          }
-        });
-      }, 800);
-      
-      return () => clearTimeout(timeoutId);
     }
   };
 

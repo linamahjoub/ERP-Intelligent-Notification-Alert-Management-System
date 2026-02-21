@@ -8,8 +8,12 @@ class CustomUser(AbstractUser):
     Modèle utilisateur personnalisé avec champs supplémentaires
     """
     ROLE_CHOICES = [
-        ('admin', 'Admin'),
-        ('user', 'User'),
+        ('responsable_stock', 'Responsable Stock'),
+        ('commercial', 'Commercial'),
+        ('achats', 'Achats'),
+        ('employe', 'Employé'),
+        ('client', 'Client'),
+        ('fournisseur', 'Fournisseur'),
     ]
     email = models.EmailField(
         _('email address'),
@@ -38,7 +42,7 @@ class CustomUser(AbstractUser):
         _('role'),
         max_length=20,
         choices=ROLE_CHOICES,
-        default='user'
+        default='employe'
     )
     
     company = models.CharField(
@@ -93,5 +97,4 @@ class CustomUser(AbstractUser):
             self.is_superuser = True
             self.is_staff = True
             self.is_primary_admin = True
-        self.role = 'admin' if (self.is_superuser or self.is_staff or self.is_primary_admin) else 'user'
         super().save(*args, **kwargs)

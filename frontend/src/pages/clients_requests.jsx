@@ -81,11 +81,18 @@ const ClientsRequests = () => {
         });
 
         if (response.ok) {
-          const allUsers = await response.json();
+          const data = await response.json();
+          
+          // L'API peut renvoyer un tableau ou un objet avec results
+          const allUsers = Array.isArray(data) ? data : (data.results || []);
+          
+          console.log("Données reçues:", allUsers);
 
           // Catégoriser les utilisateurs par statut d'activation
-          const pending = allUsers.filter((u) => !u.is_active && !u.is_superuser);
-          const approved = allUsers.filter((u) => u.is_active && !u.is_superuser);
+          // Exclure TOUS les admins (superuser ET staff)
+          const isAdmin = (u) => u.is_superuser || u.is_staff;
+          const pending = allUsers.filter((u) => !u.is_active && !isAdmin(u));
+          const approved = allUsers.filter((u) => u.is_active && !isAdmin(u));
           const rejected = []; // On peut ajouter une logique pour les rejetés si nécessaire
 
           setRequestsData({
@@ -93,7 +100,7 @@ const ClientsRequests = () => {
             approvedRequests: approved,
             rejectedRequests: rejected,
             stats: {
-              totalRequests: allUsers.filter((u) => !u.is_superuser).length,
+              totalRequests: allUsers.filter((u) => !isAdmin(u)).length,
               pendingCount: pending.length,
               approvedCount: approved.length,
               rejectedCount: rejected.length,
