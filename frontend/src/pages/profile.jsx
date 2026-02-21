@@ -366,7 +366,8 @@ const Profile = () => {
                       { label: 'Nom d\'utilisateur', value: user?.username || 'Non renseigné', icon: <BadgeIcon /> },
                       { label: 'Email', value: user?.email || 'Non renseigné', icon: <EmailIcon /> },
                       { label: 'Téléphone', value: user?.phone_number || 'Non renseigné', icon: <PhoneIcon /> },
-                      { label: 'Rôle', value: getRoleLabel(user?.role), icon: <BadgeIcon /> },
+                      { label: 'Telegram chat ID', value: user?.telegram_chat_id || 'Non renseigné', icon: <BadgeIcon /> },
+                      { label: 'Rôle', value: isAdmin ? 'Administrateur' : getRoleLabel(user?.role), icon: <BadgeIcon /> },
                     ].map((field, index) => (
                       <Grid item xs={12} key={index}>
                         <Box sx={{ 
@@ -425,6 +426,7 @@ const Profile = () => {
                     {[
                       { label: 'Email', value: user?.email || 'Non renseigné', icon: <EmailIcon /> },
                       { label: 'Téléphone', value: user?.phone_number || 'Non renseigné', icon: <PhoneIcon /> },
+                      { label: 'Telegram chat ID', value: user?.telegram_chat_id || 'Non renseigné', icon: <BadgeIcon /> },
                       { label: 'Adresse', value: user?.address || user?.adresse || 'Non renseigné', icon: <HomeIcon /> },
                     ].map((field, index) => (
                       <Grid item xs={12} key={index}>

@@ -98,6 +98,7 @@ const EditAlert = () => {
   const notificationChannels = [
     { value: 'email', label: 'Email' },
     { value: 'in-app', label: 'in-app' },
+    { value: 'telegram', label: 'Telegram' },
   ];
 
   const scheduleOptions = [
@@ -125,7 +126,7 @@ const EditAlert = () => {
             conditionType: alert.conditionType || 'threshold',
             thresholdValue: alert.thresholdValue || '',
             comparisonOperator: alert.comparisonOperator || 'greater_than',
-            notificationChannels: alert.notificationChannels || ['email'],
+            notificationChannels: (alert.notificationChannels || ['email']).map(channel => String(channel).toLowerCase()),
             recipients: alert.recipients || [],
             schedule: alert.schedule || 'immediate',
             customSchedule: alert.customSchedule || '',
