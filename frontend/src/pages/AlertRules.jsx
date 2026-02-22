@@ -252,9 +252,17 @@ const AlertRules = () => {
           {/* Titre + bouton créer */}
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, flexWrap: "wrap", gap: 2 }}>
             <Box>
-              <Typography variant="h4" sx={{ color: "white", fontWeight: 700, mb: 0.5 }}>
-                {user?.is_superuser ? "Toutes les Alertes" : "Mes Alertes"}
-              </Typography>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 0.5 }}>
+                <Typography variant="h4" sx={{ color: "white", fontWeight: 700 }}>
+                  {user?.is_superuser ? "Toutes les Alertes" : "Mes Alertes"}
+                </Typography>
+                <Badge badgeContent={filteredAlerts.length} sx={{ "& .MuiBadge-badge": { bgcolor: "#3b82f6", color: "white", fontSize: "0.85rem", minWidth: 24, height: 24, borderRadius: "6px" } }} />
+                {filteredAlerts.length !== alerts.length && (
+                  <Typography variant="caption" sx={{ color: "#64748b", fontSize: "0.75rem" }}>
+                    ({filteredAlerts.length} sur {alerts.length})
+                  </Typography>
+                )}
+              </Box>
               <Typography variant="body2" sx={{ color: "#64748b" }}>
                 {user?.is_superuser ? "Consultez et gérez toutes les alertes du système" : "Consultez et gérez vos règles de notification personnalisées"}
               </Typography>

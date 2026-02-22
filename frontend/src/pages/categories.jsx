@@ -65,7 +65,17 @@ const Categories = () => {
       if (!res.ok) throw new Error('Erreur API');
       const data = await res.json();
       const items = Array.isArray(data) ? data : (data.results || []);
-      setCategories(items);
+      console.log("Categories récupérées:", items);
+      // S'assurer que is_active est un booléen
+      const processedItems = items.map(cat => {
+        const isActive = Boolean(cat.is_active);
+        console.log(`Catégorie ${cat.name}: is_active = ${cat.is_active} (type: ${typeof cat.is_active}, converti en ${isActive})`);
+        return {
+          ...cat,
+          is_active: isActive
+        };
+      });
+      setCategories(processedItems);
     } catch (err) {
       setErrorMessage('Erreur lors du chargement des catégories');
       setCategories([]);
@@ -126,6 +136,57 @@ const Categories = () => {
       handleCloseAddDialog();
       fetchCategoriesFromAPI();
     } catch (err) {
+      setErrorMessage(`Erreur: ${err.message}`);
+    }
+  };
+
+  const handleToggleStatus = async (category) => {
+    console.log("Toggle status appelé pour:", category);
+    console.log("Valeur actuelle de is_active:", category.is_active);
+    
+    const newStatus = !Boolean(category.is_active);
+    console.log("Nouveau statut:", newStatus);
+    
+    try {
+      // Mise à jour optimiste de l'interface
+      setCategories(prev => prev.map(cat => 
+        cat.id === category.id ? { ...cat, is_active: newStatus } : cat
+      ));
+
+      const token = localStorage.getItem('access_token');
+      const payload = {
+        name: category.name,
+        description: category.description,
+        is_active: newStatus
+      };
+      console.log("Envoi du payload:", payload);
+      
+      const res = await fetch(`http://localhost:8000/api/categories/${category.id}/`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify(payload),
+      });
+
+      console.log("Réponse du serveur:", res.status);
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Erreur API:", errorData);
+        // Annuler la mise à jour optimiste en cas d'erreur
+        setCategories(prev => prev.map(cat => 
+          cat.id === category.id ? { ...cat, is_active: Boolean(category.is_active) } : cat
+        ));
+        throw new Error(errorData.message || 'Erreur lors de la modification du statut');
+      }
+
+      const responseData = await res.json();
+      console.log("Réponse complète:", responseData);
+      setSuccessMessage(`Catégorie ${newStatus ? 'activée' : 'désactivée'} avec succès`);
+    } catch (err) {
+      console.error("Erreur complète:", err);
       setErrorMessage(`Erreur: ${err.message}`);
     }
   };
@@ -360,16 +421,20 @@ const Categories = () => {
 
                       {/* Status */}
                       <TableCell align="center">
-                        <Chip
-                          label={cat.is_active ? "Active" : "Inactive"}
-                          size="small"
-                          sx={{
-                            bgcolor: cat.is_active ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)",
-                            color: cat.is_active ? "#10b981" : "#ef4444",
-                            border: `1px solid ${cat.is_active ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)"}`,
-                            fontWeight: 600, fontSize: "0.75rem",
-                          }}
-                        />
+                        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
+                          <Switch 
+                            checked={cat.is_active} 
+                            onChange={() => handleToggleStatus(cat)}
+                            size="small"
+                            sx={{ 
+                              "& .MuiSwitch-switchBase.Mui-checked": { color: "#10b981" }, 
+                              "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { bgcolor: "#10b981" } 
+                            }}
+                          />
+                          <Typography variant="caption" sx={{ color: cat.is_active ? "#10b981" : "#ef4444", fontWeight: 600, fontSize: "0.75rem", minWidth: 55 }}>
+                            {cat.is_active ? "Actif" : "Inactif"}
+                          </Typography>
+                        </Box>
                       </TableCell>
 
                       {/* Date */}
@@ -384,9 +449,26 @@ const Categories = () => {
 
                       {/* Actions */}
                       <TableCell align="center">
-                        <IconButton size="small" onClick={(e) => handleMenuOpen(e, cat)} sx={{ color: "#64748b", "&:hover": { color: "#3b82f6" } }}>
-                          <MoreVertIcon fontSize="small" />
-                        </IconButton>
+                        <Box sx={{ display: "flex", gap: 0.5, justifyContent: "center" }}>
+                          <Tooltip title="Modifier">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => handleOpenAddDialog(cat)}
+                              sx={{ color: "#3b82f6", "&:hover": { bgcolor: "rgba(59,130,246,0.1)" } }}
+                            >
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Supprimer">
+                            <IconButton 
+                              size="small" 
+                              onClick={(e) => { setSelectedCategory(cat); setDeleteDialogOpen(true); }}
+                              sx={{ color: "#ef4444", "&:hover": { bgcolor: "rgba(239,68,68,0.1)" } }}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   )) : (

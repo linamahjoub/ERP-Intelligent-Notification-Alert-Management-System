@@ -494,38 +494,19 @@ useEffect(() => {
 
           {/* Boutons d'action */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <IconButton
-              sx={{
-                color: "#64748b",
-                position: "relative",
-                "&:hover": {
-                  bgcolor: "rgba(59, 130, 246, 0.1)",
-                },
-              }}
-            >
-              <NotificationsIcon />
-              {user?.unread_notifications > 0 && (
-                <Box
-                  sx={{
-                    position: "absolute",
-                    top: 8,
-                    right: 8,
-                    width: 18,
-                    height: 18,
-                    borderRadius: "50%",
-                    bgcolor: "#ef4444",
-                    color: "white",
-                    fontSize: "0.65rem",
-                    fontWeight: 700,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  {user.unread_notifications || 0}
-                </Box>
-              )}
-            </IconButton>
+            <Badge badgeContent={dashboardData.stats.activeAlerts || 0} color="error">
+              <IconButton
+                sx={{
+                  color: "#64748b",
+                  position: "relative",
+                  "&:hover": {
+                    bgcolor: "rgba(59, 130, 246, 0.1)",
+                  },
+                }}
+              >
+                <NotificationsIcon />
+              </IconButton>
+            </Badge>
 
             
 
