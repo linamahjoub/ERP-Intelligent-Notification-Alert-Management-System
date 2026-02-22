@@ -206,3 +206,6 @@ EMAIL_HOST_PASSWORD = 'lgrf nvum dtik mzet'  # REMPLACEZ PAR LE MOT DE PASSE D'A
 DEFAULT_FROM_EMAIL = 'SmartNotify <mahjoublina1010@gmail.com>'
 FRONTEND_URL = 'http://localhost:3004'
 
+# Telegram bot configuration
+TELEGRAM_BOT_TOKEN = '8581911771:AAE4kZ8za8DfOn37t60-m3NX0I2pGw8fPXQ'
+

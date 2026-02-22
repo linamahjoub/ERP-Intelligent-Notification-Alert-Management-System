@@ -5,11 +5,109 @@ from django.shortcuts import get_object_or_404
 from django.core.mail import send_mail, EmailMessage
 from django.conf import settings
 import logging
+import json
+import urllib.request
+import urllib.error
 from .models import Alert
 from .serializers import AlertSerializer
 
 # Configurer le logger
 logger = logging.getLogger(__name__)
+
+
+def normalize_channels(channels):
+    if not channels:
+        return []
+    if isinstance(channels, list):
+        return [str(c).strip().lower() for c in channels if str(c).strip()]
+    return [str(channels).strip().lower()]
+
+
+def extract_telegram_recipients(recipients):
+    if isinstance(recipients, str):
+        candidate_list = [recipients]
+    elif isinstance(recipients, list):
+        candidate_list = recipients
+    else:
+        logger.warning(f"Types de destinataires Telegram invalide: {type(recipients)}")
+        return []
+
+    telegram_list = []
+    for recipient in candidate_list:
+        value = str(recipient).strip()
+        if not value:
+            continue
+        if value.startswith('@') or value.lstrip('-').isdigit():
+            telegram_list.append(value)
+    return telegram_list
+
+
+def send_telegram_message(chat_id, text):
+    token = getattr(settings, 'TELEGRAM_BOT_TOKEN', '')
+    if not token or token == 'PASTE_YOUR_TELEGRAM_BOT_TOKEN':
+        logger.warning("TELEGRAM_BOT_TOKEN non configuré")
+        return False
+
+    url = f"https://api.telegram.org/bot{token}/sendMessage"
+    payload = json.dumps({
+        'chat_id': chat_id,
+        'text': text,
+    }).encode('utf-8')
+
+    request = urllib.request.Request(
+        url,
+        data=payload,
+        headers={'Content-Type': 'application/json'},
+    )
+
+    try:
+        with urllib.request.urlopen(request, timeout=10) as response:
+            body = response.read().decode('utf-8')
+        parsed = json.loads(body) if body else {}
+        if not parsed.get('ok'):
+            logger.error(f"Erreur Telegram API: {parsed}")
+            return False
+        return True
+    except urllib.error.HTTPError as e:
+        logger.error(f"Erreur HTTP Telegram: {e.read().decode('utf-8')}")
+        return False
+    except Exception as e:
+        logger.error(f"Erreur lors de l'envoi Telegram: {str(e)}", exc_info=True)
+        return False
+
+
+def send_alert_telegram(recipients, alert_name, module, severity, message=""):
+    telegram_list = extract_telegram_recipients(recipients)
+    if not telegram_list:
+        logger.warning("Aucun destinataire Telegram valide à envoyer")
+        return False
+
+    severity_map = {
+        'critical': 'CRITIQUE',
+        'high': 'HAUTE',
+        'medium': 'MOYENNE',
+        'low': 'BASSE'
+    }
+    severity_label = severity_map.get(severity, severity)
+
+    telegram_body = (
+        "⚠️ ALERTE DÉCLENCHÉE\n"
+        f"Nom: {alert_name}\n"
+        f"Module: {module}\n"
+        f"Sévérité: {severity_label}\n"
+        f"Timestamp: {__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+        f"{message}\n\n"
+        f"Détails: {settings.FRONTEND_URL}"
+    )
+
+    any_success = False
+    for chat_id in telegram_list:
+        if send_telegram_message(chat_id, telegram_body):
+            any_success = True
+
+    if any_success:
+        logger.info(f"Alerte Telegram envoyée à {len(telegram_list)} destinataire(s)")
+    return any_success
 
 
 def send_alert_email(recipients, alert_name, module, severity, message=""):
@@ -108,6 +206,7 @@ class AlertViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """Associer l'alerte à l'utilisateur actuel et envoyer un email de confirmation"""
         alert = serializer.save(user=self.request.user)
+        channels = normalize_channels(alert.notification_channels)
         
         # Envoyer un email de confirmation au créateur
         try:
@@ -153,9 +252,24 @@ L'équipe SmartNotify
                 fail_silently=False,
             )
             logger.info(f"Email de confirmation d'alerte envoyé à {user_email}")
+
+            if self.request.user.telegram_chat_id:
+                telegram_message = (
+                    "✅ Alerte créée avec succès\n"
+                    f"Nom: {alert_name}\n"
+                    f"Module: {module}\n"
+                    f"Sévérité: {alert.get_severity_display()}\n"
+                    f"Type: {alert.get_condition_type_display()}\n"
+                    f"Statut: {'ACTIVE' if alert.is_active else 'INACTIVE'}\n"
+                    f"Canaux: {', '.join(channels) if channels else 'Aucun'}\n\n"
+                    f"Gérer: {settings.FRONTEND_URL}/alerts"
+                )
+                send_telegram_message(self.request.user.telegram_chat_id, telegram_message)
+            else:
+                logger.warning("telegram_chat_id manquant pour l'utilisateur")
             
             # Envoyer un email aux destinataires spécifiés
-            if alert.recipients and 'email' in alert.notification_channels:
+            if alert.recipients and 'email' in channels:
                 success = send_alert_email(
                     alert.recipients,
                     alert_name,
@@ -165,6 +279,15 @@ L'équipe SmartNotify
                 )
                 if success:
                     logger.info(f" Alerte envoyée à {len(alert.recipients)} destinataire(s)")
+
+            if alert.recipients and 'telegram' in channels:
+                send_alert_telegram(
+                    alert.recipients,
+                    alert_name,
+                    module,
+                    severity,
+                    f"Nouvelle alerte configurée.\n\nDescription: {alert.description or 'Aucune'}\nThreshold: {alert.threshold_value or 'Non défini'}"
+                )
             
         except Exception as e:
             # Log l'erreur mais ne pas empêcher la création de l'alerte
@@ -226,27 +349,49 @@ L'équipe SmartNotify
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Envoyer l'alerte aux destinataires
-        success = send_alert_email(
-            alert.recipients,
-            alert.name,
-            alert.module,
-            alert.severity,
-            f"Description: {alert.description or 'Aucune'}\n\nCondition: {alert.threshold_value or 'Non défini'}"
-        )
-        
-        if success:
+        channels = normalize_channels(alert.notification_channels)
+        if not channels:
+            return Response(
+                {'error': 'Aucun canal de notification défini pour cette alerte'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        message = f"Description: {alert.description or 'Aucune'}\n\nCondition: {alert.threshold_value or 'Non défini'}"
+
+        email_success = False
+        telegram_success = False
+
+        if 'email' in channels:
+            email_success = send_alert_email(
+                alert.recipients,
+                alert.name,
+                alert.module,
+                alert.severity,
+                message
+            )
+
+        if 'telegram' in channels:
+            telegram_success = send_alert_telegram(
+                alert.recipients,
+                alert.name,
+                alert.module,
+                alert.severity,
+                message
+            )
+
+        if email_success or telegram_success:
             logger.info(f" Alerte {alert.id} envoyée à {len(alert.recipients)} destinataire(s)")
             return Response({
                 'message': f'Alerte envoyée avec succès à {len(alert.recipients)} destinataire(s)',
-                'recipients': alert.recipients
+                'recipients': alert.recipients,
+                'channels': channels
             })
-        else:
-            logger.error(f" Échec d'envoi de l'alerte {alert.id}")
-            return Response(
-                {'error': 'Erreur lors de l\'envoi de l\'alerte'},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
-            )
+
+        logger.error(f" Échec d'envoi de l'alerte {alert.id}")
+        return Response(
+            {'error': 'Erreur lors de l\'envoi de l\'alerte'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
     
     @action(detail=False, methods=['get'])
     def my_alerts(self, request):

@@ -38,6 +38,14 @@ class CustomUser(AbstractUser):
         null=True
     )
 
+    telegram_chat_id = models.CharField(
+        _('telegram chat id'),
+        max_length=64,
+        blank=True,
+        null=True,
+        help_text=_('Identifiant Telegram pour recevoir des notifications.')
+    )
+
     role = models.CharField(
         _('role'),
         max_length=20,
