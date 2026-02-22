@@ -161,11 +161,8 @@ const NewAlert = () => {
   const [validationErrors, setValidationErrors] = useState({});
   const [isAnimating, setIsAnimating] = useState(false);
   const [customRecipient, setCustomRecipient] = useState('');
-<<<<<<< HEAD
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
-=======
->>>>>>> e72ec4e045cfd15f4656a32c9cef5397f98913dd
 
   const [formData, setFormData] = useState({
     name: '',
@@ -205,7 +202,6 @@ const NewAlert = () => {
     }
   }, [user?.role, formData.module]);
 
-<<<<<<< HEAD
   useEffect(() => {
     const fetchProducts = async () => {
       try {
@@ -243,8 +239,6 @@ const NewAlert = () => {
     }
   }, [formData.module]);
 
-=======
->>>>>>> e72ec4e045cfd15f4656a32c9cef5397f98913dd
   /* ─── Data ───────────────────────────────────────────────── */
   const modules = [
     { value: 'stock',       label: 'Stock',       icon: <InventoryIcon />,   color: '#3b82f6' },
@@ -270,30 +264,17 @@ const NewAlert = () => {
   ];
 
   const comparisonOperators = [
-<<<<<<< HEAD
     { value: 'greater_than',         symbol: '>' },
     { value: 'less_than',            symbol: '<' },
     { value: 'equal_to',                symbol: '=' },
     { value: 'not_equal',     symbol: '\u2260' },
     { value: 'greater_equal',  symbol: '\u2265' },
     { value: 'less_equal',     symbol: '\u2264' },
-=======
-    { value: 'greater_than',  label: 'Supérieur à',        symbol: '>' },
-    { value: 'less_than',     label: 'Inférieur à',        symbol: '<' },
-    { value: 'equal_to',      label: 'Égal à',             symbol: '=' },
-    { value: 'not_equal',     label: 'Différent de',       symbol: '\u2260' },
-    { value: 'greater_equal', label: 'Supérieur ou égal',  symbol: '\u2265' },
-    { value: 'less_equal',    label: 'Inférieur ou égal',  symbol: '\u2264' },
->>>>>>> e72ec4e045cfd15f4656a32c9cef5397f98913dd
   ];
 
   const notificationChannels = [
     { value: 'email',   label: 'Email',    icon: <EmailIcon sx={{ fontSize: 22 }} />,              color: '#ef4444' },
     { value: 'in-app',  label: 'In-App',   icon: <NotificationsIcon sx={{ fontSize: 22 }} />,      color: '#3b82f6' },
-<<<<<<< HEAD
-=======
-    { value: 'telegram',label: 'Telegram', icon: <NotificationsActiveIcon sx={{ fontSize: 22 }} />,color: '#06b6d4' },
->>>>>>> e72ec4e045cfd15f4656a32c9cef5397f98913dd
   ];
 
   const scheduleOptions = [
@@ -314,16 +295,12 @@ const NewAlert = () => {
       if (!formData.module) errors.module = 'Veuillez sélectionner un module';
     }
     if (step === 1) {
-<<<<<<< HEAD
       if (formData.compareTo === 'value' && !formData.thresholdValue) {
         errors.thresholdValue = 'Cette valeur est requise';
       }
       if (formData.module === 'stock' && formData.categories.length === 0) {
         errors.categories = 'Sélectionnez au moins une catégorie';
       }
-=======
-      if (!formData.thresholdValue) errors.thresholdValue = 'Cette valeur est requise';
->>>>>>> e72ec4e045cfd15f4656a32c9cef5397f98913dd
     }
     if (step === 2) {
       if (formData.notificationChannels.length === 0) errors.channels = 'Sélectionnez au moins un canal';
@@ -336,15 +313,12 @@ const NewAlert = () => {
   const handleInputChange = (field) => (e) => {
     setFormData({ ...formData, [field]: e.target.value });
     if (validationErrors[field]) setValidationErrors({ ...validationErrors, [field]: undefined });
-<<<<<<< HEAD
   };
 
   const handleCategoriesChange = (e) => {
     const value = e.target.value;
     setFormData({ ...formData, categories: value });
     if (validationErrors.categories) setValidationErrors({ ...validationErrors, categories: undefined });
-=======
->>>>>>> e72ec4e045cfd15f4656a32c9cef5397f98913dd
   };
 
   const handleChannelToggle = (channel) => {
@@ -421,24 +395,18 @@ const NewAlert = () => {
         categories: formData.categories,
         product: formData.product || null,
         notification_channels: formData.notificationChannels,
-<<<<<<< HEAD
         recipients: formData.recipients,
         schedule: formData.schedule,
         custom_schedule: formData.customSchedule,
         repeat_until_resolved: formData.repeatUntilResolved,
         is_active: formData.isActive,
         tags: formData.tags,
-=======
-        recipients: formData.recipients, schedule: formData.schedule,
-        custom_schedule: formData.customSchedule, is_active: formData.isActive, tags: formData.tags,
->>>>>>> e72ec4e045cfd15f4656a32c9cef5397f98913dd
       };
       const res = await fetch('http://localhost:8000/api/alerts/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(alertData),
       });
-<<<<<<< HEAD
       const responseText = await res.text();
       let responseJson = null;
       if (responseText) {
@@ -456,12 +424,6 @@ const NewAlert = () => {
           `Erreur ${res.status}`;
         throw new Error(message);
       }
-=======
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.message || "Erreur lors de la création de l'alerte");
-      }
->>>>>>> e72ec4e045cfd15f4656a32c9cef5397f98913dd
       showSnackbar("Règle d'alerte créée avec succès", 'success');
       setTimeout(() => navigate('/alerts'), 2000);
     } catch (err) {
@@ -612,7 +574,6 @@ const NewAlert = () => {
             <Box>
               <SectionHeader title={thresholdPanel[formData.conditionType]?.title || 'Configuration'} />
               <Box sx={{ p: 3, bgcolor: T.surfaceAlt, borderRadius: 2, border: `1px solid ${T.border}` }}>
-<<<<<<< HEAD
                 {formData.module === 'stock' && (
                   <Grid container spacing={2.5} sx={{ mb: 2 }}>
                     <Grid item xs={12} md={6}>
@@ -646,23 +607,14 @@ const NewAlert = () => {
                           sx={selectSx}
                           renderValue={(selected) => (
                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                              {selected.map((value) => {
-                                // Trouver la catégorie correspondante pour afficher son nom
-                                const category = categories.find(cat => cat.id === value);
-                                return (
-                                  <Chip 
-                                    key={value} 
-                                    label={category ? category.name : value} 
-                                    size="small" 
-                                    sx={{ bgcolor: 'rgba(59,130,246,0.15)', color: T.textPrimary }} 
-                                  />
-                                );
-                              })}
+                              {selected.map((value) => (
+                                <Chip key={value} label={value} size="small" sx={{ bgcolor: 'rgba(59,130,246,0.15)', color: T.textPrimary }} />
+                              ))}
                             </Box>
                           )}
                         >
                           {categories.map((cat) => (
-                            <MenuItem key={cat.id} value={cat.id}>
+                            <MenuItem key={cat.id} value={cat.name}>
                               {cat.name}
                             </MenuItem>
                           ))}
@@ -676,8 +628,6 @@ const NewAlert = () => {
                     </Grid>
                   </Grid>
                 )}
-=======
->>>>>>> e72ec4e045cfd15f4656a32c9cef5397f98913dd
                 {thresholdPanel[formData.conditionType]?.fields}
               </Box>
             </Box>
@@ -716,11 +666,7 @@ const NewAlert = () => {
               <Box sx={{ display: 'flex', gap: 1.5, mb: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
                 <TextField
                   fullWidth
-<<<<<<< HEAD
                   placeholder="prenom.nom@entreprise.com"
-=======
-                  placeholder="prenom.nom@entreprise.com, @channel, 123456789"
->>>>>>> e72ec4e045cfd15f4656a32c9cef5397f98913dd
                   value={customRecipient}
                   onChange={e => setCustomRecipient(e.target.value)}
                   onKeyPress={e => e.key === 'Enter' && handleAddRecipient()}
