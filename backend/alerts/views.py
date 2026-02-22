@@ -53,7 +53,7 @@ def send_alert_email(recipients, alert_name, module, severity, message=""):
         
         email_body = f"""
 
-            ⚠️  ALERTE DÉCLENCHÉE               
+              ALERTE DÉCLENCHÉE               
 
 
 Nom de l'alerte  : {alert_name}

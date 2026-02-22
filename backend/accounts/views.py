@@ -43,8 +43,6 @@ def send_welcome_email(user):
     - Email : {user.email}
     - Nom d'utilisateur : {user.username}
     
-    Si vous n'êtes pas à l'origine de cette inscription, ignorez cet email.
-    
     Cordialement,
     L'équipe SmartNotify
     """

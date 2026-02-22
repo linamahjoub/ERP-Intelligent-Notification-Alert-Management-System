@@ -585,29 +585,7 @@ const Dashboard = () => {
             {drawerContent}
           </Box>
 
-          {/* Bouton toggle avec flèche */}
-          <IconButton
-            onClick={handleDrawerToggle}
-            sx={{
-              position: "fixed",
-              left: drawerOpen ? drawerWidth - 20 : collapsedDrawerWidth - 20,
-              top: "50%",
-              transform: "translateY(-50%)",
-              zIndex: 1300,
-              bgcolor: "#3b82f6",
-              color: "white",
-              width: 40,
-              height: 40,
-              boxShadow: "0 4px 12px rgba(59, 130, 246, 0.4)",
-              transition: "all 0.3s ease",
-              "&:hover": {
-                bgcolor: "#2563eb",
-                boxShadow: "0 6px 16px rgba(59, 130, 246, 0.6)",
-              },
-            }}
-          >
-            {drawerOpen ? <ChevronLeftIcon /> : <ChevronRightIcon />}
-          </IconButton>
+          {/* Toggle button removed per request */}
         </Box>
       )}
 

@@ -9,6 +9,9 @@ urlpatterns = [
     # Expose the same account admin endpoints under /api/admin/ for the frontend admin panel
     path('api/admin/', include('accounts.urls')),
     path('api/alerts/', include('alerts.urls')),
+    path('api/stock/', include('stock.urls')),
+    path('api/fournisseurs/', include('fournisseur.urls')),
+    path('api/categories/', include('categories.urls')),
 ]
 
 # Servir les fichiers media en développement

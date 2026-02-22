@@ -14,8 +14,11 @@ import Profile from './pages/profile';
 import EditProfile from './pages/editProfile';
 import ModulesERP from './pages/ModulesERP';
 import Notifications from './pages/Notifications';
-import dashboardStock from './pages/dashboardStock';
+import DashboardStock from './pages/Stock';
 import NewAlert from './pages/NewAlert';
+import Fournisseur from './pages/fournisseur';
+import Categories from './pages/categories';
+
 //import History from './pages/History';
 import AlertRules from './pages/AlertRules';
 import EditAlert from './pages/EditAlert';
@@ -180,6 +183,38 @@ const InnerRoutes = () => {
           </PrivateRoute>
         } />
 
+        {/* Route pour le dashboard stock */}
+        <Route path="/stock" element={
+          <PrivateRoute>
+            <DashboardStock />
+          </PrivateRoute>
+        } />
+        <Route path="/stock/new" element={
+          <PrivateRoute>
+            <DashboardStock />
+          </PrivateRoute>
+        } />
+        {/* Route pour le dashboard stock */}
+        <Route path="/fournisseur" element={
+          <PrivateRoute>
+            <Fournisseur />
+          </PrivateRoute>
+        } />
+          <Route path="/fournisseur/new" element={
+          <PrivateRoute>
+            <Fournisseur />
+          </PrivateRoute>
+        } />
+        <Route path="/categories" element={
+          <PrivateRoute>
+            <Categories />
+          </PrivateRoute>
+        } />
+        <Route path="/categories/new" element={
+          <PrivateRoute>
+            <Categories />
+          </PrivateRoute>
+        } />
         {/* Route pour créer une nouvelle alerte */}
         <Route path="/new-alert" element={
           <PrivateRoute>

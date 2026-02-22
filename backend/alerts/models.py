@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
+from stock.models import Product
 
 User = get_user_model()
 
@@ -64,6 +65,12 @@ class Alert(models.Model):
         choices=COMPARISON_OPERATORS,
         default='greater_than'
     )
+    condition_field = models.CharField(max_length=100, blank=True, null=True)
+    compare_to = models.CharField(max_length=100, blank=True, null=True)
+    categories = models.JSONField(default=list, blank=True)
+
+    # Lien produit (optionnel)
+    product = models.ForeignKey(Product, on_delete=models.SET_NULL, null=True, blank=True, related_name='alerts')
     
     # Notifications
     notification_channels = models.JSONField(default=list, help_text="Liste des canaux de notification")
@@ -72,6 +79,7 @@ class Alert(models.Model):
     # Calendrier
     schedule = models.CharField(max_length=20, choices=SCHEDULE_CHOICES, default='immediate')
     custom_schedule = models.CharField(max_length=255, blank=True, null=True)
+    repeat_until_resolved = models.BooleanField(default=False)
     
     # Statut
     is_active = models.BooleanField(default=True)
