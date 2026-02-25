@@ -117,16 +117,22 @@ const AlertRules = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("access_token");
-      const endpoint = user?.is_superuser
-        ? "http://localhost:8000/api/alerts/?include_user=true"
-        : "http://localhost:8000/api/alerts/";
+      const endpoint = "http://localhost:8000/api/alerts/";
       const response = await fetch(endpoint, {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
       });
       if (!response.ok) throw new Error("Erreur lors du chargement des alertes");
-      const alertsData = await response.json();
+      let alertsData = await response.json();
+      
+      // Admin voit UNIQUEMENT ses propres alertes (même logique que Notifications)
+      // Note: user est un ID simple, pas un objet
+      if (user?.is_superuser && Array.isArray(alertsData)) {
+        alertsData = alertsData.filter(a => a.user === user.id);
+      }
+      
       setAlerts(Array.isArray(alertsData) ? alertsData : []);
     } catch (err) {
+      console.error("Erreur fetchAlerts:", err);
       setErrorMessage("Erreur lors du chargement des alertes");
     } finally {
       setLoading(false);
@@ -252,19 +258,11 @@ const AlertRules = () => {
           {/* Titre + bouton créer */}
           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, flexWrap: "wrap", gap: 2 }}>
             <Box>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 0.5 }}>
-                <Typography variant="h4" sx={{ color: "white", fontWeight: 700 }}>
-                  {user?.is_superuser ? "Toutes les Alertes" : "Mes Alertes"}
-                </Typography>
-                <Badge badgeContent={filteredAlerts.length} sx={{ "& .MuiBadge-badge": { bgcolor: "#3b82f6", color: "white", fontSize: "0.85rem", minWidth: 24, height: 24, borderRadius: "6px" } }} />
-                {filteredAlerts.length !== alerts.length && (
-                  <Typography variant="caption" sx={{ color: "#64748b", fontSize: "0.75rem" }}>
-                    ({filteredAlerts.length} sur {alerts.length})
-                  </Typography>
-                )}
-              </Box>
+              <Typography variant="h4" sx={{ color: "white", fontWeight: 700, mb: 0.5 }}>
+                {user?.is_superuser ? "Toutes les Alertes" : "Mes Alertes"}
+              </Typography>
               <Typography variant="body2" sx={{ color: "#64748b" }}>
-                {user?.is_superuser ? "Consultez et gérez toutes les alertes du système" : "Consultez et gérez vos règles de notification personnalisées"}
+                {user?.is_superuser ? "Consultez et gérez toutes les alertes du système" : "Consultez et gérez toutes vos alertes "}
               </Typography>
             </Box>
             <Button
@@ -314,6 +312,7 @@ const AlertRules = () => {
           </Box>
 
           {/* Chips filtres actifs */}
+
           {activeFiltersCount > 0 && (
             <Box sx={{ display: "flex", gap: 1, mb: 2.5, flexWrap: "wrap", alignItems: "center" }}>
               {filterDate !== "all" && (

@@ -192,9 +192,14 @@ class AlertViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        """Retourner uniquement les alertes de l'utilisateur connecté"""
+        """Retourner les alertes en fonction du rôle de l'utilisateur"""
         user = self.request.user
-        # Tous les utilisateurs (admin ou non) ne voient que leurs propres alertes
+        
+        # Les superusers/admins voient TOUTES les alertes
+        if user.is_superuser or user.is_staff:
+            return Alert.objects.all()
+        
+        # Les utilisateurs normaux ne voient que leurs propres alertes
         return Alert.objects.filter(user=user)
     
     def list(self, request, *args, **kwargs):

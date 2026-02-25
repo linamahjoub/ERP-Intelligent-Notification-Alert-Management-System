@@ -31,6 +31,8 @@ import {
   Tab,
   Badge,
   Divider,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   PersonAdd as PersonAddIcon,
@@ -47,13 +49,18 @@ import {
   Visibility as VisibilityIcon,
   Star as StarIcon,
   Shield as ShieldIcon,
+  Menu as MenuIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import SharedSidebar from '../components/SharedSidebar';
 
 const SuperAdminDashboard = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [mobileOpen, setMobileOpen] = useState(false);
   
   // États
   const [allUsers, setAllUsers] = useState([]);
@@ -311,25 +318,58 @@ const SuperAdminDashboard = () => {
     inactive: allUsers.filter(u => !u.is_active).length,
   };
 
+  const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
+
+  const handleLogout = async () => {
+    await logout();
+    navigate('/login');
+  };
+
   if (!isSuperAdmin) {
     return (
-      <Container maxWidth="md">
-        <Box sx={{ mt: 8, textAlign: 'center' }}>
-          <Alert severity="error" sx={{ mb: 3 }}>
-            Accès réservé au Super Administrateur
-          </Alert>
-          <Button variant="contained" onClick={() => navigate('/dashboard')}>
-            Retour au Dashboard
-          </Button>
+      <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'black' }}>
+        <SharedSidebar mobileOpen={mobileOpen} onMobileClose={handleDrawerToggle} />
+        <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Container maxWidth="md">
+            <Box sx={{ mt: 8, textAlign: 'center' }}>
+              <Alert severity="error" sx={{ mb: 3 }}>
+                Accès réservé au Super Administrateur
+              </Alert>
+              <Button variant="contained" onClick={() => navigate('/dashboard')}>
+                Retour au Dashboard
+              </Button>
+            </Box>
+          </Container>
         </Box>
-      </Container>
+      </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl">
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'black' }}>
+      <SharedSidebar mobileOpen={mobileOpen} onMobileClose={handleDrawerToggle} />
+      
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          width: isMobile ? '100%' : 'calc(100% - 280px)',
+          minHeight: '100vh',
+          bgcolor: 'black',
+        }}
+      >
+        <Container maxWidth="xl">
+      {/* Menu hamburger mobile */}
+      {isMobile && (
+        <Box sx={{ pt: 2, pb: 1 }}>
+          <IconButton onClick={handleDrawerToggle} sx={{ color: 'white' }}>
+            <MenuIcon />
+          </IconButton>
+        </Box>
+      )}
+      
       {/* En-tête Super Admin */}
-      <Box sx={{ mt: 4, mb: 4 }}>
+      <Box sx={{ mt: isMobile ? 2 : 4, mb: 4 }}>
         <Paper elevation={3} sx={{ p: 3, background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', color: 'white' }}>
           <Grid container alignItems="center" justifyContent="space-between">
             <Grid item>
@@ -760,6 +800,8 @@ const SuperAdminDashboard = () => {
         </Alert>
       </Snackbar>
     </Container>
+      </Box>
+    </Box>
   );
 };
 

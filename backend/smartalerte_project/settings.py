@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     # Local apps
     'accounts',
     'alerts',
+    'notifications',
     'stock',
     'fournisseur',
     'categories',

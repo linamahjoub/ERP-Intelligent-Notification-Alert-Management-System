@@ -19,20 +19,17 @@ import {
   Fade,
   Stack,
   Divider,
-  InputAdornment,
   LinearProgress,
+  useTheme,
+  useMediaQuery,
+  IconButton,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
   Save as SaveIcon,
-  Add as AddIcon,
   Notifications as NotificationsIcon,
-  Schedule as ScheduleIcon,
   Speed as SpeedIcon,
   Timeline as TimelineIcon,
-  Email as EmailIcon,
-  NotificationsActive as NotificationsActiveIcon,
-  PlayArrow as PlayArrowIcon,
   Inventory as InventoryIcon,
   People as PeopleIcon,
   Description as DescriptionIcon,
@@ -40,12 +37,13 @@ import {
   Factory as FactoryIcon,
   Error as ErrorIcon,
   TrendingUp as TrendingUpIcon,
-  Close as CloseIcon,
   ChevronRight as ChevronRightIcon,
   CheckCircle as CheckCircleIcon,
+  Menu as MenuIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import SharedSidebar from '../components/SharedSidebar';
 
 /* ─── Design tokens ──────────────────────────────────────────── */
 const T = {
@@ -160,7 +158,6 @@ const NewAlert = () => {
   const [snackbarSeverity, setSnackbarSeverity] = useState('success');
   const [validationErrors, setValidationErrors] = useState({});
   const [isAnimating, setIsAnimating] = useState(false);
-  const [customRecipient, setCustomRecipient] = useState('');
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
 
@@ -176,13 +173,7 @@ const NewAlert = () => {
     compareTo: 'value',
     product: '',
     categories: [],
-    notificationChannels: ['email'],
-    recipients: [],
-    schedule: 'immediate',
-    customSchedule: '',
     isActive: true,
-    repeatUntilResolved: false,
-    tags: [],
   });
 
   const roleToModule = {
@@ -272,21 +263,10 @@ const NewAlert = () => {
     { value: 'less_equal',     symbol: '\u2264' },
   ];
 
-  const notificationChannels = [
-    { value: 'email',   label: 'Email',    icon: <EmailIcon sx={{ fontSize: 22 }} />,              color: '#ef4444' },
-    { value: 'in-app',  label: 'In-App',   icon: <NotificationsIcon sx={{ fontSize: 22 }} />,      color: '#3b82f6' },
+  const steps = [
+    'Informations de base',
+    'Conditions de declenchement',
   ];
-
-  const scheduleOptions = [
-    { value: 'immediate', label: 'Temps réel',         icon: <PlayArrowIcon sx={{ fontSize: 18 }} />,  description: 'Vérification continue' },
-    { value: 'hourly',    label: 'Toutes les heures',  icon: <ScheduleIcon sx={{ fontSize: 18 }} />,   description: 'Vérification horaire' },
-    { value: 'daily',     label: 'Quotidien',          icon: <ScheduleIcon sx={{ fontSize: 18 }} />,   description: 'Une fois par jour' },
-    { value: 'weekly',    label: 'Hebdomadaire',       icon: <ScheduleIcon sx={{ fontSize: 18 }} />,   description: 'Une fois par semaine' },
-    { value: 'monthly',   label: 'Mensuel',            icon: <ScheduleIcon sx={{ fontSize: 18 }} />,   description: 'Une fois par mois' },
-  ];
-
-  const steps = ['Informations de base', 'Conditions de déclenchement', 'Notifications'];
-
   /* ─── Handlers ───────────────────────────────────────────── */
   const validateStep = (step) => {
     const errors = {};
@@ -302,10 +282,7 @@ const NewAlert = () => {
         errors.categories = 'Sélectionnez au moins une catégorie';
       }
     }
-    if (step === 2) {
-      if (formData.notificationChannels.length === 0) errors.channels = 'Sélectionnez au moins un canal';
-      if (formData.recipients.length === 0) errors.recipients = 'Ajoutez au moins un destinataire';
-    }
+    
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -321,41 +298,6 @@ const NewAlert = () => {
     if (validationErrors.categories) setValidationErrors({ ...validationErrors, categories: undefined });
   };
 
-  const handleChannelToggle = (channel) => {
-    const channels = [...formData.notificationChannels];
-    const idx = channels.indexOf(channel);
-    if (idx === -1) {
-      channels.push(channel);
-    } else {
-      if (channels.length === 1) {
-        showSnackbar('Au moins un canal doit être sélectionné', 'warning');
-        return;
-      }
-      channels.splice(idx, 1);
-    }
-    setFormData({ ...formData, notificationChannels: channels });
-    if (validationErrors.channels) setValidationErrors({ ...validationErrors, channels: undefined });
-  };
-
-  const handleAddRecipient = () => {
-    if (!customRecipient) return;
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const chatIdRegex = /^-?\d+$/;
-    if (!emailRegex.test(customRecipient) && !customRecipient.startsWith('@') && !chatIdRegex.test(customRecipient)) {
-      showSnackbar("Format invalide (email, @channel ou chat id)", 'error');
-      return;
-    }
-    if (formData.recipients.includes(customRecipient)) {
-      showSnackbar('Ce destinataire est déjà ajouté', 'warning');
-      return;
-    }
-    setFormData({ ...formData, recipients: [...formData.recipients, customRecipient] });
-    setCustomRecipient('');
-    if (validationErrors.recipients) setValidationErrors({ ...validationErrors, recipients: undefined });
-  };
-
-  const handleRemoveRecipient = (r) =>
-    setFormData({ ...formData, recipients: formData.recipients.filter(x => x !== r) });
 
   const showSnackbar = (msg, sev = 'success') => {
     setSnackbarMessage(msg);
@@ -394,13 +336,7 @@ const NewAlert = () => {
         compare_to: formData.compareTo,
         categories: formData.categories,
         product: formData.product || null,
-        notification_channels: formData.notificationChannels,
-        recipients: formData.recipients,
-        schedule: formData.schedule,
-        custom_schedule: formData.customSchedule,
-        repeat_until_resolved: formData.repeatUntilResolved,
         is_active: formData.isActive,
-        tags: formData.tags,
       };
       const res = await fetch('http://localhost:8000/api/alerts/', {
         method: 'POST',
@@ -635,101 +571,43 @@ const NewAlert = () => {
         </Fade>
       );
 
-      case 2: return (
-        <Fade in={!isAnimating} timeout={300}>
-          <Stack spacing={4}>
-            {/* Channels */}
-            <Box>
-              <SectionHeader title="Canaux de notification" subtitle="Choisissez le ou les canaux de transmission des alertes" />
-              <Grid container spacing={1.5}>
-                {notificationChannels.map(ch => (
-                  <Grid item xs={12} sm={4} key={ch.value}>
-                    <SelectCard selected={formData.notificationChannels.includes(ch.value)} accentColor={ch.color} onClick={() => handleChannelToggle(ch.value)}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <Box sx={{ color: formData.notificationChannels.includes(ch.value) ? ch.color : T.textMuted }}>{ch.icon}</Box>
-                        <Typography sx={{ color: T.textPrimary, fontWeight: 600, fontSize: '0.875rem' }}>{ch.label}</Typography>
-                      </Box>
-                    </SelectCard>
-                  </Grid>
-                ))}
-              </Grid>
-              {validationErrors.channels && (
-                <Typography variant="caption" sx={{ color: T.error, mt: 1.5, display: 'block' }}>{validationErrors.channels}</Typography>
-              )}
-            </Box>
-
-            <Divider sx={{ borderColor: T.border }} />
-
-            {/* Recipients */}
-            <Box>
-              <SectionHeader title="Destinataires" subtitle="Ajoutez les personnes qui recevront les notifications" />
-              <Box sx={{ display: 'flex', gap: 1.5, mb: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
-                <TextField
-                  fullWidth
-                  placeholder="prenom.nom@entreprise.com"
-                  value={customRecipient}
-                  onChange={e => setCustomRecipient(e.target.value)}
-                  onKeyPress={e => e.key === 'Enter' && handleAddRecipient()}
-                  error={!!validationErrors.recipients}
-                  InputProps={{ startAdornment: <InputAdornment position="start"><EmailIcon sx={{ color: T.textMuted, fontSize: 18 }} /></InputAdornment> }}
-                  sx={fieldSx(!!validationErrors.recipients)}
-                />
-                <Button
-                  variant="contained"
-                  onClick={handleAddRecipient}
-                  startIcon={<AddIcon sx={{ fontSize: 18 }} />}
-                  sx={{ bgcolor: T.accent, minWidth: { xs: '100%', sm: '130px' }, height: 48, fontWeight: 600, fontSize: '0.8125rem', letterSpacing: '0.02em', borderRadius: 1.5, boxShadow: 'none', '&:hover': { bgcolor: T.accentDark, boxShadow: `0 4px 12px ${T.accentGlow}` } }}
-                >
-                  Ajouter
-                </Button>
-              </Box>
-              {validationErrors.recipients && (
-                <Typography variant="caption" sx={{ color: T.error, mb: 1.5, display: 'block' }}>{validationErrors.recipients}</Typography>
-              )}
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, p: 2.5, bgcolor: T.surfaceAlt, borderRadius: 2, border: `1px dashed ${T.border}`, minHeight: 72, alignItems: 'flex-start' }}>
-                {formData.recipients.length === 0
-                  ? <Typography variant="body2" sx={{ color: T.textMuted, fontStyle: 'italic', width: '100%', textAlign: 'center', py: 1.5, fontSize: '0.8125rem' }}>Aucun destinataire ajouté</Typography>
-                  : formData.recipients.map(r => (
-                    <Chip key={r} label={r} onDelete={() => handleRemoveRecipient(r)} deleteIcon={<CloseIcon sx={{ fontSize: '14px !important' }} />}
-                      sx={{ bgcolor: 'rgba(59,130,246,0.12)', color: T.textPrimary, border: '1px solid rgba(59,130,246,0.25)', height: 30, fontSize: '0.8rem', fontWeight: 500, '& .MuiChip-deleteIcon': { color: T.textSecondary, '&:hover': { color: T.error } } }}
-                    />
-                  ))}
-              </Box>
-            </Box>
-
-            <Divider sx={{ borderColor: T.border }} />
-
-            {/* Schedule */}
-            <Box>
-              <SectionHeader title="Fréquence de vérification" subtitle="Définissez à quelle fréquence la condition sera évaluée" />
-              <Grid container spacing={1.5}>
-                {scheduleOptions.map(s => (
-                  <Grid item xs={12} sm={6} md={4} key={s.value}>
-                    <SelectCard selected={formData.schedule === s.value} onClick={() => setFormData({ ...formData, schedule: s.value })}>
-                      <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                        <Box sx={{ color: formData.schedule === s.value ? T.accent : T.textMuted, mt: 0.25 }}>{s.icon}</Box>
-                        <Box>
-                          <Typography sx={{ color: T.textPrimary, fontWeight: 600, fontSize: '0.875rem', mb: 0.25 }}>{s.label}</Typography>
-                          <Typography sx={{ color: T.textSecondary, fontSize: '0.78rem' }}>{s.description}</Typography>
-                        </Box>
-                      </Box>
-                    </SelectCard>
-                  </Grid>
-                ))}
-              </Grid>
-            </Box>
-          </Stack>
-        </Fade>
-      );
-
+ 
       default: return null;
     }
   };
 
   /* ─── Render ─────────────────────────────────────────────── */
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
+
   return (
-    <Box sx={{ bgcolor: T.bg, minHeight: '100vh', py: 5 }}>
-      <Container maxWidth="lg">
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: T.bg }}>
+      <SharedSidebar mobileOpen={mobileOpen} onMobileClose={handleDrawerToggle} />
+      
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          width: isMobile ? '100%' : 'calc(100% - 280px)',
+          minHeight: '100vh',
+          bgcolor: T.bg,
+        }}
+      >
+        <Box sx={{ py: 5 }}>
+          <Container maxWidth="lg">
+
+        {/* Menu hamburger mobile */}
+        {isMobile && (
+          <Box sx={{ mb: 3,display: 'flex', alignItems: 'center', gap: 2 }}>
+            <IconButton onClick={handleDrawerToggle} sx={{ color: T.accent }}>
+              <MenuIcon />
+            </IconButton>
+            <Typography variant="h6" sx={{ color: T.textPrimary }}>Nouvelle Alerte</Typography>
+          </Box>
+        )}
 
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2.5, mb: 5 }}>
@@ -741,12 +619,11 @@ const NewAlert = () => {
               Nouvelle règle d'alerte
             </Typography>
             <Typography variant="body2" sx={{ color: T.textSecondary, mt: 0.25, fontSize: '0.8125rem' }}>
-              Configurez une règle pour recevoir des notifications automatiques
+              Renseignez les informations de base et les conditions de declenchement
             </Typography>
           </Box>
         </Box>
 
-        {/* Progress Bar + Step Indicator */}
         <Paper sx={{ p: 0, mb: 3.5, bgcolor: T.surface, border: `1px solid ${T.border}`, borderRadius: 2, overflow: 'hidden' }}>
           <LinearProgress
             variant="determinate"
@@ -765,14 +642,22 @@ const NewAlert = () => {
                 <React.Fragment key={label}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Box sx={{
-                      width: 28, height: 28, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                      width: 28,
+                      height: 28,
+                      borderRadius: '50%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      flexShrink: 0,
                       bgcolor: done ? T.success : active ? T.accent : 'transparent',
                       border: done || active ? 'none' : `1.5px solid ${T.border}`,
                       transition: 'all 0.2s',
                     }}>
-                      {done
-                        ? <CheckCircleIcon sx={{ fontSize: 16, color: 'white' }} />
-                        : <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: active ? 'white' : T.textMuted }}>{i + 1}</Typography>}
+                      {done ? (
+                        <CheckCircleIcon sx={{ fontSize: 16, color: 'white' }} />
+                      ) : (
+                        <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: active ? 'white' : T.textMuted }}>{i + 1}</Typography>
+                      )}
                     </Box>
                     <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
                       <Typography sx={{ fontSize: '0.8rem', fontWeight: active ? 700 : 500, color: active ? T.textPrimary : done ? T.success : T.textMuted, letterSpacing: '-0.01em' }}>
@@ -788,6 +673,8 @@ const NewAlert = () => {
             })}
           </Box>
         </Paper>
+
+       
 
         {/* Form content */}
         <Paper sx={{ p: { xs: 3, md: 5 }, mb: 3, bgcolor: T.surface, border: `1px solid ${T.border}`, borderRadius: 2, minHeight: 480 }}>
@@ -844,6 +731,8 @@ const NewAlert = () => {
         </Paper>
 
       </Container>
+        </Box>
+      </Box>
 
       {/* Snackbar */}
       <Snackbar open={openSnackbar} autoHideDuration={4000} onClose={() => setOpenSnackbar(false)} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>

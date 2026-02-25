@@ -23,6 +23,7 @@ import {
   IconButton,
   useTheme,
   useMediaQuery,
+  Badge,
   Collapse,
 } from "@mui/material";
 import {
@@ -59,11 +60,8 @@ import {
   MoreVert as MoreVertIcon,
   Add as AddIcon,
 } from "@mui/icons-material";
-import notif from "../assets/notif.png";
+import SharedSidebar from "../components/SharedSidebar";
 import { useNavigate } from "react-router-dom";
-
-const drawerWidth = 280;
-const collapsedDrawerWidth = 80;
 
 const Dashboard = () => {
   const { user, logout } = useAuth();
@@ -72,9 +70,6 @@ const Dashboard = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
   const [lastLogin, setLastLogin] = useState("");
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [drawerOpen, setDrawerOpen] = useState(true);
-  const [adminMenuOpen, setAdminMenuOpen] = useState(false);
-  const [selectedMenu, setSelectedMenu] = useState("dashboard");
 
   // Style global pour éliminer les espaces blancs
   useEffect(() => {
@@ -85,76 +80,27 @@ const Dashboard = () => {
   }, []);
 
   const handleDrawerToggle = () => {
-    if (isMobile) {
-      setMobileOpen(!mobileOpen);
-    } else {
-      setDrawerOpen(!drawerOpen);
-    }
+    setMobileOpen(!mobileOpen);
   };
+  const [dashboardData, setDashboardData] = useState({
+    stats: {
+      activeAlerts: 0,
+      sentNotifications: 0,
+      resolvedAlerts: 0,
+      configuredRules: 0,
+      systemStatus: "active",
+      totalUsers: 0,
+      activeUsers: 0, 
+    },
+    users: [],
+    alerts: [],
+    notifications: [],
+    alertTrend: [],
+    moduleDistribution: [],
+    recentActivity: [],
+  });
 
-  const handleAdminMenuClick = () => {
-    setAdminMenuOpen(!adminMenuOpen);
-  };
 
-  // Déclarer handleLogout AVANT menuItems
-  const handleLogout = async () => {
-    await logout();
-    navigate("/login");
-  };
-
-
-  const menuItems = [
-    {
-      id: 'dashboard',
-      label: 'Dashboard',
-      icon: <DashboardIcon />,
-      path: '/dashboard',
-    },
-    {
-      id: 'reglesalertes',
-      label: 'Alert Rules',
-      icon: <FlashOnIcon />,
-      path: '/alerts',
-    },
-    {
-      id: 'notifications',
-      label: 'Notifications',
-      icon: <NotificationsIcon />,
-      path: '/notifications',
-      badge: user?.unread_notifications || 0,
-    },
-    {
-      id: 'modules',
-      label: 'ERP Modules',
-      icon: <StorageIcon />,
-      path: '/modulesERP',
-    },
-  
-    {
-      id: 'history',
-      label: 'History',
-      icon: <CalendarIcon />,
-      path: '/history',
-    },
-    {
-      id: 'profile',
-      label: 'Profile',
-      icon: <PeopleIcon />,
-      path: '/profile',
-    },
-    {
-      id: 'settings',
-      label: 'Paramètres',
-      icon: <SettingsIcon />,
-      path: '/settings',
-    },
-    {
-      id: 'deconnexion',
-      label: 'Déconnexion',
-      icon: <LogoutIcon />,
-      action: handleLogout,
-    },
-  ];
 
   useEffect(() => {
     if (user) {
@@ -318,211 +264,6 @@ const Dashboard = () => {
     );
   };
 
-  const drawerContent = (
-    <Box
-      sx={{
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        bgcolor: "black",
-        borderRight: "1px solid rgba(59, 130, 246, 0.1)",
-      }}
-    >
-      {/* Logo et titre */}
-      <Box
-        sx={{
-          p: 2.5,
-          borderBottom: "1px solid rgba(59, 130, 246, 0.1)",
-          position: "relative",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: drawerOpen ? "flex-start" : "center",
-        }}
-      >
-        {drawerOpen ? (
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 1 }}>
-            <Box
-              sx={{
-                width: 50,
-                height: 50,
-                borderRadius: "50%",
-                bgcolor: "black",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                overflow: "hidden",
-              }}
-            >
-              <img src={notif} alt="SmartAlerte Logo" width="80" height="80" />
-            </Box>
-            <Box>
-              <Typography
-                variant="h6"
-                sx={{
-                  fontWeight: 700,
-                  fontSize: "1.25rem",
-                  color: "white",
-                  lineHeight: 1,
-                }}
-              >
-                SmartNotify
-              </Typography>
-              <Typography
-                variant="caption"
-                sx={{
-                  color: "#64748b",
-                  fontSize: "0.7rem",
-                  letterSpacing: "0.5px",
-                }}
-              >
-                ERP NOTIFICATIONS
-              </Typography>
-            </Box>
-          </Box>
-        ) : (
-          <img
-            src={notif}
-            alt="SmartAlerte Logo"
-            width="60"
-            height="60"
-            style={{ objectFit: "contain" }}
-          />
-        )}
-      </Box>
-
-      {/* Menu principal */}
-      <Box sx={{ flex: 1, overflowY: "auto", py: 2 }}>
-        <List sx={{ px: 2 }}>
-          {menuItems.map((item) => (
-            <ListItem
-              key={item.id}
-              button
-              selected={selectedMenu === item.id}
-              onClick={() => {
-                setSelectedMenu(item.id);
-                if (item.action) {
-                  item.action();
-                } else {
-                  navigate(item.path);
-                }
-                if (isMobile) setMobileOpen(false);
-              }}
-              sx={{
-                mb: 0.5,
-                borderRadius: 2,
-                transition: "all 0.2s ease",
-                justifyContent: drawerOpen ? "flex-start" : "center",
-                px: drawerOpen ? 2 : 1,
-                "&:hover": {
-                  bgcolor: "rgba(59, 130, 246, 0.08)",
-                },
-                "&.Mui-selected": {
-                  bgcolor: "rgba(59, 130, 246, 0.15)",
-                  "&:hover": {
-                    bgcolor: "rgba(59, 130, 246, 0.2)",
-                  },
-                  "& .MuiListItemIcon-root": {
-                    color: "#3b82f6",
-                  },
-                  "& .MuiListItemText-primary": {
-                    color: "#3b82f6",
-                    fontWeight: 500,
-                  },
-                },
-              }}
-            >
-              <ListItemIcon
-                sx={{
-                  minWidth: drawerOpen ? 36 : "auto",
-                  color: selectedMenu === item.id ? "#3b82f6" : "#64748b",
-                  justifyContent: "center",
-                }}
-              >
-                {item.icon}
-              </ListItemIcon>
-              {drawerOpen && (
-                <>
-                  <ListItemText
-                    primary={item.label}
-                    primaryTypographyProps={{
-                      fontSize: "0.9rem",
-                      fontWeight: selectedMenu === item.id ? 500 : 400,
-                      color: selectedMenu === item.id ? "#3b82f6" : "#94a3b8",
-                    }}
-                  />
-                  {item.badge && item.badge > 0 && (
-                    <Chip
-                      label={item.badge}
-                      size="small"
-                      sx={{
-                        height: 20,
-                        minWidth: 20,
-                        bgcolor: "#ef4444",
-                        color: "white",
-                        fontWeight: 600,
-                        fontSize: "0.7rem",
-                        "& .MuiChip-label": {
-                          px: 0.75,
-                        },
-                      }}
-                    />
-                  )}
-                </>
-              )}
-            </ListItem>
-          ))}
-        </List>
-      </Box>
-
-      {/* Footer du drawer - System Status */}
-      {drawerOpen && (
-        <Box
-          sx={{
-            p: 2,
-            m: 2,
-            bgcolor: "rgba(16, 185, 129, 0.1)",
-            borderRadius: 2,
-            border: "1px solid rgba(16, 185, 129, 0.2)",
-          }}
-        >
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <Box
-              sx={{
-                width: 8,
-                height: 8,
-                borderRadius: "50%",
-                bgcolor: "#10b981",
-                boxShadow: "0 0 8px rgba(16, 185, 129, 0.5)",
-              }}
-            />
-            <Box>
-              <Typography
-                variant="caption"
-                sx={{
-                  color: "#10b981",
-                  fontWeight: 600,
-                  display: "block",
-                  fontSize: "0.85rem",
-                }}
-              >
-                System Active
-              </Typography>
-              <Typography
-                variant="caption"
-                sx={{
-                  color: "#64748b",
-                  fontSize: "0.75rem",
-                }}
-              >
-                All services running
-              </Typography>
-            </Box>
-          </Box>
-        </Box>
-      )}
-    </Box>
-  );
-
   if (!user) {
     return (
       <Box
@@ -545,77 +286,14 @@ const Dashboard = () => {
 
   return (
     <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "black" }}>
-      {/* Drawer pour desktop */}
-      {!isMobile && (
-        <Box
-          sx={{
-            width: drawerOpen ? drawerWidth : collapsedDrawerWidth,
-            flexShrink: 0,
-            transition: "width 0.3s ease",
-            position: "relative",
-          }}
-        >
-          <Box
-            sx={{
-              width: drawerOpen ? drawerWidth : collapsedDrawerWidth,
-              height: "100vh",
-              position: "fixed",
-              left: 0,
-              top: 0,
-              bgcolor: "black",
-              borderRight: "1px solid rgba(59, 130, 246, 0.1)",
-              transition: "width 0.3s ease",
-              overflowY: "auto",
-              overflowX: "hidden",
-              "&::-webkit-scrollbar": {
-                width: "6px",
-              },
-              "&::-webkit-scrollbar-track": {
-                bgcolor: "transparent",
-              },
-              "&::-webkit-scrollbar-thumb": {
-                bgcolor: "rgba(59, 130, 246, 0.3)",
-                borderRadius: "3px",
-                "&:hover": {
-                  bgcolor: "rgba(59, 130, 246, 0.5)",
-                },
-              },
-            }}
-          >
-            {drawerContent}
-          </Box>
-
-          {/* Toggle button removed per request */}
-        </Box>
-      )}
-
-      {/* Drawer mobile */}
-      {isMobile && (
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          sx={{
-            "& .MuiDrawer-paper": {
-              width: drawerWidth,
-              boxSizing: "border-box",
-              border: "none",
-              bgcolor: "black",
-            },
-          }}
-        >
-          {drawerContent}
-        </Drawer>
-      )}
+      <SharedSidebar mobileOpen={mobileOpen} onMobileClose={handleDrawerToggle} />
 
       {/* Contenu principal */}
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          width: isMobile
-            ? "100%"
-            : `calc(100% - ${drawerOpen ? drawerWidth : collapsedDrawerWidth}px)`,
+          width: isMobile ? "100%" : "calc(100% - 280px)",
           minHeight: "100vh",
           bgcolor: "black",
           overflowY: "auto",
@@ -700,18 +378,21 @@ const Dashboard = () => {
             />
           </Box>
 
-          {/* Boutons d'action */}
+        {/* Boutons d'action */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <IconButton
-              sx={{
-                color: "#64748b",
-                position: "relative",
-                "&:hover": {
-                  bgcolor: "rgba(59, 130, 246, 0.1)",
-                },
-              }}
-            >
-              <NotificationsIcon />
+            <Badge badgeContent={dashboardData.stats.activeAlerts || 0} color="error">
+              <IconButton
+                sx={{
+                  color: "#64748b",
+                  position: "relative",
+                  "&:hover": {
+                    bgcolor: "rgba(59, 130, 246, 0.1)",
+                  },
+                }}
+              >
+                <NotificationsIcon />
+              </IconButton>
+            </Badge>
               {user?.unread_notifications > 0 && (
                 <Box
                   sx={{
@@ -733,7 +414,7 @@ const Dashboard = () => {
                   {user.unread_notifications}
                 </Box>
               )}
-            </IconButton>
+         
 
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
               <Box
@@ -836,7 +517,7 @@ const Dashboard = () => {
                     minWidth: "140px",
                     height: "42px",
                   }}
-                  onClick={() => navigate("/admin")}
+                  onClick={() => navigate("/new-alert")}
                 >
                   Nouvelle Alerte
                 </Button>

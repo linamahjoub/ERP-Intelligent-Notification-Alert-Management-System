@@ -20,6 +20,8 @@ import {
   IconButton,
   Alert,
   Snackbar,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   ArrowBack as ArrowBackIcon,
@@ -33,14 +35,19 @@ import {
   Settings as SettingsIcon,
   Assessment as AssessmentIcon,
   AccountBalance as AccountBalanceIcon,
+  Menu as MenuIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import SharedSidebar from '../components/SharedSidebar';
 
 const EditAlert = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const { user } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -231,19 +238,50 @@ const EditAlert = () => {
     setOpenSnackbar(false);
   };
 
+  const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
+
   if (loading) {
     return (
-      <Box sx={{ bgcolor: '#0a0e27', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <Typography variant="h6" sx={{ color: 'white' }}>Chargement...</Typography>
+      <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#0a0e27' }}>
+        <SharedSidebar mobileOpen={mobileOpen} onMobileClose={handleDrawerToggle} />
+        <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography variant="h6" sx={{ color: 'white' }}>Chargement...</Typography>
+        </Box>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ bgcolor: '#0a0e27', minHeight: '100vh', py: 4 }}>
-      <Container maxWidth="lg">
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#0a0e27' }}>
+      <SharedSidebar mobileOpen={mobileOpen} onMobileClose={handleDrawerToggle} />
+      
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          width: isMobile ? '100%' : 'calc(100% - 280px)',
+          minHeight: '100vh',
+          bgcolor: '#0a0e27',
+        }}
+      >
+        <Box sx={{ py: 4 }}>
+          <Container maxWidth="lg">
         {/* Header */}
         <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+          {isMobile && (
+            <IconButton
+              onClick={handleDrawerToggle}
+              sx={{
+                color: 'white',
+                mr: 2,
+                '&:hover': {
+                  bgcolor: 'rgba(255,255,255,0.1)',
+                }
+              }}
+            >
+              <MenuIcon />
+            </IconButton>
+          )}
           <IconButton
             onClick={() => navigate('/alert_rules')}
             sx={{
@@ -789,6 +827,8 @@ const EditAlert = () => {
           </Button>
         </Box>
       </Container>
+        </Box>
+      </Box>
 
       {/* Snackbar pour les notifications */}
       <Snackbar

@@ -37,7 +37,8 @@ import {
 } from '@mui/icons-material';
 import notif from '../assets/notif.png';
 
-const drawerWidth = 280;
+const desktopWidth = 280;
+const mobileWidth = 260;
 
 const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
   const { user, logout } = useAuth();
@@ -45,6 +46,7 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
   const location = useLocation();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const drawerWidth = isMobile ? mobileWidth : desktopWidth;
 
   const isAdmin = user?.is_superuser || user?.is_staff;
   const [openMenus, setOpenMenus] = useState({ stock: true, fournisseurs: false, categories: false });
@@ -70,7 +72,7 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
     },
     {
       id: 'alertes',
-      label: isAdmin ? 'Alert Rules' : 'Mes Alertes',
+      label: isAdmin ? 'Mes Alertes' : 'Mes Alertes',
       icon: <FlashOnIcon />,
       path: isAdmin ? '/alert_rules' : '/alerts',
     },
@@ -127,7 +129,7 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
     
     ...(isAdmin ? [
       { id: 'admin',   label: 'Admin Panel', icon: <AdminIcon />,     path: '/admin_panel' },
-      { id: 'clients', label: 'Clients',     icon: <PersonAddIcon />, path: '/clients_requests' },
+      { id: 'Employes', label: 'Employes',     icon: <PersonAddIcon />, path: '/Employes_requests' },
     ] : []),
     { id: 'history',      label: 'History',      icon: <CalendarIcon />, path: '/history' },
     { id: 'profile',      label: 'Profile',       icon: <PeopleIcon />,  path: '/profile' },
@@ -147,22 +149,22 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'black', borderRight: '1px solid rgba(59,130,246,0.1)' }}>
 
       {/* Logo */}
-      <Box sx={{ p: 2.5, borderBottom: '1px solid rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        <Box sx={{ width: 50, height: 50, borderRadius: '50%', bgcolor: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
-          <img src={notif} alt="Logo" width="80" height="80" />
+      <Box sx={{ p: isMobile ? 1.5 : 2.5, borderBottom: '1px solid rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', gap: isMobile ? 1 : 1.5 }}>
+        <Box sx={{ width: isMobile ? 40 : 50, height: isMobile ? 40 : 50, borderRadius: '50%', bgcolor: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
+          <img src={notif} alt="Logo" width={isMobile ? "60" : "80"} height={isMobile ? "60" : "80"} />
         </Box>
         <Box>
-          <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.25rem', color: 'white', lineHeight: 1 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, fontSize: isMobile ? '1rem' : '1.25rem', color: 'white', lineHeight: 1 }}>
             SmartNotify
           </Typography>
-          <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.7rem', letterSpacing: '0.5px' }}>
+          <Typography variant="caption" sx={{ color: '#64748b', fontSize: isMobile ? '0.6rem' : '0.7rem', letterSpacing: '0.5px' }}>
             {isAdmin ? 'ERP NOTIFICATIONS' : 'USER PANEL'}
           </Typography>
         </Box>
       </Box>
 
       {/* Menu */}
-      <Box sx={{ flex: 1, overflowY: 'auto', py: 2, px: 2, scrollbarWidth: 'none', msOverflowStyle: 'none', '&::-webkit-scrollbar': { display: 'none' } }}>
+      <Box sx={{ flex: 1, overflowY: 'auto', py: isMobile ? 1 : 2, px: isMobile ? 1.5 : 2, scrollbarWidth: 'none', msOverflowStyle: 'none', '&::-webkit-scrollbar': { display: 'none' } }}>
         {menuGroups.map((group) => {
           const active = isGroupActive(group);
           const isOpen = openMenus[group.id];
@@ -180,24 +182,24 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
                 }}
                 sx={{
                   display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                  px: 2, py: 1, borderRadius: 2, cursor: 'pointer',
+                  px: isMobile ? 1.5 : 2, py: isMobile ? 0.7 : 1, borderRadius: 2, cursor: 'pointer',
                   transition: 'all 0.2s ease',
                   bgcolor: active && !hasChildren ? 'rgba(59,130,246,0.15)' : 'transparent',
                   '&:hover': { bgcolor: active && !hasChildren ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.08)' },
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: isMobile ? 1 : 1.5 }}>
                   {/* Icon */}
                   <Box sx={{
                     color: active ? '#3b82f6' : isOpen && hasChildren ? '#3b82f6' : '#64748b',
                     display: 'flex', alignItems: 'center',
-                    '& svg': { fontSize: 20 },
+                    '& svg': { fontSize: isMobile ? 18 : 20 },
                   }}>
                     {group.icon}
                   </Box>
                   {/* Label — same font as original */}
                   <Typography sx={{
-                    fontSize: '0.9rem',
+                    fontSize: isMobile ? '0.8rem' : '0.9rem',
                     fontWeight: active || (hasChildren && isOpen) ? 600 : 400,
                     color: active ? '#60a5fa' : hasChildren && isOpen ? '#60a5fa' : '#94a3b8',
                   }}>
@@ -208,7 +210,7 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                   {/* Badge */}
                   {group.badge > 0 && (
-                    <Box sx={{ bgcolor: '#ef4444', color: 'white', fontSize: '0.7rem', fontWeight: 600, px: 1, py: 0.25, borderRadius: 2, minWidth: 20, textAlign: 'center' }}>
+                    <Box sx={{ bgcolor: '#ef4444', color: 'white', fontSize: isMobile ? '0.6rem' : '0.7rem', fontWeight: 600, px: 0.75, py: 0.25, borderRadius: 2, minWidth: isMobile ? 16 : 20, textAlign: 'center' }}>
                       {group.badge}
                     </Box>
                   )}
@@ -218,7 +220,7 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
                       color: '#64748b', display: 'flex',
                       transition: 'transform 0.2s ease',
                       transform: isOpen ? 'rotate(0deg)' : 'rotate(-90deg)',
-                      '& svg': { fontSize: 18 },
+                      '& svg': { fontSize: isMobile ? 16 : 18 },
                     }}>
                       <ExpandMoreIcon />
                     </Box>
@@ -229,7 +231,7 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
               {/* Children dropdown */}
               {hasChildren && (
                 <Collapse in={isOpen} timeout={200}>
-                  <Box sx={{ ml: 2, pl: 1.5, borderLeft: '1px solid rgba(59,130,246,0.18)', mt: 0.3, mb: 0.5 }}>
+                  <Box sx={{ ml: isMobile ? 1 : 2, pl: isMobile ? 1 : 1.5, borderLeft: '1px solid rgba(59,130,246,0.18)', mt: 0.3, mb: 0.5 }}>
                     {group.children.map((child) => {
                       const childActive = isChildActive(child.path);
                       return (
@@ -237,19 +239,19 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
                           key={child.id}
                           onClick={() => handleNav(child.path)}
                           sx={{
-                            display: 'flex', alignItems: 'center', gap: 1.5,
-                            px: 1.5, py: 0.7, mb: 0.2, borderRadius: '8px', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', gap: isMobile ? 1 : 1.5,
+                            px: isMobile ? 1 : 1.5, py: isMobile ? 0.5 : 0.7, mb: 0.2, borderRadius: '8px', cursor: 'pointer',
                             transition: 'all 0.2s ease',
                             bgcolor: childActive ? 'rgba(59,130,246,0.12)' : 'transparent',
                             '&:hover': { bgcolor: childActive ? 'rgba(59,130,246,0.18)' : 'rgba(59,130,246,0.05)' },
                           }}
                         >
-                          <Box sx={{ color: childActive ? '#3b82f6' : '#64748b', display: 'flex', '& svg': { fontSize: 15 } }}>
+                          <Box sx={{ color: childActive ? '#3b82f6' : '#64748b', display: 'flex', '& svg': { fontSize: isMobile ? 13 : 15 } }}>
                             {child.icon}
                           </Box>
                           {/* Child label — same size as original item text */}
                           <Typography sx={{
-                            fontSize: '0.875rem',
+                            fontSize: isMobile ? '0.75rem' : '0.875rem',
                             fontWeight: childActive ? 600 : 400,
                             color: childActive ? '#60a5fa' : '#94a3b8',
                           }}>
@@ -268,14 +270,14 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
       </Box>
 
       {/* Footer */}
-      <Box sx={{ p: 2, m: 2, bgcolor: 'rgba(16,185,129,0.1)', borderRadius: 2, border: '1px solid rgba(16,185,129,0.2)' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#10b981', boxShadow: '0 0 8px rgba(16,185,129,0.5)', flexShrink: 0 }} />
+      <Box sx={{ p: isMobile ? 1.5 : 2, m: isMobile ? 1 : 2, bgcolor: 'rgba(16,185,129,0.1)', borderRadius: 2, border: '1px solid rgba(16,185,129,0.2)' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: isMobile ? 0.75 : 1 }}>
+          <Box sx={{ width: isMobile ? 6 : 8, height: isMobile ? 6 : 8, borderRadius: '50%', bgcolor: '#10b981', boxShadow: '0 0 8px rgba(16,185,129,0.5)', flexShrink: 0 }} />
           <Box>
-            <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 600, display: 'block', fontSize: '0.85rem' }}>
+            <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 600, display: 'block', fontSize: isMobile ? '0.7rem' : '0.85rem' }}>
               System Active
             </Typography>
-            <Typography variant="caption" sx={{ color: '#64748b', fontSize: '0.75rem' }}>
+            <Typography variant="caption" sx={{ color: '#64748b', fontSize: isMobile ? '0.65rem' : '0.75rem' }}>
               {isAdmin ? 'Admin mode enabled' : 'User mode'}
             </Typography>
           </Box>

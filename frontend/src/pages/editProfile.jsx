@@ -50,7 +50,6 @@ const EditProfile = () => {
     email: '',
     username: '',
     phone_number: '',
-    telegram_chat_id: '',
     role: '',
   });
 
@@ -64,7 +63,6 @@ const EditProfile = () => {
         email: user.email || '',
         username: user.username || '',
         phone_number: user.phone_number || '',
-        telegram_chat_id: user.telegram_chat_id || '',
         role: user.role || '',
       });
     }
@@ -95,13 +93,13 @@ const EditProfile = () => {
         last_name: formData.last_name,
         username: formData.username,
         phone_number: formData.phone_number,
-        telegram_chat_id: formData.telegram_chat_id,
+      
       };
 
       // Appeler la fonction updateProfile du contexte
       await updateProfile(payload);
       
-      console.log('✅ Profile update successful');
+      console.log('Profile update successful');
       setSuccess(true);
       setTimeout(() => {
         navigate('/profile');
@@ -458,42 +456,7 @@ const EditProfile = () => {
                       placeholder="+216 12 345 678"
                     />
                   </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <TextField
-                      fullWidth
-                      label="Telegram chat ID"
-                      name="telegram_chat_id"
-                      value={formData.telegram_chat_id}
-                      onChange={handleInputChange}
-                      variant="outlined"
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          color: 'white',
-                          '& fieldset': {
-                            borderColor: 'rgba(59, 130, 246, 0.3)',
-                          },
-                          '&:hover fieldset': {
-                            borderColor: '#3b82f6',
-                          },
-                          '&.Mui-focused fieldset': {
-                            borderColor: '#3b82f6',
-                          },
-                        },
-                        '& .MuiInputLabel-root': {
-                          color: '#94a3b8',
-                        },
-                        '& .MuiInputLabel-root.Mui-focused': {
-                          color: '#3b82f6',
-                        }
-                      }}
-                      InputProps={{
-                        startAdornment: <DescriptionIcon sx={{ mr: 1, color: '#64748b' }} />
-                      }}
-                      placeholder="123456789"
-                    />
-                  </Grid>
-
+                  
                     <Grid item xs={12} md={6}>
                     <TextField
                       fullWidth

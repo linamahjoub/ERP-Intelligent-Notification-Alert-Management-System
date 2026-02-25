@@ -27,7 +27,7 @@ import SharedSidebar from './components/SharedSidebar';
 // IMPORTANT: Utilisez AdminPanel (qui vient de adminpaneau.jsx)
 import AdminPanel from './pages/adminpaneau';
 import AdminDashboard from './pages/adminDashboard';
-import ClientsRequests from './pages/clients_requests';
+import ClientsRequests from './pages/employes_requests';
 const theme = createTheme({
   palette: {
     primary: {
@@ -230,7 +230,7 @@ const InnerRoutes = () => {
         } />
 
         {/* Routes clients */}
-        <Route path="/clients_requests" element={
+        <Route path="/employes_requests" element={
           <PrivateRoute>
             <RequireAdmin>
               <ClientsRequests />

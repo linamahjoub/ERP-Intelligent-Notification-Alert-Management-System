@@ -93,7 +93,7 @@ const VerificationPending = () => {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)",
+          backgroundColor: "black",
         }}
       >
         <CircularProgress sx={{ color: "#3b82f6" }} />
@@ -110,12 +110,12 @@ const VerificationPending = () => {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)",
+          backgroundColor: "black",
         }}
       >
-        <Card sx={{ 
-          p: 4, 
-          textAlign: "center", 
+        <Card sx={{
+          p: 2,
+          textAlign: "center",
           bgcolor: "rgba(30, 41, 59, 0.9)",
           border: "1px solid rgba(16, 185, 129, 0.3)",
           borderRadius: 3,
@@ -148,13 +148,13 @@ const VerificationPending = () => {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)",
-        p: 3,
+        backgroundColor: "black",
+        p: 2,
       }}
     >
       <Box sx={{ maxWidth: 900, width: "100%" }}>
         {/* En-tête */}
-        <Box sx={{ textAlign: "center", mb: 4 }}>
+        <Box sx={{ textAlign: "center", mb: 2 }}>
           <Box
             sx={{
               display: "inline-flex",
@@ -188,7 +188,7 @@ const VerificationPending = () => {
           </Typography>
         </Box>
 
-        <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" } }}>
+        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" } }}>
           {/* Carte statut */}
           <Card
             sx={{
@@ -199,9 +199,9 @@ const VerificationPending = () => {
               gridColumn: { xs: "1", md: "1 / -1" },
             }}
           >
-            <CardContent sx={{ p: 4 }}>
-              <Box sx={{ mb: 4 }}>
-                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
+            <CardContent sx={{ p: 2 }}>
+              <Box sx={{ mb: 2 }}>
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
                   <Typography variant="h5" sx={{ color: "white", fontWeight: 600 }}>
                     Statut de votre demande
                   </Typography>
@@ -243,12 +243,12 @@ const VerificationPending = () => {
               backdropFilter: "blur(10px)",
             }}
           >
-            <CardContent sx={{ p: 4 }}>
-              <Typography variant="h6" sx={{ color: "white", fontWeight: 600, mb: 3 }}>
+            <CardContent sx={{ p: 2 }}>
+              <Typography variant="h6" sx={{ color: "white", fontWeight: 600, mb: 2 }}>
                 Vos informations
               </Typography>
 
-              <Stack spacing={2.5}>
+              <Stack spacing={1.5}>
                 <Box>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                     <EmailIcon sx={{ color: "#3b82f6", fontSize: 20 }} />
@@ -288,7 +288,7 @@ const VerificationPending = () => {
                 </Box>
               </Stack>
 
-              <Divider sx={{ bgcolor: "rgba(100, 116, 139, 0.2)", my: 3 }} />
+              <Divider sx={{ bgcolor: "rgba(100, 116, 139, 0.2)", my: 2 }} />
 
               {/* Boutons d'action */}
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -344,8 +344,8 @@ const VerificationPending = () => {
               borderRadius: 3,
             }}
           >
-            <CardContent sx={{ p: 4 }}>
-              <Typography variant="h6" sx={{ color: "white", fontWeight: 600, mb: 3 }}>
+            <CardContent sx={{ p: 2 }}>
+              <Typography variant="h6" sx={{ color: "white", fontWeight: 600, mb: 2 }}>
                 Support
               </Typography>
               

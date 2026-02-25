@@ -24,7 +24,8 @@ import {
   Security as SecurityIcon,
   CalendarToday as CalendarIcon,
   Verified as VerifiedIcon,
-  Lock as LockIcon
+  Lock as LockIcon,
+  Menu as MenuIcon,
 } from '@mui/icons-material';
 import SharedSidebar from '../components/SharedSidebar';
 
@@ -139,7 +140,7 @@ const Profile = () => {
                 },
               }}
             >
-              <PersonIcon />
+              <MenuIcon />
             </IconButton>
           )}
 
@@ -366,7 +367,6 @@ const Profile = () => {
                       { label: 'Nom d\'utilisateur', value: user?.username || 'Non renseigné', icon: <BadgeIcon /> },
                       { label: 'Email', value: user?.email || 'Non renseigné', icon: <EmailIcon /> },
                       { label: 'Téléphone', value: user?.phone_number || 'Non renseigné', icon: <PhoneIcon /> },
-                      { label: 'Telegram chat ID', value: user?.telegram_chat_id || 'Non renseigné', icon: <BadgeIcon /> },
                       { label: 'Rôle', value: isAdmin ? 'Administrateur' : getRoleLabel(user?.role), icon: <BadgeIcon /> },
                     ].map((field, index) => (
                       <Grid item xs={12} key={index}>
@@ -426,7 +426,6 @@ const Profile = () => {
                     {[
                       { label: 'Email', value: user?.email || 'Non renseigné', icon: <EmailIcon /> },
                       { label: 'Téléphone', value: user?.phone_number || 'Non renseigné', icon: <PhoneIcon /> },
-                      { label: 'Telegram chat ID', value: user?.telegram_chat_id || 'Non renseigné', icon: <BadgeIcon /> },
                       { label: 'Adresse', value: user?.address || user?.adresse || 'Non renseigné', icon: <HomeIcon /> },
                     ].map((field, index) => (
                       <Grid item xs={12} key={index}>

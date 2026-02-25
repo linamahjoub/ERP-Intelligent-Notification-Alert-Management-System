@@ -903,7 +903,7 @@ useEffect(() => {
                       sx={{ fontSize: 48, color: "#3b82f6", mb: 1 }}
                     />
                     <Typography sx={{ color: "#94a3b8", ml: 2 }}>
-                      Graphique en cours de développement
+                      Graphique 
                     </Typography>
                   </Box>
                 </CardContent>

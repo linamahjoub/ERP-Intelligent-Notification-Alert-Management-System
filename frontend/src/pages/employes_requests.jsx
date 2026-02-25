@@ -467,7 +467,7 @@ const ClientsRequests = () => {
                   mb: 0.5,
                 }}
               >
-                Demandes des Clients
+                Demandes des employés 
               </Typography>
               <Typography
                 variant="body2"
@@ -520,7 +520,7 @@ const ClientsRequests = () => {
                   filterStatus === "approved" ? "#10b981" : "#94a3b8",
                 border:
                   filterStatus === "approved"
-                    ? "1px solid #10b981"
+                    ? "1px solid #black"
                     : "1px solid rgba(16, 185, 129, 0.2)",
                 cursor: "pointer",
                 fontWeight: 600,

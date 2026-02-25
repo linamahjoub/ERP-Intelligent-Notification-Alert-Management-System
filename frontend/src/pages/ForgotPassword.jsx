@@ -9,10 +9,15 @@ import {
   Box,
   Alert,
   CircularProgress,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
+import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import notif from '../assets/notif.png';
 
 const ForgotPassword = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -39,7 +44,7 @@ const ForgotPassword = () => {
         throw new Error(data?.error || 'Erreur lors de l\'envoi du lien');
       }
 
-      setSuccess('Si cet email existe, un lien de réinitialisation a été envoyé.');
+      setSuccess(' un lien de réinitialisation a été envoyé.');
     } catch (err) {
       setError(err.message || 'Une erreur est survenue. Veuillez réessayer.');
     } finally {
@@ -48,103 +53,254 @@ const ForgotPassword = () => {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
-      <Box
-        sx={{
-          marginTop: 8,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-        }}
-      >
-        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
-          {/* Logo et nom de l'application */}
-          <Box
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #0a0e27 0%, #16213e 50%, #0f3460 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: isMobile ? 2 : 3,
+      }}
+    >
+      <Container component="main" maxWidth="sm">
+        <Box
+          sx={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+          }}
+        >
+         
+
+          {/* Main Card */}
+          <Paper
+            elevation={0}
             sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              mb: 3,
-              gap: 1
+              width: '100%',
+              p: isMobile ? 3 : 4,
+              background: '#0d1117',
+              border: '1px solid #30363d',
+              borderRadius: 2,
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
             }}
           >
-            <img
-              src={notif}
-              alt="SmartAlerte Logo"
-              width="40"
-              height="40"
-            />
-            <Typography
-              variant="h4"
-              component="div"
+            {/* Logo et nom de l'application */}
+             {/* Header with back button */}
+          <Box sx={{ width: '100%', mb: 3 }}>
+            <Link to="/login" style={{ textDecoration: 'none' }}>
+              <Button
+                startIcon={<ArrowBackIcon />}
+                sx={{
+                  color: '#64748b',
+                  '&:hover': { color: '#e0e7ff', backgroundColor: 'rgba(255,255,255,0.05)' },
+                }}
+              >
+                Retour
+              </Button>
+            </Link>
+          </Box>
+            <Box
               sx={{
-                fontWeight: 'bold',
-                color: 'primary.main',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                mb: 4,
+                gap: 2
               }}
             >
-              SmartAlerte
-            </Typography>
-          </Box>
-
-          {/* Titre */}
-          <Typography
-            component="h1"
-            variant="h5"
-            align="center"
-            gutterBottom
-            sx={{ mb: 3 }}
-          >
-            Mot de passe oublié
-          </Typography>
-
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
-
-          {success && (
-            <Alert severity="success" sx={{ mb: 2 }}>
-              {success}
-            </Alert>
-          )}
-
-          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
-            <TextField
-              margin="normal"
-              required
-              fullWidth
-              id="email"
-              label="Email"
-              name="email"
-              autoComplete="email"
-              autoFocus
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="votre@email.com"
-            />
-
-            <Button
-              type="submit"
-              fullWidth
-              variant="contained"
-              sx={{ mt: 3, mb: 2 }}
-              disabled={loading}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Envoyer le lien de réinitialisation'}
-            </Button>
-
-            <Box textAlign="center">
-              <Link to="/login" style={{ textDecoration: 'none' }}>
-                <Button color="primary">
-                  Retour à la connexion
-                </Button>
-              </Link>
+              <img
+                src={notif}
+                alt="SmartAlerte Logo"
+                width="45"
+                height="45"
+                style={{ filter: 'drop-shadow(0 0 8px rgba(96, 165, 250, 0.3))' }}
+              />
+              <Typography
+                variant="h5"
+                component="div"
+                sx={{
+                  fontWeight: 700,
+                  background: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  letterSpacing: 0.5,
+                }}
+              >
+                SmartNotify
+              </Typography>
             </Box>
-          </Box>
-        </Paper>
-      </Box>
-    </Container>
+
+            {/* Titre */}
+            <Typography
+              component="h1"
+              variant="h5"
+              align="center"
+              sx={{
+                mb: 1,
+                fontWeight: 700,
+                color: '#e2e8f0',
+                fontSize: isMobile ? '1.5rem' : '1.75rem',
+              }}
+            >
+              Réinitialiser votre mot de passe
+            </Typography>
+
+            <Typography
+              align="center"
+              sx={{
+                mb: 3,
+                color: '#94a3b8',
+                fontSize: '0.95rem',
+                lineHeight: 1.5,
+              }}
+            >
+              Entrez votre email pour recevoir les instructions de réinitialisation
+            </Typography>
+
+            {/* Alerts */}
+            {error && (
+              <Alert
+                severity="error"
+                sx={{
+                  mb: 2,
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  borderColor: '#ef4444',
+                  color: '#fca5a5',
+                  '& .MuiAlert-icon': { color: '#ef4444' },
+                }}
+              >
+                {error}
+              </Alert>
+            )}
+
+            {success && (
+              <Alert
+                severity="success"
+                sx={{
+                  mb: 2,
+                  backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                  borderColor: '#22c55e',
+                  color: '#86efac',
+                  '& .MuiAlert-icon': { color: '#22c55e' },
+                }}
+              >
+                {success}
+              </Alert>
+            )}
+
+            {/* Form */}
+            <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
+              <TextField
+                margin="normal"
+                required
+                fullWidth
+                id="email"
+                label="Adresse email"
+                name="email"
+                autoComplete="email"
+                autoFocus
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="votre@email.com"
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    color: '#e2e8f0',
+                    backgroundColor: '#161b22',
+                    border: '1px solid #30363d',
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      borderColor: '#3b82f6',
+                      boxShadow: '0 0 12px rgba(59, 130, 246, 0.1)',
+                    },
+                    '&.Mui-focused': {
+                      borderColor: '#3b82f6',
+                      boxShadow: '0 0 16px rgba(59, 130, 246, 0.2)',
+                    },
+                  },
+                  '& .MuiOutlinedInput-notchedOutline': {
+                    borderColor: '#30363d',
+                  },
+                  '& .MuiInputBase-input::placeholder': {
+                    color: '#64748b',
+                    opacity: 1,
+                  },
+                  '& .MuiInputLabel-root': {
+                    color: '#94a3b8',
+                    '&.Mui-focused': { color: '#60a5fa' },
+                  },
+                }}
+              />
+
+              <Button
+                type="submit"
+                fullWidth
+                variant="contained"
+                disabled={loading || !email}
+                sx={{
+                  mt: 3,
+                  mb: 2,
+                  py: 1.2,
+                  background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                  color: 'white',
+                  fontWeight: 600,
+                  fontSize: '1rem',
+                  textTransform: 'none',
+                  borderRadius: 1,
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                    boxShadow: '0 8px 20px rgba(59, 130, 246, 0.3)',
+                  },
+                  '&:disabled': {
+                    background: '#4b5563',
+                    color: '#9ca3af',
+                  },
+                }}
+              >
+                {loading ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CircularProgress size={20} sx={{ color: '#60a5fa' }} />
+                    <span>Envoi...</span>
+                  </Box>
+                ) : (
+                  'Envoyer le lien de réinitialisation'
+                )}
+              </Button>
+
+              {/* Footer link */}
+              <Box
+                sx={{
+                  textAlign: 'center',
+                  pt: 2,
+                  borderTop: '1px solid #30363d',
+                }}
+              >
+                <Typography sx={{ color: '#64748b', mb: 1, fontSize: '0.9rem' }}>
+                  Vous vous souvenez de votre mot de passe?
+                </Typography>
+                <Link to="/login" style={{ textDecoration: 'none' }}>
+                  <Button
+                    sx={{
+                      color: '#60a5fa',
+                      fontWeight: 600,
+                      textTransform: 'none',
+                      '&:hover': {
+                        color: '#93c5fd',
+                        backgroundColor: 'rgba(96, 165, 250, 0.1)',
+                      },
+                    }}
+                  >
+                    Retour à la connexion
+                  </Button>
+                </Link>
+              </Box>
+            </Box>
+          </Paper>
+        </Box>
+      </Container>
+    </Box>
   );
 };
 

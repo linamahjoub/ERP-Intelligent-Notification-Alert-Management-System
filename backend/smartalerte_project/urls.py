@@ -12,6 +12,7 @@ urlpatterns = [
     path('api/stock/', include('stock.urls')),
     path('api/fournisseurs/', include('fournisseur.urls')),
     path('api/categories/', include('categories.urls')),
+    path('api/', include('notifications.urls')),
 ]
 
 # Servir les fichiers media en développement

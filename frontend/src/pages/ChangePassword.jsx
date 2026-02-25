@@ -10,12 +10,20 @@ import {
   Box,
   Alert,
   CircularProgress,
+  useTheme,
+  useMediaQuery,
+  IconButton,
 } from '@mui/material';
+import { Menu as MenuIcon } from '@mui/icons-material';
 import notif from '../assets/notif.png';
+import SharedSidebar from '../components/SharedSidebar';
 
 const ChangePassword = () => {
   const { changePassword } = useAuth();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [oldPassword, setOldPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [newPassword2, setNewPassword2] = useState('');
@@ -51,8 +59,34 @@ const ChangePassword = () => {
     setTimeout(() => navigate('/profile'), 1200);
   };
 
+  const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
+
   return (
-    <Container component="main" maxWidth="xs">
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'black' }}>
+      <SharedSidebar mobileOpen={mobileOpen} onMobileClose={handleDrawerToggle} />
+      
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          width: isMobile ? '100%' : 'calc(100% - 280px)',
+          minHeight: '100vh',
+          bgcolor: 'black',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        {/* Menu hamburger mobile */}
+        {isMobile && (
+          <Box sx={{ position: 'absolute', top: 16, left: 16 }}>
+            <IconButton onClick={handleDrawerToggle} sx={{ color: 'white' }}>
+              <MenuIcon />
+            </IconButton>
+          </Box>
+        )}
+        
+        <Container component="main" maxWidth="xs">
       <Box
         sx={{
           marginTop: 8,
@@ -172,6 +206,8 @@ const ChangePassword = () => {
         </Paper>
       </Box>
     </Container>
+      </Box>
+    </Box>
   );
 };
 
