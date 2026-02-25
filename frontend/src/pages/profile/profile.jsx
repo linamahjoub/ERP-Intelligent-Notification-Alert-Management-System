@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import {
   Box,
@@ -27,7 +27,7 @@ import {
   Lock as LockIcon,
   Menu as MenuIcon,
 } from '@mui/icons-material';
-import SharedSidebar from '../components/SharedSidebar';
+import SharedSidebar from '../../components/SharedSidebar';
 
 // Options de rôles disponibles
 const roleOptions = [

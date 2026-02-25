@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import {
   TextField,
   Button,
@@ -37,7 +37,7 @@ import {
   Info as InfoIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import notif from '../assets/notif.png';
+import notif from '../../assets/notif.png';
 
 const Register = () => {
   const navigate = useNavigate();

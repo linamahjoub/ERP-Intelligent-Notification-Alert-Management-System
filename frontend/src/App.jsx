@@ -3,30 +3,30 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavig
 import { ThemeProvider, createTheme, CssBaseline, Container } from '@mui/material';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import PrivateRoute from './components/PrivateRoute';
-import VerificationPending from './pages/VerificationPending';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
-import ChangePassword from './pages/ChangePassword';
-import Dashboard from './pages/Dashboard';
-import Profile from './pages/profile';
-import EditProfile from './pages/editProfile';
+import VerificationPending from './pages/auth/VerificationPending';
+import Login from './pages/auth/Login';
+import Register from './pages/auth/Register';
+import ForgotPassword from './pages/profile/ForgotPassword';
+import ResetPassword from './pages/auth/ResetPassword';
+import ChangePassword from './pages/profile/ChangePassword';
+import Dashboard from './pages/dashboard/Dashboard';
+import Profile from './pages/profile/profile';
+import EditProfile from './pages/profile/editProfile';
 import ModulesERP from './pages/ModulesERP';
 import Notifications from './pages/Notifications';
-import DashboardStock from './pages/Stock';
-import NewAlert from './pages/NewAlert';
-import Fournisseur from './pages/fournisseur';
-import Categories from './pages/categories';
+import DashboardStock from './pages/stock/Stock';
+import NewAlert from './pages/alerts/NewAlert';
+import Fournisseur from './pages/stock/fournisseur';
+import Categories from './pages/stock/categories';
 
 //import History from './pages/History';
-import AlertRules from './pages/AlertRules';
-import EditAlert from './pages/EditAlert';
+import AlertRules from './pages/alerts/AlertRules';
+import EditAlert from './pages/alerts/EditAlert';
 import Settings from './pages/Settings';
 import SharedSidebar from './components/SharedSidebar';
 // IMPORTANT: Utilisez AdminPanel (qui vient de adminpaneau.jsx)
-import AdminPanel from './pages/adminpaneau';
-import AdminDashboard from './pages/adminDashboard';
+import AdminPanel from './pages/dashboard/adminpaneau';
+import AdminDashboard from './pages/dashboard/adminDashboard';
 import ClientsRequests from './pages/employes_requests';
 const theme = createTheme({
   palette: {

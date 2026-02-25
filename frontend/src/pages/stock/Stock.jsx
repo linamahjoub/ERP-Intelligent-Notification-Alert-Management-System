@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Box, Typography, Grid, Card, CardContent, Avatar, IconButton, Button,
@@ -21,7 +21,7 @@ import {
   Category as CategoryIcon,
 } from "@mui/icons-material";
 import { CiFilter } from "react-icons/ci";
-import SharedSidebar from "../components/SharedSidebar";
+import SharedSidebar from "../../components/SharedSidebar";
 
 const DashboardStock = () => {
   const { user } = useAuth();

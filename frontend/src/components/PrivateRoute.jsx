@@ -2,7 +2,7 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { CircularProgress, Box } from '@mui/material';
-import VerificationPending from '../pages/VerificationPending';
+import VerificationPending from '../pages/auth/VerificationPending';
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();

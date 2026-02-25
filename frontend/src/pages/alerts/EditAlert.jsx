@@ -38,8 +38,8 @@ import {
   Menu as MenuIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import SharedSidebar from '../components/SharedSidebar';
+import { useAuth } from '../../context/AuthContext';
+import SharedSidebar from '../../components/SharedSidebar';
 
 const EditAlert = () => {
   const navigate = useNavigate();

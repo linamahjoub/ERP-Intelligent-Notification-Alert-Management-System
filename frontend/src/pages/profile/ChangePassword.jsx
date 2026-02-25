@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import {
   Container,
   TextField,
@@ -15,8 +15,8 @@ import {
   IconButton,
 } from '@mui/material';
 import { Menu as MenuIcon } from '@mui/icons-material';
-import notif from '../assets/notif.png';
-import SharedSidebar from '../components/SharedSidebar';
+import notif from '../../assets/notif.png';
+import SharedSidebar from '../../components/SharedSidebar';
 
 const ChangePassword = () => {
   const { changePassword } = useAuth();

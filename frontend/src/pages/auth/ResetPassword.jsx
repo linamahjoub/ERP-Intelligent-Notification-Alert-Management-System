@@ -10,7 +10,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import notif from '../assets/notif.png';
+import notif from '../../assets/notif.png';
 
 const ResetPassword = () => {
   const { uid, token } = useParams();

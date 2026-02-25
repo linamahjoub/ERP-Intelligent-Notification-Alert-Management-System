@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -50,7 +50,7 @@ import {
   Category as CategoryIcon,
   Check as CheckIcon,
 } from "@mui/icons-material";
-import SharedSidebar from "../components/SharedSidebar";
+import SharedSidebar from "../../components/SharedSidebar";
 
 const AlertRules = () => {
   const { user } = useAuth();

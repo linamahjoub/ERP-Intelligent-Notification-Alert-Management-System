@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -65,7 +65,7 @@ import {
   Inventory as InventoryIcon,
   PersonAdd as PersonAddIcon,
 } from "@mui/icons-material";
-import SharedSidebar from "../components/SharedSidebar";
+import SharedSidebar from "../../components/SharedSidebar";
 
 const AdminDashboard = () => {
   const { user } = useAuth();

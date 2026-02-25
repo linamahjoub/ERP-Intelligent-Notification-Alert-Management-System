@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import {
   Container,
   Typography,
@@ -53,7 +53,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import SharedSidebar from '../components/SharedSidebar';
+import SharedSidebar from '../../components/SharedSidebar';
 
 const SuperAdminDashboard = () => {
   const { user, logout } = useAuth();

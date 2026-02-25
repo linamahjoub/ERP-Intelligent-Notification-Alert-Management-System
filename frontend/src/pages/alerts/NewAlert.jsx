@@ -42,8 +42,8 @@ import {
   Menu as MenuIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
-import SharedSidebar from '../components/SharedSidebar';
+import { useAuth } from '../../context/AuthContext';
+import SharedSidebar from '../../components/SharedSidebar';
 
 /* ─── Design tokens ──────────────────────────────────────────── */
 const T = {

@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import {
   Container,
   Typography,
@@ -58,7 +58,7 @@ import {
   CheckCircle as CheckCircleIcon,
   People as PeopleIcon,
 } from '@mui/icons-material';
-import SharedSidebar from '../components/SharedSidebar';
+import SharedSidebar from '../../components/SharedSidebar';
 
 // Options de rôles disponibles
 const roleOptions = [

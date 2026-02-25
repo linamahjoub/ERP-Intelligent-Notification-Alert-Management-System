@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -40,7 +40,7 @@ import {
   Refresh as RefreshIcon,
   Menu as MenuIcon,
 } from "@mui/icons-material";
-import SharedSidebar from "../components/SharedSidebar";
+import SharedSidebar from "../../components/SharedSidebar";
 
 const Fournisseur = () => {
   const { user } = useAuth();

@@ -13,7 +13,7 @@ import {
   useMediaQuery,
 } from '@mui/material';
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
-import notif from '../assets/notif.png';
+import notif from '../../assets/notif.png';
 
 const ForgotPassword = () => {
   const theme = useTheme();

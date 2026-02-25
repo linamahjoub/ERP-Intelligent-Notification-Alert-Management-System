@@ -1,6 +1,6 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import {
   TextField,
   Button,
@@ -28,7 +28,7 @@ import {
   Security as SecurityIcon,
   ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
-import notif from '../assets/notif.png';
+import notif from '../../assets/notif.png';
 
 const Login = () => {
   const [email, setEmail] = useState('');

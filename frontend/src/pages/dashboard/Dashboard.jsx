@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState } from "react";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 import {
   Container,
   Typography,
@@ -60,7 +60,7 @@ import {
   MoreVert as MoreVertIcon,
   Add as AddIcon,
 } from "@mui/icons-material";
-import SharedSidebar from "../components/SharedSidebar";
+import SharedSidebar from "../../components/SharedSidebar";
 import { useNavigate } from "react-router-dom";
 
 const Dashboard = () => {
