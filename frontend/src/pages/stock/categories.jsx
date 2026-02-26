@@ -23,6 +23,46 @@ import {
 import { CiFilter } from "react-icons/ci";
 import SharedSidebar from "../../components/SharedSidebar";
 
+/* ─── StatCard ───────────────────────────────────────────────────────────────────────────────── */
+const StatCard = ({ label, value, color, onClick }) => {
+  const hexToRgba = (hex, alpha) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
+  return (
+    <Card
+      onClick={onClick}
+      sx={{
+        bgcolor: hexToRgba(color, 0.1),
+        border: `1px solid ${hexToRgba(color, 0.2)}`,
+        borderRadius: 3,
+        transition: "all 0.3s ease",
+        cursor: onClick ? "pointer" : "default",
+        minHeight: 110,
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        "&:hover": {
+          transform: "translateY(-4px)",
+          boxShadow: `0 8px 24px ${hexToRgba(color, 0.2)}`,
+        },
+      }}
+    >
+      <CardContent sx={{ py: 2, px: 2.5, flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center" }}>
+        <Typography variant="body2" sx={{ color: "#94a3b8", mb: 0.5, fontSize: "0.85rem" }}>
+          {label}
+        </Typography>
+        <Typography variant="h5" sx={{ color: "white", fontWeight: 700 }}>
+          {value}
+        </Typography>
+      </CardContent>
+    </Card>
+  );
+};
+
 const Categories = () => {
   const { user } = useAuth();
   const location = useLocation();
@@ -240,9 +280,9 @@ const Categories = () => {
   };
 
   const statCards = [
-    { label: "Total catégories", value: stats.total, accent: "#3b82f6" },
-    { label: "Actives", value: stats.active, accent: "#10b981" },
-    { label: "Inactives", value: stats.inactive, accent: "#ef4444" },
+    { label: "Total catégories", value: stats.total, accent: "#3b82f6", onClick: () => setFilterStatus("all") },
+    { label: "Actives", value: stats.active, accent: "#10b981", onClick: () => setFilterStatus("active") },
+    { label: "Inactives", value: stats.inactive, accent: "#ef4444", onClick: () => setFilterStatus("inactive") },
   ];
 
   const inputSx = {
@@ -300,7 +340,7 @@ const Categories = () => {
             <Box sx={{ display: "flex", gap: 1.5 }}>
               <IconButton
                 onClick={fetchCategoriesFromAPI}
-                sx={{ color: "#64748b", border: "1px solid rgba(59,130,246,0.15)", borderRadius: "10px", "&:hover": { color: "#3b82f6", borderColor: "rgba(59,130,246,0.4)" } }}
+                sx={{ color: "#64748b", border: "1px solid rgba(59,130,246,0.15)", borderRadius: "10px", width: 44, height: 44, "&:hover": { color: "#3b82f6", borderColor: "rgba(59,130,246,0.4)" } }}
               >
                 <RefreshIcon />
               </IconButton>
@@ -313,23 +353,18 @@ const Categories = () => {
           </Box>
 
           {/* Stat Cards */}
-          <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
             {statCards.map((s) => (
-              <Grid item xs={12} sm={6} md={4} key={s.label}>
-                <Card sx={{
-                  bgcolor: "rgba(30,41,59,0.5)", border: "1px solid rgba(59,130,246,0.1)",
-                  borderLeft: `4px solid ${s.accent}`, borderRadius: 3,
-                  transition: "transform 0.2s, box-shadow 0.2s",
-                  "&:hover": { transform: "translateY(-4px)", boxShadow: `0 8px 24px ${s.accent}22` },
-                }}>
-                  <CardContent sx={{ py: 2 }}>
-                    <Typography variant="body2" sx={{ color: "#64748b", mb: 0.5 }}>{s.label}</Typography>
-                    <Typography variant="h5" sx={{ color: "white", fontWeight: 700 }}>{s.value}</Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
+              <Box key={s.label} sx={{ flex: "1 1 0", minWidth: 250 }}>
+                <StatCard
+                  label={s.label}
+                  value={s.value}
+                  color={s.accent}
+                  onClick={s.onClick}
+                />
+              </Box>
             ))}
-          </Grid>
+          </Box>
 
           {/* Filter + Search */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: activeFiltersCount > 0 ? 1.5 : 3 }}>

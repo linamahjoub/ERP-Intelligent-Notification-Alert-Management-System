@@ -105,7 +105,7 @@ const EditAlert = () => {
   const notificationChannels = [
     { value: 'email', label: 'Email' },
     { value: 'in-app', label: 'in-app' },
-    { value: 'telegram', label: 'Telegram' },
+  
   ];
 
   const scheduleOptions = [
@@ -119,35 +119,47 @@ const EditAlert = () => {
 
   // Charger l'alerte existante
   useEffect(() => {
-    const loadAlert = () => {
+    const loadAlert = async () => {
       try {
-        const existingAlerts = JSON.parse(localStorage.getItem('alerts') || '[]');
-        const alert = existingAlerts.find(a => a.id === id);
-
-        if (alert) {
-          setFormData({
-            name: alert.name || '',
-            description: alert.description || '',
-            module: alert.module || '',
-            severity: alert.severity || 'medium',
-            conditionType: alert.conditionType || 'threshold',
-            thresholdValue: alert.thresholdValue || '',
-            comparisonOperator: alert.comparisonOperator || 'greater_than',
-            notificationChannels: (alert.notificationChannels || ['email']).map(channel => String(channel).toLowerCase()),
-            recipients: alert.recipients || [],
-            schedule: alert.schedule || 'immediate',
-            customSchedule: alert.customSchedule || '',
-            isActive: alert.isActive !== undefined ? alert.isActive : true,
-          });
-        } else {
-          setSnackbarMessage('Alerte non trouvée');
+        const token = localStorage.getItem('access_token');
+        if (!token) {
+          setSnackbarMessage('Vous devez être connecté');
           setOpenSnackbar(true);
-          navigate('/alert_rules');
+          navigate('/login');
+          return;
         }
+
+        const res = await fetch(`http://localhost:8000/api/alerts/${id}/`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (!res.ok) {
+          throw new Error('Alerte non trouvée');
+        }
+
+        const alert = await res.json();
+        setFormData({
+          name: alert.name || '',
+          description: alert.description || '',
+          module: alert.module || '',
+          severity: alert.severity || 'medium',
+          conditionType: alert.condition_type || 'threshold',
+          thresholdValue: alert.threshold_value || '',
+          comparisonOperator: alert.comparison_operator || 'greater_than',
+          notificationChannels: (alert.notification_channels || ['email']).map(channel => String(channel).toLowerCase()),
+          recipients: alert.recipients || [],
+          schedule: alert.schedule || 'immediate',
+          customSchedule: alert.custom_schedule || '',
+          isActive: alert.is_active !== undefined ? alert.is_active : true,
+        });
       } catch (error) {
         console.error('Erreur lors du chargement:', error);
         setSnackbarMessage('Erreur lors du chargement de l\'alerte');
         setOpenSnackbar(true);
+        setTimeout(() => navigate('/alert_rules'), 2000);
       } finally {
         setLoading(false);
       }
@@ -206,20 +218,45 @@ const EditAlert = () => {
         return;
       }
 
-      // Récupérer les alertes existantes
-      const existingAlerts = JSON.parse(localStorage.getItem('alerts') || '[]');
+      const token = localStorage.getItem('access_token');
+      if (!token) {
+        setSnackbarMessage('Vous devez être connecté');
+        setOpenSnackbar(true);
+        navigate('/login');
+        return;
+      }
 
-      // Mettre à jour l'alerte
-      const updatedAlerts = existingAlerts.map(alert =>
-        alert.id === id ? { ...alert, ...formData, updatedAt: new Date().toISOString() } : alert
-      );
+      // Préparer les données pour l'API
+      const updateData = {
+        name: formData.name,
+        description: formData.description,
+        module: formData.module,
+        severity: formData.severity,
+        condition_type: formData.conditionType,
+        threshold_value: formData.thresholdValue,
+        comparison_operator: formData.comparisonOperator,
+        notification_channels: formData.notificationChannels,
+        recipients: formData.recipients,
+        schedule: formData.schedule,
+        custom_schedule: formData.customSchedule,
+        is_active: formData.isActive,
+      };
 
-      // Sauvegarder dans localStorage
-      localStorage.setItem('alerts', JSON.stringify(updatedAlerts));
+      const res = await fetch(`http://localhost:8000/api/alerts/${id}/`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(updateData),
+      });
 
-      console.log('Alerte mise à jour:', { id, ...formData });
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.detail || 'Erreur lors de la mise à jour');
+      }
 
-      setSnackbarMessage('Règle d\'alerte mise à jour avec succès !');
+      setSnackbarMessage('Alerte a ete modifiee avec succes');
       setOpenSnackbar(true);
 
       // Rediriger après 2 secondes
@@ -229,7 +266,7 @@ const EditAlert = () => {
 
     } catch (error) {
       console.error('Erreur:', error);
-      setSnackbarMessage('Erreur lors de la mise à jour de la règle');
+      setSnackbarMessage(error.message || 'Erreur lors de la mise à jour de la règle');
       setOpenSnackbar(true);
     }
   };

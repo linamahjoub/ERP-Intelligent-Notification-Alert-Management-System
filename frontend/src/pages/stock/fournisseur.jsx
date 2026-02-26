@@ -29,6 +29,11 @@ import {
   Alert,
   Snackbar,
   InputAdornment,
+  Badge,
+  Tooltip,
+  Divider,
+  Switch,
+  FormControlLabel,
 } from "@mui/material";
 import {
   Business as BusinessIcon,
@@ -39,8 +44,51 @@ import {
   Delete as DeleteIcon,
   Refresh as RefreshIcon,
   Menu as MenuIcon,
+  Check as CheckIcon,
+  FilterList as FilterListIcon,
 } from "@mui/icons-material";
+import { CiFilter } from "react-icons/ci";
 import SharedSidebar from "../../components/SharedSidebar";
+
+/* ─── StatCard ───────────────────────────────────────────────────────────────────────────────── */
+const StatCard = ({ label, value, color, onClick }) => {
+  const hexToRgba = (hex, alpha) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
+  return (
+    <Card
+      onClick={onClick}
+      sx={{
+        bgcolor: hexToRgba(color, 0.1),
+        border: `1px solid ${hexToRgba(color, 0.2)}`,
+        borderRadius: 3,
+        transition: "all 0.3s ease",
+        cursor: onClick ? "pointer" : "default",
+        minHeight: 110,
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        "&:hover": {
+          transform: "translateY(-4px)",
+          boxShadow: `0 8px 24px ${hexToRgba(color, 0.2)}`,
+        },
+      }}
+    >
+      <CardContent sx={{ py: 2, px: 2.5, flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center" }}>
+        <Typography variant="body2" sx={{ color: "#94a3b8", mb: 0.5, fontSize: "0.85rem" }}>
+          {label}
+        </Typography>
+        <Typography variant="h5" sx={{ color: "white", fontWeight: 700 }}>
+          {value}
+        </Typography>
+      </CardContent>
+    </Card>
+  );
+};
 
 const Fournisseur = () => {
   const { user } = useAuth();
@@ -51,6 +99,8 @@ const Fournisseur = () => {
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterStatus, setFilterStatus] = useState("all"); // Ajouter le state pour le filtre
+  const [filterAnchorEl, setFilterAnchorEl] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [openAddDialog, setOpenAddDialog] = useState(false);
@@ -222,6 +272,53 @@ const Fournisseur = () => {
     }
   };
 
+  const handleToggleStatus = async (supplier) => {
+    console.log("Toggle status appelé pour:", supplier);
+    console.log("Valeur actuelle de is_active:", supplier.is_active);
+    
+    const newStatus = !Boolean(supplier.is_active);
+    console.log("Nouveau statut:", newStatus);
+    
+    try {
+      // Mise à jour optimiste de l'interface
+      setSuppliers(prev => prev.map(s => 
+        s.id === supplier.id ? { ...s, is_active: newStatus } : s
+      ));
+
+      const token = localStorage.getItem('access_token');
+      const payload = mapToApi({ ...supplier, is_active: newStatus });
+      console.log("Envoi du payload:", payload);
+      
+      const res = await fetch(`${API_BASE}${supplier.id}/`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}` 
+        },
+        body: JSON.stringify(payload),
+      });
+
+      console.log("Réponse du serveur:", res.status);
+      
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        console.error("Erreur API:", errorData);
+        // Annuler la mise à jour optimiste en cas d'erreur
+        setSuppliers(prev => prev.map(s => 
+          s.id === supplier.id ? { ...s, is_active: Boolean(supplier.is_active) } : s
+        ));
+        throw new Error(errorData.message || 'Erreur lors de la modification du statut');
+      }
+
+      const responseData = await res.json();
+      console.log("Réponse complète:", responseData);
+      setSuccessMessage(`Fournisseur ${newStatus ? 'activé' : 'désactivé'} avec succès`);
+    } catch (err) {
+      console.error("Erreur complète:", err);
+      setErrorMessage(`Erreur: ${err.message}`);
+    }
+  };
+
   const handleMenuOpen = (event, supplier) => {
     setAnchorEl(event.currentTarget);
     setSelectedSupplier(supplier);
@@ -234,8 +331,7 @@ const Fournisseur = () => {
 
   const filteredSuppliers = suppliers.filter((s) => {
     const q = searchQuery.toLowerCase();
-    if (!q) return true;
-    return (
+    const matchesSearch = !q || (
       s.name.toLowerCase().includes(q) ||
       s.contact_name.toLowerCase().includes(q) ||
       s.email.toLowerCase().includes(q) ||
@@ -243,6 +339,13 @@ const Fournisseur = () => {
       s.city.toLowerCase().includes(q) ||
       s.country.toLowerCase().includes(q)
     );
+    
+    const matchesStatus = 
+      filterStatus === "all" ||
+      (filterStatus === "active" && s.is_active) ||
+      (filterStatus === "inactive" && !s.is_active);
+    
+    return matchesSearch && matchesStatus;
   });
 
   const stats = {
@@ -252,10 +355,26 @@ const Fournisseur = () => {
   };
 
   const statCards = [
-    { label: "Total fournisseurs", value: stats.totalSuppliers, accent: "#3b82f6" },
-    { label: "Actifs", value: stats.activeSuppliers, accent: "#10b981" },
-    { label: "Inactifs", value: stats.inactiveSuppliers, accent: "#ef4444" },
+    { label: "Total fournisseurs", value: stats.totalSuppliers, accent: "#3b82f6", onClick: () => setFilterStatus("all") },
+    { label: "Actifs", value: stats.activeSuppliers, accent: "#10b981", onClick: () => setFilterStatus("active") },
+    { label: "Inactifs", value: stats.inactiveSuppliers, accent: "#ef4444", onClick: () => setFilterStatus("inactive") },
   ];
+
+  const statusOptions = [
+    { value: "all", label: "Tous les statuts" },
+    { value: "active", label: "Actifs" },
+    { value: "inactive", label: "Inactifs" },
+  ];
+
+  const activeFiltersCount = filterStatus !== "all" ? 1 : 0;
+
+  const menuItemSx = (active) => ({
+    px: 2, py: 0.8,
+    color: active ? "#3b82f6" : "#94a3b8",
+    bgcolor: active ? "rgba(59,130,246,0.1)" : "transparent",
+    fontSize: "0.875rem", display: "flex", justifyContent: "space-between", alignItems: "center",
+    "&:hover": { bgcolor: "rgba(59,130,246,0.08)", color: "white" },
+  });
 
   const inputSx = {
     "& .MuiOutlinedInput-root": {
@@ -339,7 +458,7 @@ const Fournisseur = () => {
               <IconButton
                 onClick={fetchSuppliers}
                 disabled={loading}
-                sx={{ color: "#64748b", border: "1px solid rgba(59,130,246,0.15)", borderRadius: "10px", "&:hover": { color: "#3b82f6", borderColor: "rgba(59,130,246,0.4)" } }}
+                sx={{ color: "#64748b", border: "1px solid rgba(59,130,246,0.15)", borderRadius: "10px", width: 44, height: 44, "&:hover": { color: "#3b82f6", borderColor: "rgba(59,130,246,0.4)" } }}
               >
                 <RefreshIcon />
               </IconButton>
@@ -354,29 +473,38 @@ const Fournisseur = () => {
             </Box>
           </Box>
 
-          <Grid container spacing={2} sx={{ mb: 3 }}>
+          <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
             {statCards.map((s) => (
-              <Grid item xs={12} sm={6} md={4} key={s.label}>
-                <Card
+              <Box key={s.label} sx={{ flex: "1 1 0", minWidth: 250 }}>
+                <StatCard
+                  label={s.label}
+                  value={s.value}
+                  color={s.accent}
+                  onClick={s.onClick}
+                />
+              </Box>
+            ))}
+          </Box>
+
+          {/* Filter + Search */}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: activeFiltersCount > 0 ? 1.5 : 3 }}>
+            <Tooltip title="Filtres">
+              <Badge badgeContent={activeFiltersCount} sx={{ "& .MuiBadge-badge": { bgcolor: "#3b82f6", color: "white", fontSize: "0.65rem", minWidth: 16, height: 16 } }}>
+                <IconButton
+                  onClick={(e) => setFilterAnchorEl(e.currentTarget)}
                   sx={{
-                    bgcolor: "rgba(30,41,59,0.5)",
-                    border: "1px solid rgba(59,130,246,0.1)",
-                    borderLeft: `4px solid ${s.accent}`,
-                    borderRadius: 3,
-                    transition: "transform 0.2s, box-shadow 0.2s",
-                    "&:hover": { transform: "translateY(-4px)", boxShadow: `0 8px 24px ${s.accent}22` },
+                    color: activeFiltersCount > 0 ? "#3b82f6" : "#64748b",
+                    bgcolor: activeFiltersCount > 0 ? "rgba(59,130,246,0.15)" : "rgba(59,130,246,0.05)",
+                    border: activeFiltersCount > 0 ? "1px solid rgba(59,130,246,0.4)" : "1px solid rgba(59,130,246,0.15)",
+                    borderRadius: "10px", width: 44, height: 44, flexShrink: 0,
+                    "&:hover": { bgcolor: "rgba(59,130,246,0.15)" },
                   }}
                 >
-                  <CardContent sx={{ py: 2 }}>
-                    <Typography variant="body2" sx={{ color: "#64748b", mb: 0.5 }}>{s.label}</Typography>
-                    <Typography variant="h5" sx={{ color: "white", fontWeight: 700 }}>{s.value}</Typography>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
+                  <CiFilter size={22} />
+                </IconButton>
+              </Badge>
+            </Tooltip>
 
-          <Box sx={{ display: "flex", alignItems: "center", mb: 3, maxWidth: 520 }}>
             <TextField
               placeholder="Rechercher par nom, contact, email, ville..."
               value={searchQuery}
@@ -403,12 +531,29 @@ const Fournisseur = () => {
             />
           </Box>
 
+          {/* Active filter chips */}
+          {activeFiltersCount > 0 && (
+            <Box sx={{ display: "flex", gap: 1, mb: 2.5, flexWrap: "wrap", alignItems: "center" }}>
+              {filterStatus !== "all" && (
+                <Chip label={statusOptions.find((s) => s.value === filterStatus)?.label}
+                  onDelete={() => setFilterStatus("all")} size="small"
+                  sx={{ bgcolor: "rgba(59,130,246,0.15)", color: "#3b82f6", border: "1px solid rgba(59,130,246,0.3)", fontWeight: 500 }}
+                />
+              )}
+              <Button size="small" onClick={() => setFilterStatus("all")}
+                sx={{ color: "#94a3b8", fontSize: "0.75rem", textTransform: "none", py: 0, minHeight: 0, "&:hover": { color: "#ef4444" } }}
+              >
+                Tout effacer
+              </Button>
+            </Box>
+          )}
+
           <Card sx={{ bgcolor: "rgba(30,41,59,0.5)", border: "1px solid rgba(59,130,246,0.1)", borderRadius: 3 }}>
             <TableContainer>
               <Table>
                 <TableHead>
                   <TableRow sx={{ backgroundColor: "rgba(59,130,246,0.05)", borderBottom: "1px solid rgba(59,130,246,0.1)" }}>
-                    {["Fournisseur", "Contact", "Email", "Telephone", "Ville", "Pays", "Actif", "Actions"].map((h, i) => (
+                    {["Fournisseur", "Contact", "Email", "Telephone", "Ville", "Pays", "Statut", "Actions"].map((h, i) => (
                       <TableCell key={h} align={i >= 6 ? "center" : "left"} sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>
                         {h}
                       </TableCell>
@@ -433,17 +578,20 @@ const Fournisseur = () => {
                         <TableCell sx={{ color: "#94a3b8", fontSize: "0.875rem" }}>{supplier.city || "-"}</TableCell>
                         <TableCell sx={{ color: "#94a3b8", fontSize: "0.875rem" }}>{supplier.country || "-"}</TableCell>
                         <TableCell align="center">
-                          <Chip
-                            label={supplier.is_active ? "Actif" : "Inactif"}
-                            size="small"
-                            sx={{
-                              bgcolor: supplier.is_active ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)",
-                              color: supplier.is_active ? "#10b981" : "#ef4444",
-                              fontWeight: 600,
-                              fontSize: "0.75rem",
-                              border: `1px solid ${supplier.is_active ? "#10b981" : "#ef4444"}40`,
-                            }}
-                          />
+                          <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 1 }}>
+                            <Switch 
+                              checked={supplier.is_active} 
+                              onChange={() => handleToggleStatus(supplier)}
+                              size="small"
+                              sx={{ 
+                                "& .MuiSwitch-switchBase.Mui-checked": { color: "#10b981" }, 
+                                "& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track": { bgcolor: "#10b981" } 
+                              }}
+                            />
+                            <Typography variant="caption" sx={{ color: supplier.is_active ? "#10b981" : "#ef4444", fontWeight: 600, fontSize: "0.75rem", minWidth: 55 }}>
+                              {supplier.is_active ? "Actif" : "Inactif"}
+                            </Typography>
+                          </Box>
                         </TableCell>
                         <TableCell align="center">
                           <IconButton size="small" onClick={(e) => handleMenuOpen(e, supplier)} sx={{ color: "#64748b", "&:hover": { color: "#3b82f6" } }}>
@@ -472,6 +620,48 @@ const Fournisseur = () => {
         </Box>
       </Box>
 
+      {/* Filter Menu */}
+      <Menu
+        anchorEl={filterAnchorEl}
+        open={Boolean(filterAnchorEl)}
+        onClose={() => setFilterAnchorEl(null)}
+        PaperProps={{
+          sx: {
+            bgcolor: "rgba(13,19,33,0.98)", border: "1px solid rgba(59,130,246,0.2)",
+            borderRadius: "12px", backdropFilter: "blur(12px)",
+            minWidth: 240, boxShadow: "0 8px 32px rgba(0,0,0,0.5)", mt: 0.5,
+          },
+        }}
+      >
+        <Box sx={{ px: 2, py: 1.2, borderBottom: "1px solid rgba(59,130,246,0.1)" }}>
+          <Typography sx={{ color: "#94a3b8", fontSize: "0.7rem", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", display: "flex", alignItems: "center", gap: 0.75 }}>
+            <FilterListIcon sx={{ fontSize: 14 }} />
+            Statut
+          </Typography>
+        </Box>
+        {statusOptions.map((opt) => (
+          <MenuItem key={opt.value} onClick={() => setFilterStatus(opt.value)} sx={menuItemSx(filterStatus === opt.value)}>
+            <span>{opt.label}</span>
+            {filterStatus === opt.value && <CheckIcon sx={{ fontSize: 16, ml: "auto" }} />}
+          </MenuItem>
+        ))}
+
+        {activeFiltersCount > 0 && (
+          <>
+            <Divider sx={{ borderColor: "rgba(59,130,246,0.1)", mt: 1 }} />
+            <Box sx={{ p: 1.5 }}>
+              <Button fullWidth size="small"
+                onClick={() => { setFilterStatus("all"); setFilterAnchorEl(null); }}
+                sx={{ color: "#ef4444", fontSize: "0.8rem", textTransform: "none", border: "1px solid rgba(239,68,68,0.3)", borderRadius: "6px", "&:hover": { bgcolor: "rgba(239,68,68,0.08)" } }}
+              >
+                Réinitialiser les filtres
+              </Button>
+            </Box>
+          </>
+        )}
+      </Menu>
+
+      {/* Actions Menu */}
       <Menu
         anchorEl={anchorEl}
         open={Boolean(anchorEl)}

@@ -64,6 +64,7 @@ import {
   Settings as SettingsIcon,
   Inventory as InventoryIcon,
   PersonAdd as PersonAddIcon,
+  Category as CategoryIcon,
 } from "@mui/icons-material";
 import SharedSidebar from "../../components/SharedSidebar";
 
@@ -80,6 +81,8 @@ const AdminDashboard = () => {
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [openAddDialog, setOpenAddDialog] = useState(false);
+  const [selectedAlert, setSelectedAlert] = useState(null);
+  const [alertDetailsOpen, setAlertDetailsOpen] = useState(false);
 
   // Données mock pour le dashboard d'alertes
   const [dashboardData, setDashboardData] = useState({
@@ -118,6 +121,55 @@ const AdminDashboard = () => {
   // Couleurs pour les graphiques
   const COLORS = ["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444"];
 
+  const formatActivityTime = (value) => {
+    if (!value) {
+      return "Récemment";
+    }
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) {
+      return value;
+    }
+    return date.toLocaleString("fr-FR", {
+      dateStyle: "short",
+      timeStyle: "short",
+    });
+  };
+
+  const mapActivityToTimeline = (activity) => {
+    const actionType = activity?.action_type;
+    let icon = "notification";
+    let color = "#8b5cf6";
+    let title = activity?.title || "Activité système";
+    let description = activity?.description || "";
+
+    if (actionType === "product_created") {
+      icon = "package";
+      color = "#3b82f6";
+      title = activity?.title || "Nouveau produit";
+    } else if (actionType === "user_created") {
+      icon = "user";
+      color = "#10b981";
+      title = activity?.title || "Nouvel utilisateur";
+    } else if (actionType === "category_created") {
+      icon = "category";
+      color = "#f59e0b";
+      title = activity?.title || "Nouvelle catégorie";
+    } else if (actionType === "alert_created") {
+      icon = "notification";
+      color = "#ef4444";
+      title = activity?.title || "Nouvelle alerte";
+    }
+
+    return {
+      id: activity?.id || `${actionType}-${activity?.created_at || Math.random()}`,
+      icon,
+      color,
+      title,
+      description,
+      time: formatActivityTime(activity?.created_at),
+    };
+  };
+
   // Fonction pour obtenir l'icône selon le type d'activité
   const getActivityIcon = (iconType) => {
     switch (iconType) {
@@ -135,6 +187,8 @@ const AdminDashboard = () => {
         return <SettingsIcon sx={{ fontSize: 20 }} />;
       case "package":
         return <InventoryIcon sx={{ fontSize: 20 }} />;
+      case "category":
+        return <CategoryIcon sx={{ fontSize: 20 }} />;
       default:
         return <NotificationsIcon sx={{ fontSize: 20 }} />;
     }
@@ -164,12 +218,22 @@ useEffect(() => {
         },
       });
 
+      // 4. Appeler l'API pour avoir l'activité récente
+      const activityResponse = await fetch("http://localhost:8000/api/activity/recent/?limit=6", {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
       console.log("Status usersResponse:", usersResponse.status);
       console.log("Status alertsResponse:", alertsResponse.status);
+      console.log("Status activityResponse:", activityResponse.status);
 
       if (usersResponse.ok && alertsResponse.ok) {
         const usersData = await usersResponse.json();
         const alertsData = await alertsResponse.json();
+        const activityData = activityResponse.ok ? await activityResponse.json() : [];
 
         // Afficher les données brutes pour debug
         console.log("Données utilisateurs brutes:", usersData);
@@ -195,6 +259,7 @@ useEffect(() => {
 
         console.log("Utilisateurs traités:", users);
         console.log("Alertes traitées:", allAlerts);
+        console.log("Activites traitees:", activityData);
         
         // Afficher la première alerte pour voir sa structure
         if (allAlerts.length > 0) {
@@ -239,7 +304,9 @@ useEffect(() => {
           notifications: [],
           alertTrend: [],
           moduleDistribution: [],
-          recentActivity: [],
+          recentActivity: Array.isArray(activityData)
+            ? activityData.map(mapActivityToTimeline)
+            : [],
         });
         
         console.log("DashboardData mis à jour avec", activeAlerts, "alertes actives");
@@ -311,6 +378,16 @@ useEffect(() => {
 
   const handleExportData = () => {
     setSuccessMessage("Exportation des données démarrée");
+  };
+
+  const handleViewAlertDetails = (alert) => {
+    setSelectedAlert(alert);
+    setAlertDetailsOpen(true);
+  };
+
+  const handleCloseAlertDetails = () => {
+    setAlertDetailsOpen(false);
+    setSelectedAlert(null);
   };
 
   const getStatusColor = (status) => {
@@ -733,7 +810,7 @@ useEffect(() => {
               <Card
                 sx={{
                   bgcolor: "rgba(16, 185, 129, 0.1)",
-                  border: "1px solid rgba(16, 185, 129, 0.2)",
+                  border: "1px solid #10B98133",
                   borderRadius: 3,
                   transition: "all 0.3s ease",
                   "&:hover": {
@@ -1011,13 +1088,13 @@ useEffect(() => {
                       variant="h6"
                       sx={{ color: "white", fontWeight: 600, mb: 0.5 }}
                     >
-                      Activité récente
+                      Mes activités récentes
                     </Typography>
                     <Typography
                       variant="body2"
                       sx={{ color: "#64748b", fontSize: "0.875rem" }}
                     >
-                      Derniers événements système
+                      Ce que vous avez fait récemment
                     </Typography>
                   </Box>
 
@@ -1039,7 +1116,8 @@ useEffect(() => {
                     <Box
                       sx={{ display: "flex", flexDirection: "column", gap: 3 }}
                     >
-                      {dashboardData.recentActivity.map((activity, index) => (
+                      {dashboardData.recentActivity.length > 0 ? (
+                        dashboardData.recentActivity.map((activity, index) => (
                         <Box
                           key={activity.id}
                           sx={{
@@ -1111,7 +1189,31 @@ useEffect(() => {
                             </Typography>
                           </Box>
                         </Box>
-                      ))}
+                      ))
+                      ) : (
+                        <Box
+                          sx={{
+                            textAlign: "center",
+                            py: 6,
+                          }}
+                        >
+                          <NotificationsIcon
+                            sx={{ fontSize: 48, color: "#64748b", mb: 2 }}
+                          />
+                          <Typography
+                            variant="body1"
+                            sx={{ color: "#94a3b8", mb: 1 }}
+                          >
+                            Aucune activité récente
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            sx={{ color: "#64748b", fontSize: "0.85rem" }}
+                          >
+                            Vos actions apparaîtront ici
+                          </Typography>
+                        </Box>
+                      )}
                     </Box>
                   </Box>
                 </CardContent>
@@ -1164,7 +1266,7 @@ useEffect(() => {
                     sx={{ display: "flex", flexDirection: "column", gap: 2 }}
                   >
                     {dashboardData.alerts && dashboardData.alerts.length > 0 ? (
-                      dashboardData.alerts.slice(0, 5).map((alert) => (
+                      dashboardData.alerts.slice(0, 4).map((alert) => (
                         <Paper
                           key={alert.id}
                           sx={{
@@ -1255,7 +1357,17 @@ useEffect(() => {
                               Status:{" "}
                               {alert.status === "active" ? "Actif" : "Résolu"}
                             </Typography>
-                            <Button size="small" sx={{ fontSize: "0.75rem" }}>
+                            <Button 
+                              size="small" 
+                              onClick={() => handleViewAlertDetails(alert)}
+                              sx={{ 
+                                fontSize: "0.75rem",
+                                color: "#3b82f6",
+                                "&:hover": {
+                                  bgcolor: "rgba(59, 130, 246, 0.1)",
+                                },
+                              }}
+                            >
                               Voir les détails
                             </Button>
                           </Box>
@@ -1311,6 +1423,303 @@ useEffect(() => {
           Supprimer
         </MenuItem>
       </Menu>
+
+      {/* Dialog des détails d'alerte */}
+      <Dialog
+        open={alertDetailsOpen}
+        onClose={handleCloseAlertDetails}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: "black",
+            border: "1px solid #3B82F633",
+            borderRadius: 3,
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            color: "white",
+            borderBottom: "1px solid rgba(59, 130, 246, 0.1)",
+            pb: 2,
+          }}
+        >
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <Box
+              sx={{
+                width: 48,
+                height: 48,
+                borderRadius: 2,
+                bgcolor: selectedAlert?.type === "critical"
+                  ? "rgba(239, 68, 68, 0.15)"
+                  : selectedAlert?.type === "warning"
+                  ? "rgba(251, 146, 60, 0.15)"
+                  : "rgba(59, 130, 246, 0.15)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              {getStatusIcon(selectedAlert?.type)}
+            </Box>
+            <Box>
+              <Typography variant="h6" sx={{ color: "white", fontWeight: 600 }}>
+                Détails de l'alerte
+              </Typography>
+              <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.875rem" }}>
+                {selectedAlert?.module || "Système"}
+              </Typography>
+            </Box>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          {selectedAlert && (
+            <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              {/* Type et statut */}
+              <Box>
+                <Typography variant="caption" sx={{ color: "white", display: "block", mb: 1 }}>
+                  Type et statut
+                </Typography>
+                <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                  <Chip
+                    label={
+                      selectedAlert.type === "critical"
+                        ? "Critique"
+                        : selectedAlert.type === "warning"
+                        ? "Avertissement"
+                        : "Info"
+                    }
+                    color={selectedAlert.type !== "info" ? getStatusColor(selectedAlert.type) : undefined}
+                    sx={{
+                      fontWeight: 600,
+                      color: selectedAlert.type === "info" ? "white !important" : undefined,
+                      bgcolor: selectedAlert.type === "info" ? "rgba(59, 130, 246, 0.25) !important" : undefined,
+                      borderColor: selectedAlert.type === "info" ? "rgba(59, 130, 246, 0.5) !important" : undefined,
+                      '& .MuiChip-label': {
+                        color: selectedAlert.type === "info" ? "white !important" : undefined,
+                      },
+                    }}
+                  />
+                  <Chip
+                    label={selectedAlert.status === "active" ? "Actif" : "Résolu"}
+                    color={selectedAlert.status === "active" ? "error" : undefined}
+                    variant="outlined"
+                    sx={{
+                      fontWeight: 600,
+                      color: selectedAlert.status === "active" ? undefined : "white !important",
+                      bgcolor: selectedAlert.status === "active" ? undefined : "rgba(16, 185, 129, 0.15) !important",
+                      borderColor: selectedAlert.status === "active" ? undefined : "rgba(16, 185, 129, 0.5) !important",
+                      '& .MuiChip-label': {
+                        color: selectedAlert.status === "active" ? undefined : "white !important",
+                      },
+                    }}
+                  />
+                </Box>
+              </Box>
+
+              {/* Message */}
+              <Box>
+                <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 1 }}>
+                  Message
+                </Typography>
+                <Paper
+                  sx={{
+                    p: 2,
+                    bgcolor: "rgba(30, 41, 59, 0.3)",
+                    border: "1px solid rgba(59, 130, 246, 0.2)",
+                    borderRadius: 2,
+                  }}
+                >
+                  <Typography sx={{ color: "#94a3b8" }}>
+                    {selectedAlert.message || "Alerte système"}
+                  </Typography>
+                </Paper>
+              </Box>
+
+              {/* Informations détaillées */}
+              <Box>
+                <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 1.5 }}>
+                  Informations détaillées
+                </Typography>
+                <Grid container spacing={2}>
+                  <Grid item xs={6}>
+                    <Box
+                      sx={{
+                        p: 2,
+                        bgcolor: "rgba(30, 41, 59, 0.3)",
+                        border: "1px solid rgba(59, 130, 246, 0.2)",
+                        borderRadius: 2,
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 0.5 }}>
+                        Module
+                      </Typography>
+                      <Typography sx={{ color: "white", fontWeight: 600 }}>
+                        {selectedAlert.module || "N/A"}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Box
+                      sx={{
+                        p: 2,
+                        bgcolor: "rgba(30, 41, 59, 0.3)",
+                        border: "1px solid rgba(59, 130, 246, 0.2)",
+                        borderRadius: 2,
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 0.5 }}>
+                        Date/Heure
+                      </Typography>
+                      <Typography sx={{ color: "white", fontWeight: 600 }}>
+                        {selectedAlert.time || "Récemment"}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Box
+                      sx={{
+                        p: 2,
+                        bgcolor: "rgba(30, 41, 59, 0.3)",
+                        border: "1px solid rgba(59, 130, 246, 0.2)",
+                        borderRadius: 2,
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 0.5 }}>
+                        ID Alerte
+                      </Typography>
+                      <Typography sx={{ color: "white", fontWeight: 600, fontFamily: "monospace" }}>
+                        #{selectedAlert.id || "N/A"}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                  <Grid item xs={6}>
+                    <Box
+                      sx={{
+                        p: 2,
+                        bgcolor: "rgba(30, 41, 59, 0.3)",
+                        border: "1px solid rgba(59, 130, 246, 0.2)",
+                        borderRadius: 2,
+                      }}
+                    >
+                      <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 0.5 }}>
+                        Priorité
+                      </Typography>
+                      <Typography sx={{ color: "white", fontWeight: 600 }}>
+                        {selectedAlert.type === "critical" ? "Haute" : selectedAlert.type === "warning" ? "Moyenne" : "Basse"}
+                      </Typography>
+                    </Box>
+                  </Grid>
+                </Grid>
+              </Box>
+
+              {/* Informations supplémentaires */}
+              {Object.keys(selectedAlert).filter(key => 
+                !["id", "type", "status", "message", "module", "time"].includes(key)
+              ).length > 0 && (
+                <Box>
+                  <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 1.5 }}>
+                    Données supplémentaires
+                  </Typography>
+                  <Paper
+                    sx={{
+                      p: 2,
+                      bgcolor: "rgba(30, 41, 59, 0.3)",
+                      border: "1px solid rgba(59, 130, 246, 0.2)",
+                      borderRadius: 2,
+                      maxHeight: 200,
+                      overflowY: "auto",
+                    }}
+                  >
+                    <Box sx={{ fontFamily: "monospace", fontSize: "0.85rem" }}>
+                      {Object.entries(selectedAlert)
+                        .filter(([key]) => !["id", "type", "status", "message", "module", "time"].includes(key))
+                        .map(([key, value]) => (
+                          <Box key={key} sx={{ mb: 1 }}>
+                            <Typography component="span" sx={{ color: "#3b82f6" }}>
+                              {key}:
+                            </Typography>
+                            <Typography component="span" sx={{ color: "#94a3b8", ml: 1 }}>
+                              {typeof value === "object" ? JSON.stringify(value) : String(value)}
+                            </Typography>
+                          </Box>
+                        ))}
+                    </Box>
+                  </Paper>
+                </Box>
+              )}
+
+              {/* Actions recommandées */}
+              <Box>
+                <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 1 }}>
+                  Actions recommandées
+                </Typography>
+                <Alert
+                  severity={selectedAlert.type === "critical" ? "error" : selectedAlert.type === "warning" ? "warning" : "info"}
+                  sx={{
+                    bgcolor: selectedAlert.type === "critical"
+                      ? "rgba(239, 68, 68, 0.1)"
+                      : selectedAlert.type === "warning"
+                      ? "rgba(251, 146, 60, 0.1)"
+                      : "rgba(59, 130, 246, 0.1)",
+                    color: selectedAlert.type === "critical"
+                      ? "#fecaca"
+                      : selectedAlert.type === "warning"
+                      ? "#fde68a"
+                      : "#ffffff",
+                    border: `1px solid ${
+                      selectedAlert.type === "critical"
+                        ? "rgba(239, 68, 68, 0.2)"
+                        : selectedAlert.type === "warning"
+                        ? "rgba(251, 146, 60, 0.2)"
+                        : "rgba(28, 29, 30, 0.2)"
+                    }`,
+                  }}
+                >
+                  {selectedAlert.type === "critical"
+                    ? "Action immédiate requise - Vérifiez les logs système et contactez l'équipe technique."
+                    : selectedAlert.type === "warning"
+                    ? "Surveillance recommandée - Vérifiez les métriques et planifiez une intervention si nécessaire."
+                    : "Notification informative - Aucune action immédiate requise."}
+                </Alert>
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions
+          sx={{ p: 3, borderTop: "1px solid rgba(59, 130, 246, 0.1)" }}
+        >
+          <Button
+            onClick={handleCloseAlertDetails}
+            sx={{
+              color: "#94a3b8",
+              "&:hover": {
+                bgcolor: "rgba(59, 130, 246, 0.1)",
+              },
+            }}
+          >
+            Fermer
+          </Button>
+          <Button
+            variant="contained"
+            sx={{
+              bgcolor: "#3b82f6",
+              color: "white",
+              fontWeight: 600,
+              "&:hover": {
+                bgcolor: "#2563eb",
+              },
+            }}
+            onClick={() => {
+              handleCloseAlertDetails();
+              setSuccessMessage("Alerte marquée comme traitée");
+            }}
+          >
+            Marquer comme traitée
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Dialog de confirmation de suppression */}
       <Dialog

@@ -53,6 +53,10 @@ import {
   Schedule as ScheduleIcon,
   Settings as SettingsIcon,
   Save as SaveIcon,
+  Inbox as InboxIcon,
+  Warning as WarningIcon,
+  CheckCircle as CheckCircleIcon,
+  Error as ErrorIcon,
 } from "@mui/icons-material";
 import SharedSidebar from "../components/SharedSidebar";
 
@@ -101,19 +105,86 @@ const fmtFull = (iso) =>
   });
 
 /* ─── StatCard ───────────────────────────────────────────────────────────── */
-const StatCard = ({ label, value, color }) => (
-  <Box sx={{
-    flex: 1, minWidth: 120, bgcolor: C.surface, border: `1px solid ${C.border}`,
-    borderRadius: "10px", p: "16px 20px", display: "flex", flexDirection: "column", gap: 0.5,
-  }}>
-    <Typography sx={{ color: C.textMuted, fontSize: "0.7rem", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-      {label}
-    </Typography>
-    <Typography sx={{ color: color || C.text, fontSize: "1.75rem", fontWeight: 700, lineHeight: 1 }}>
-      {value}
-    </Typography>
-  </Box>
-);
+const StatCard = ({ label, value, color, icon: Icon, iconColor, description, onClick }) => {
+  // Convertir hex en rgba avec opacité
+  const hexToRgba = (hex, alpha) => {
+    const r = parseInt(hex.slice(1, 3), 16);
+    const g = parseInt(hex.slice(3, 5), 16);
+    const b = parseInt(hex.slice(5, 7), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  };
+
+  return (
+    <Card
+      onClick={onClick}
+      sx={{
+        flex: 1,
+        minWidth: 200,
+        bgcolor: hexToRgba(color, 0.1),
+        border: `1px solid ${hexToRgba(color, 0.2)}`,
+        borderRadius: 3,
+        transition: "all 0.3s ease",
+        cursor: onClick ? "pointer" : "default",
+        "&:hover": {
+          transform: "translateY(-4px)",
+          boxShadow: `0 8px 24px ${hexToRgba(color, 0.2)}`,
+        },
+      }}
+    >
+      <CardContent sx={{ p: 3 }}>
+        <Box
+          sx={{
+            display: "flex",
+            alignItems: "flex-start",
+            justifyContent: "space-between",
+            mb: 2,
+          }}
+        >
+          <Typography
+            variant="body2"
+            sx={{ color: "#94a3b8", fontSize: "0.85rem" }}
+          >
+            {label}
+          </Typography>
+          <Box
+            sx={{
+              width: 40,
+              height: 40,
+              borderRadius: 2,
+              bgcolor: hexToRgba(color, 0.15),
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            {Icon && <Icon sx={{ color: iconColor || color, fontSize: 20 }} />}
+          </Box>
+        </Box>
+        <Typography
+          variant="h3"
+          sx={{ color: "white", fontWeight: 700, mb: 1 }}
+        >
+          {value}
+        </Typography>
+        {description && (
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            {Icon && <Icon sx={{ color: iconColor || color, fontSize: 16 }} />}
+            <Typography
+              variant="caption"
+              sx={{
+                color: iconColor || color,
+                fontSize: "0.8rem",
+                fontWeight: 500,
+              }}
+            >
+              {description}
+            </Typography>
+          </Box>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
 
 /* ─── Filter menu helpers ────────────────────────────────────────────────── */
 const SectionLabel = ({ icon, text }) => (
@@ -167,12 +238,15 @@ const Notifications = () => {
   const [selectedAlert,        setSelectedAlert]        = useState(null);
   const [notificationDialogOpen, setNotificationDialogOpen] = useState(false);
   const [notificationForm, setNotificationForm] = useState({ title: "", message: "", notification_type: "alert_triggered" });
+  const [emailTemplate, setEmailTemplate] = useState({ subject: "", body: "" });
+  const [showEmailTemplate, setShowEmailTemplate] = useState(false);
   const [notificationSettings, setNotificationSettings] = useState({
     emailEnabled: true,
     inAppEnabled: true,
     schedule: "immediate",
-    emailAddress: "",
+    emailAddresses: [],
   });
+  const [emailInput, setEmailInput] = useState("");
 
   /* filter state — notifications */
   const [filterAnchorEl, setFilterAnchorEl] = useState(null);
@@ -237,7 +311,9 @@ const Notifications = () => {
 
   const fetchAlerts = async () => {
     try {
-      if (user?.is_superuser) {
+      const isAdmin = user?.is_superuser || user?.is_staff;
+
+      if (isAdmin) {
         // Admin: charger TOUTES les alertes avec les détails utilisateur
         const res = await fetch("http://localhost:8000/api/alerts/?include_user=true", { headers: authHeaders() });
         if (!res.ok) throw new Error();
@@ -248,9 +324,15 @@ const Notifications = () => {
         console.log("DEBUG - User admin (id, is_superuser):", { id: user.id, is_superuser: user.is_superuser });
         
         // ✅ Séparer correctement: mes alertes (celles de l'admin) vs alertes des employés
-        // Note: user est un ID simple, pas un objet
-        const myAlerts = allAlerts.filter(a => a.user === user.id);
-        const empAlerts = allAlerts.filter(a => a.user !== user.id);
+        // Normaliser les types pour éviter les décalages string/number
+        const currentUserId = user?.id != null ? String(user.id) : null;
+        const normalizeAlertUserId = (alert) => {
+          const raw = alert?.user?.id ?? alert?.user;
+          return raw != null ? String(raw) : null;
+        };
+
+        const myAlerts = allAlerts.filter((a) => normalizeAlertUserId(a) === currentUserId);
+        const empAlerts = allAlerts.filter((a) => normalizeAlertUserId(a) !== currentUserId);
         
         console.log("DEBUG - Mes alertes (admin):", myAlerts, "Nombre:", myAlerts.length);
         console.log("DEBUG - Alertes des employés:", empAlerts, "Nombre:", empAlerts.length);
@@ -272,10 +354,39 @@ const Notifications = () => {
     }
   };
 
+  const fetchEmailRecipients = async () => {
+    try {
+      const res = await fetch("http://localhost:8000/api/notifications/email_recipients/", {
+        headers: authHeaders(),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      const emails = Array.isArray(data.emails) ? data.emails : [];
+      setNotificationSettings((prev) => ({ ...prev, emailAddresses: emails }));
+    } catch {
+      // Keep UI usable even if the API is unavailable
+    }
+  };
+
+  useEffect(() => {
+    const raw = localStorage.getItem("notificationEmailTemplate");
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw);
+      setEmailTemplate({
+        subject: typeof parsed?.subject === "string" ? parsed.subject : "",
+        body: typeof parsed?.body === "string" ? parsed.body : "",
+      });
+    } catch {
+      // Ignore malformed local storage data
+    }
+  }, []);
+
   useEffect(() => { 
     if (user) { 
       fetchNotifications(); 
-      fetchAlerts(); 
+      fetchAlerts();
+      fetchEmailRecipients();
     } 
   }, [user]);
 
@@ -328,16 +439,67 @@ const Notifications = () => {
     setNotificationDialogOpen(true);
   };
 
+  const insertToken = (field, token) => {
+    if (field === "title") {
+      setNotificationForm((prev) => ({
+        ...prev,
+        title: `${prev.title}${prev.title ? " " : ""}${token}`,
+      }));
+      return;
+    }
+    if (field === "message") {
+      setNotificationForm((prev) => ({
+        ...prev,
+        message: `${prev.message}${prev.message ? " " : ""}${token}`,
+      }));
+    }
+  };
+
+  const resolveTemplate = (text, context) =>
+    String(text || "").replace(/\{\{\s*(\w+)\s*\}\}/g, (_, key) => context[key] ?? "");
+
+  const buildTemplateContext = () => {
+    const targetUser = selectedAlert?.user || user || {};
+    const nowIso = new Date().toISOString();
+    return {
+      user: targetUser.username || targetUser.email || "",
+      email: targetUser.email || "",
+      alert: selectedAlert?.name || "",
+      module: selectedAlert?.module || "",
+      title: notificationForm.title || "",
+      message: notificationForm.message || "",
+      date: fmtFull(nowIso),
+    };
+  };
+
+  const handleSaveTemplate = () => {
+    localStorage.setItem("notificationEmailTemplate", JSON.stringify(emailTemplate));
+    setSuccessMessage("Modele email sauvegarde");
+  };
+
   const handleCreateNotification = async () => {
     if (!notificationForm.title.trim() || !notificationForm.message.trim()) {
       setErrorMessage("Le titre et le message sont obligatoires");
       return;
     }
     try {
+      const context = buildTemplateContext();
+      const resolvedTitle = resolveTemplate(notificationForm.title, context);
+      const resolvedMessage = resolveTemplate(notificationForm.message, context);
+      const resolvedEmailSubject = resolveTemplate(
+        emailTemplate.subject || notificationForm.title,
+        context
+      );
+      const resolvedEmailBody = resolveTemplate(
+        emailTemplate.body || notificationForm.message,
+        context
+      );
       const payload = {
-        title: notificationForm.title,
-        message: notificationForm.message,
+        title: resolvedTitle,
+        message: resolvedMessage,
         notification_type: notificationForm.notification_type,
+        email_subject: resolvedEmailSubject,
+        email_body: resolvedEmailBody,
       };
       
       // Ajouter alert et user seulement s'ils existent
@@ -352,15 +514,21 @@ const Notifications = () => {
         body: JSON.stringify(payload),
       });
       
-      const responseData = await res.json();
+      const responseText = await res.text();
+      let responseData = null;
+      try {
+        responseData = responseText ? JSON.parse(responseText) : null;
+      } catch {
+        responseData = null;
+      }
       console.log("Réponse du serveur (status", res.status, "):", responseData);
       
       if (!res.ok) {
         let errorMsg = "Erreur serveur non identifiée";
         
-        if (responseData.detail) {
+        if (responseData && responseData.detail) {
           errorMsg = responseData.detail;
-        } else if (typeof responseData === 'object') {
+        } else if (responseData && typeof responseData === 'object') {
           // Extraire les messages d'erreur de chaque champ
           const errorMessages = Object.entries(responseData)
             .map(([field, messages]) => {
@@ -369,6 +537,8 @@ const Notifications = () => {
             })
             .join(" | ");
           errorMsg = errorMessages || "Erreur lors de la création";
+        } else if (responseText) {
+          errorMsg = responseText;
         }
         
         console.error("Détails de l'erreur:", responseData);
@@ -385,16 +555,70 @@ const Notifications = () => {
     }
   };
 
-  const handleSaveSettings = () => {
-    // Valider les paramètres
-    if (notificationSettings.emailEnabled && !notificationSettings.emailAddress.trim()) {
-      setErrorMessage("Veuillez entrer une adresse email");
+  const parseEmailList = (raw) =>
+    raw
+      .split(/[,;\n]/)
+      .map((email) => email.trim())
+      .filter(Boolean);
+
+  const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+
+  const handleAddEmail = () => {
+    const candidates = parseEmailList(emailInput);
+    if (candidates.length === 0) return;
+
+    const invalid = candidates.filter((email) => !isValidEmail(email));
+    if (invalid.length > 0) {
+      setErrorMessage(`Adresse(s) email invalide(s): ${invalid.join(", ")}`);
       return;
     }
+
+    const merged = Array.from(
+      new Set([...(notificationSettings.emailAddresses || []), ...candidates])
+    );
+    setNotificationSettings({ ...notificationSettings, emailAddresses: merged });
+    setEmailInput("");
+  };
+
+  const handleRemoveEmail = (email) => {
+    const next = (notificationSettings.emailAddresses || []).filter((item) => item !== email);
+    setNotificationSettings({ ...notificationSettings, emailAddresses: next });
+  };
+
+  const handleSaveSettings = () => {
+    // Valider les paramètres
+    if (notificationSettings.emailEnabled) {
+      const emails = notificationSettings.emailAddresses || [];
+      if (emails.length === 0) {
+        setErrorMessage("Veuillez entrer au moins une adresse email");
+        return;
+      }
+
+      const invalid = emails.filter((email) => !isValidEmail(email));
+      if (invalid.length > 0) {
+        setErrorMessage(`Adresse(s) email invalide(s): ${invalid.join(", ")}`);
+        return;
+      }
+    }
     
-    // Sauvegarder les paramètres (localement ou sur le serveur)
-    localStorage.setItem('notificationSettings', JSON.stringify(notificationSettings));
-    setSuccessMessage("Paramètres de notification sauvegardés");
+    // Sauvegarder les paramètres sur le serveur
+    fetch("http://localhost:8000/api/notifications/email_recipients/", {
+      method: "PUT",
+      headers: authHeaders(),
+      body: JSON.stringify({ emails: notificationSettings.emailAddresses || [] }),
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error();
+        return res.json();
+      })
+      .then((data) => {
+        const emails = Array.isArray(data.emails) ? data.emails : [];
+        setNotificationSettings((prev) => ({ ...prev, emailAddresses: emails }));
+        setSuccessMessage("Paramètres de notification sauvegardés");
+      })
+      .catch(() => {
+        setErrorMessage("Erreur lors de l'enregistrement des emails");
+      });
   };
 
   const handleToggleChannel = (channel) => {
@@ -481,28 +705,50 @@ const Notifications = () => {
             </Typography>
           </Box>
 
-          <Box sx={{ display: "flex", gap: 1, alignItems: "center" }}>
+          <Box sx={{ display: "flex", gap: 1.5, alignItems: "center" }}>
             <Tooltip title="Actualiser">
               <IconButton
                 onClick={() => { fetchNotifications(); fetchAlerts(); }}
-                sx={{ color: C.textMuted, bgcolor: C.surface, border: `1px solid ${C.border}`, borderRadius: "8px", "&:hover": { color: C.accentHi, borderColor: C.borderHi } }}
+                sx={{ 
+                  color: C.textMuted, 
+                  border: "1px solid rgba(59,130,246,0.15)", 
+                  borderRadius: "10px", 
+                  "&:hover": { color: C.accent, borderColor: "rgba(59,130,246,0.4)" } 
+                }}
               >
-                <RefreshIcon fontSize="small" />
+                <RefreshIcon />
               </IconButton>
             </Tooltip>
             <Tooltip title="Paramètres de notification">
               <IconButton
                 onClick={() => setActiveTab(user?.is_superuser ? 3 : 2)}
-                sx={{ color: C.textMuted, bgcolor: C.surface, border: `1px solid ${C.border}`, borderRadius: "8px", "&:hover": { color: C.accentHi, borderColor: C.borderHi } }}
+                sx={{ 
+                  color: C.textMuted, 
+                  border: "1px solid rgba(59,130,246,0.15)", 
+                  borderRadius: "10px", 
+                  "&:hover": { color: C.accent, borderColor: "rgba(59,130,246,0.4)" } 
+                }}
               >
-                <SettingsIcon fontSize="small" />
+                <SettingsIcon />
               </IconButton>
             </Tooltip>
             {unreadTotal > 0 && (
               <Button
-                variant="contained" startIcon={<DoneAllIcon sx={{ fontSize: "1rem" }} />}
+                variant="contained" 
+                startIcon={<DoneAllIcon />}
                 onClick={handleMarkAllAsRead}
-                sx={{ bgcolor: C.accent, color: "white", textTransform: "none", borderRadius: "8px", fontWeight: 600, fontSize: "0.8rem", px: 2, py: "7px", boxShadow: "none", "&:hover": { bgcolor: "#2563eb", boxShadow: "none" } }}
+                sx={{ 
+                  bgcolor: C.accent, 
+                  color: "white", 
+                  fontWeight: 600, 
+                  py: 1.2, 
+                  px: 3, 
+                  borderRadius: 2, 
+                  textTransform: "none", 
+                  fontSize: "0.95rem", 
+                  boxShadow: "0 4px 12px rgba(59,130,246,0.3)", 
+                  "&:hover": { bgcolor: "#2563eb" } 
+                }}
               >
                 Tout marquer comme lu
               </Button>
@@ -512,10 +758,42 @@ const Notifications = () => {
 
         {/* ── Stat strip ───────────────────────────────────────────── */}
         <Box sx={{ display: "flex", gap: 2, mb: 4, flexWrap: "wrap" }}>
-          <StatCard label="Total"    value={notifications.length} />
-          <StatCard label="Non lues" value={unreadTotal} color={unreadTotal > 0 ? C.danger : C.textSub} />
-          <StatCard label="Lues"     value={readTotal}   color={C.success} />
-          <StatCard label="Alertes"  value={alerts.length + employeeAlerts.length} color={C.accentHi} />
+          <StatCard 
+            label="Total Notifications" 
+            value={notifications.length} 
+            color="#3b82f6"
+            icon={InboxIcon}
+            iconColor="#3b82f6"
+            description="Toutes notifications"
+            onClick={() => { setActiveTab(0); setFilterStatus("all"); }}
+          />
+          <StatCard 
+            label="Non lues" 
+            value={unreadTotal} 
+            color={unreadTotal > 0 ? "#ef4444" : "#94a3b8"}
+            icon={ErrorIcon}
+            iconColor={unreadTotal > 0 ? "#ef4444" : "#94a3b8"}
+            description={unreadTotal > 0 ? "Nécessite attention" : "Aucune notification"}
+            onClick={() => { setActiveTab(0); setFilterStatus("unread"); }}
+          />
+          <StatCard 
+            label="Lues" 
+            value={readTotal} 
+            color="#10b981"
+            icon={CheckCircleIcon}
+            iconColor="#10b981"
+            description="Notifications lues"
+            onClick={() => { setActiveTab(0); setFilterStatus("read"); }}
+          />
+          <StatCard 
+            label="Alertes Actives" 
+            value={alerts.length + employeeAlerts.length} 
+            color="#8b5cf6"
+            icon={WarningIcon}
+            iconColor="#8b5cf6"
+            description={`${alerts.length + employeeAlerts.length} alertes actives`}
+            onClick={() => { setActiveTab(1); }}
+          />
         </Box>
 
         {/* ── Tabs ─────────────────────────────────────────────────── */}
@@ -1141,27 +1419,66 @@ const Notifications = () => {
                   <EmailIcon sx={{ color: C.accent, fontSize: 24 }} />
                   <Typography sx={{ color: C.text, fontWeight: 700, fontSize: "1.1rem" }}>Configuration email</Typography>
                 </Box>
-                <Typography sx={{ color: C.textMuted, fontSize: "0.85rem", mb: 3 }}>Configurez votre adresse email pour recevoir les notifications</Typography>
+                <Typography sx={{ color: C.textMuted, fontSize: "0.85rem", mb: 3 }}>Ajoutez une ou plusieurs adresses email pour recevoir les notifications</Typography>
                 
-                <TextField
-                  fullWidth
-                  label="Adresse email"
-                  type="email"
-                  value={notificationSettings.emailAddress}
-                  onChange={(e) => setNotificationSettings({ ...notificationSettings, emailAddress: e.target.value })}
-                  placeholder="votre.email@example.com"
-                  sx={{
-                    "& .MuiOutlinedInput-root": { 
-                      color: C.text, 
-                      borderColor: C.border,
-                      "& fieldset": { borderColor: C.border },
-                      "&:hover fieldset": { borderColor: C.borderHi },
-                      "&.Mui-focused fieldset": { borderColor: C.accent },
-                    },
-                    "& .MuiInputLabel-root": { color: C.textMuted },
-                  }}
-                  variant="outlined"
-                />
+                <Box sx={{ display: "flex", gap: 1.5, alignItems: "flex-start" }}>
+                  <TextField
+                    fullWidth
+                    label="Ajouter une adresse"
+                    type="text"
+                    value={emailInput}
+                    onChange={(e) => setEmailInput(e.target.value)}
+                    placeholder="admin@example.com, manager@example.com"
+                    helperText="Séparez par une virgule, un point-virgule ou un retour à la ligne."
+                    sx={{
+                      "& .MuiOutlinedInput-root": { 
+                        color: C.text, 
+                        borderColor: C.border,
+                        "& fieldset": { borderColor: C.border },
+                        "&:hover fieldset": { borderColor: C.borderHi },
+                        "&.Mui-focused fieldset": { borderColor: C.accent },
+                      },
+                      "& .MuiInputLabel-root": { color: C.textMuted },
+                    }}
+                    variant="outlined"
+                  />
+                  <Button
+                    variant="contained"
+                    onClick={handleAddEmail}
+                    sx={{
+                      mt: 0.5,
+                      bgcolor: C.accent,
+                      color: "white",
+                      textTransform: "none",
+                      fontWeight: 600,
+                      px: 2.5,
+                      borderRadius: "8px",
+                      boxShadow: "none",
+                      "&:hover": { bgcolor: "#2563eb", boxShadow: "none" },
+                    }}
+                  >
+                    Ajouter
+                  </Button>
+                </Box>
+
+                {(notificationSettings.emailAddresses || []).length > 0 && (
+                  <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap", mt: 2 }}>
+                    {(notificationSettings.emailAddresses || []).map((email) => (
+                      <Chip
+                        key={email}
+                        label={email}
+                        onDelete={() => handleRemoveEmail(email)}
+                        size="small"
+                        sx={{
+                          bgcolor: C.surfaceHi,
+                          color: C.text,
+                          border: `1px solid ${C.border}`,
+                          fontWeight: 600,
+                        }}
+                      />
+                    ))}
+                  </Box>
+                )}
               </Box>
             )}
 
@@ -1293,11 +1610,13 @@ const Notifications = () => {
               label="Titre"
               value={notificationForm.title}
               onChange={(e) => setNotificationForm({ ...notificationForm, title: e.target.value })}
+              disabled
               sx={{
-                "& .MuiOutlinedInput-root": { color: C.text, borderColor: C.border },
+                "& .MuiOutlinedInput-root": { color: "white", borderColor: C.border },
                 "& .MuiOutlinedInput-notchedOutline": { borderColor: C.border },
                 "& .MuiInputBase-input::placeholder": { color: C.textMuted, opacity: 0.7 },
                 "& .MuiInputLabel-root": { color: C.textMuted },
+                "& .MuiInputBase-input:disabled": { color: "white", WebkitTextFillColor: "white" },
               }}
               variant="outlined"
             />
@@ -1307,13 +1626,15 @@ const Notifications = () => {
               label="Message"
               value={notificationForm.message}
               onChange={(e) => setNotificationForm({ ...notificationForm, message: e.target.value })}
+              disabled
               multiline
               rows={4}
               sx={{
-                "& .MuiOutlinedInput-root": { color: C.text, borderColor: C.border },
+                "& .MuiOutlinedInput-root": { color: "white", borderColor: C.border },
                 "& .MuiOutlinedInput-notchedOutline": { borderColor: C.border },
                 "& .MuiInputBase-input::placeholder": { color: C.textMuted, opacity: 0.7 },
                 "& .MuiInputLabel-root": { color: C.textMuted },
+                "& .MuiInputBase-input:disabled": { color: "white", WebkitTextFillColor: "white" },
               }}
               variant="outlined"
             />
@@ -1345,12 +1666,68 @@ const Notifications = () => {
                 ))}
               </Box>
             </Box>
+            {showEmailTemplate && (
+              <>
+                <Divider sx={{ borderColor: C.border, my: 1 }} />
+                <Box>
+                  <Typography sx={{ color: C.text, fontWeight: 700, fontSize: "0.9rem", mb: 0.75 }}>
+                    Personnalisation email (modele)
+                  </Typography>
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <TextField
+                      fullWidth
+                      label="Sujet (modele)"
+                      value={emailTemplate.subject}
+                      onChange={(e) => setEmailTemplate({ ...emailTemplate, subject: e.target.value })}
+                      sx={{
+                        "& .MuiOutlinedInput-root": { color: C.text, borderColor: C.border },
+                        "& .MuiOutlinedInput-notchedOutline": { borderColor: C.border },
+                        "& .MuiInputBase-input::placeholder": { color: C.textMuted, opacity: 0.7 },
+                        "& .MuiInputLabel-root": { color: C.textMuted },
+                      }}
+                      variant="outlined"
+                    />
+                    <TextField
+                      fullWidth
+                      label="Corps (modele)"
+                      value={emailTemplate.body}
+                      onChange={(e) => setEmailTemplate({ ...emailTemplate, body: e.target.value })}
+                      multiline
+                      rows={4}
+                      sx={{
+                        "& .MuiOutlinedInput-root": { color: C.text, borderColor: C.border },
+                        "& .MuiOutlinedInput-notchedOutline": { borderColor: C.border },
+                        "& .MuiInputBase-input::placeholder": { color: C.textMuted, opacity: 0.7 },
+                        "& .MuiInputLabel-root": { color: C.textMuted },
+                      }}
+                      variant="outlined"
+                    />
+                    <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+                      <Button
+                        variant="contained"
+                        onClick={handleSaveTemplate}
+                        sx={{ bgcolor: C.accent, color: "white", textTransform: "none", fontWeight: 600, boxShadow: "none", "&:hover": { bgcolor: "#2563eb", boxShadow: "none" } }}
+                      >
+                        Enregistrer le modele
+                      </Button>
+                    </Box>
+                  </Box>
+                </Box>
+              </>
+            )}
           </Box>
         </DialogContent>
 
         <DialogActions sx={{ p: 2, borderTop: `1px solid ${C.border}`, gap: 1 }}>
           <Button onClick={() => setNotificationDialogOpen(false)} sx={{ color: C.textMuted, textTransform: "none", fontWeight: 600, fontSize: "0.82rem", px: 2 }}>
             Annuler
+          </Button>
+          <Button
+            variant="outlined"
+            onClick={() => setShowEmailTemplate((prev) => !prev)}
+            sx={{ color: C.textMuted, borderColor: C.border, textTransform: "none", fontWeight: 600, fontSize: "0.82rem", px: 2 }}
+          >
+            Personnaliser
           </Button>
           <Button
             variant="contained"

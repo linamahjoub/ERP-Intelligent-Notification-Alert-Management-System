@@ -495,33 +495,7 @@ const Dashboard = () => {
                 </Typography>
               </Box>
 
-              {/* Bouton Nouvelle Alerte */}
-              {user && (
-                <Button
-                  variant="contained"
-                  startIcon={<AddIcon />}
-                  sx={{
-                    bgcolor: "#3b82f6",
-                    color: "white",
-                    fontWeight: 600,
-                    py: 1.2,
-                    px: 3,
-                    borderRadius: 2,
-                    textTransform: "none",
-                    fontSize: "0.95rem",
-                    boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
-                    "&:hover": {
-                      bgcolor: "#2563eb",
-                      boxShadow: "0 6px 16px rgba(59, 130, 246, 0.4)",
-                    },
-                    minWidth: "140px",
-                    height: "42px",
-                  }}
-                  onClick={() => navigate("/new-alert")}
-                >
-                  Nouvelle Alerte
-                </Button>
-              )}
+            
             </Box>
           </Box>
 

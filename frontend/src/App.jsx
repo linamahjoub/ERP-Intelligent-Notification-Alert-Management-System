@@ -18,6 +18,7 @@ import DashboardStock from './pages/stock/Stock';
 import NewAlert from './pages/alerts/NewAlert';
 import Fournisseur from './pages/stock/fournisseur';
 import Categories from './pages/stock/categories';
+import Entrepots from './pages/stock/Entrepots';
 
 //import History from './pages/History';
 import AlertRules from './pages/alerts/AlertRules';
@@ -28,6 +29,7 @@ import SharedSidebar from './components/SharedSidebar';
 import AdminPanel from './pages/dashboard/adminpaneau';
 import AdminDashboard from './pages/dashboard/adminDashboard';
 import ClientsRequests from './pages/employes_requests';
+import EmployeesNew from './pages/EmployeesNew';
 const theme = createTheme({
   palette: {
     primary: {
@@ -215,6 +217,16 @@ const InnerRoutes = () => {
             <Categories />
           </PrivateRoute>
         } />
+        <Route path="/entrepots" element={
+          <PrivateRoute>
+            <Entrepots />
+          </PrivateRoute>
+        } />
+        <Route path="/entrepots/new" element={
+          <PrivateRoute>
+            <Entrepots />
+          </PrivateRoute>
+        } />
         {/* Route pour créer une nouvelle alerte */}
         <Route path="/new-alert" element={
           <PrivateRoute>
@@ -234,6 +246,14 @@ const InnerRoutes = () => {
           <PrivateRoute>
             <RequireAdmin>
               <ClientsRequests />
+            </RequireAdmin>
+          </PrivateRoute>
+        } />
+
+        <Route path="/employees/new" element={
+          <PrivateRoute>
+            <RequireAdmin>
+              <EmployeesNew />
             </RequireAdmin>
           </PrivateRoute>
         } />
