@@ -1,12 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { useActivityContext } from "../../context/ActivityContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Box, Typography, Grid, Card, CardContent, Avatar, IconButton, Button,
   useTheme, useMediaQuery, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Chip, Menu, MenuItem, TextField, Dialog, DialogTitle,
   DialogContent, DialogActions, Alert, Snackbar, InputAdornment, Switch,
-  FormControlLabel, Badge, Divider, Tooltip,
+  FormControlLabel, Badge, Divider, Tooltip, FormControl, InputLabel, Select,
 } from "@mui/material";
 import {
   Category as CategoryIcon,
@@ -65,6 +66,7 @@ const StatCard = ({ label, value, color, onClick }) => {
 
 const Categories = () => {
   const { user } = useAuth();
+  const { triggerActivityRefresh } = useActivityContext();
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -81,10 +83,11 @@ const Categories = () => {
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
   const [categories, setCategories] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
 
   const emptyForm = useMemo(() => ({
     id: null, name: "", description: "", color: "#3b82f6", is_active: true,
-    created_at: null, updated_at: null,
+    created_at: null, updated_at: null, supplier_id: null,
   }), []);
 
   const [formData, setFormData] = useState(emptyForm);
@@ -93,6 +96,7 @@ const Categories = () => {
   // Fetch categories from API
   useEffect(() => {
     fetchCategoriesFromAPI();
+    fetchSuppliersFromAPI();
   }, []);
 
   const fetchCategoriesFromAPI = async () => {
@@ -121,6 +125,22 @@ const Categories = () => {
       setCategories([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSuppliersFromAPI = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const res = await fetch('http://localhost:8000/api/fournisseurs/', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Erreur API');
+      const data = await res.json();
+      const items = Array.isArray(data) ? data : (data.results || []);
+      setSuppliers(items);
+    } catch (err) {
+      console.log('Erreur lors du chargement des fournisseurs:', err);
+      setSuppliers([]);
     }
   };
 
@@ -156,6 +176,7 @@ const Categories = () => {
         name: formData.name.trim(),
         description: formData.description.trim(),
         is_active: formData.is_active,
+        supplier_id: formData.supplier_id || null,
       };
 
       const res = await fetch(url, {
@@ -172,7 +193,11 @@ const Categories = () => {
         throw new Error(errorData.message || 'Erreur lors de la sauvegarde');
       }
 
-      setSuccessMessage(formData.id ? "Catégorie mise à jour avec succès" : "Catégorie ajoutée avec succès");
+      const isCreating = !formData.id;
+      setSuccessMessage(isCreating ? "Catégorie ajoutée avec succès" : "Catégorie mise à jour avec succès");
+      if (isCreating) {
+        triggerActivityRefresh();
+      }
       handleCloseAddDialog();
       fetchCategoriesFromAPI();
     } catch (err) {
@@ -197,7 +222,8 @@ const Categories = () => {
       const payload = {
         name: category.name,
         description: category.description,
-        is_active: newStatus
+        is_active: newStatus,
+        supplier_id: category.supplier_id || null,
       };
       console.log("Envoi du payload:", payload);
       
@@ -427,8 +453,8 @@ const Categories = () => {
               <Table>
                 <TableHead>
                   <TableRow sx={{ backgroundColor: "rgba(59,130,246,0.05)", borderBottom: "1px solid rgba(59,130,246,0.1)" }}>
-                    {["Catégorie", "Description", "Statut", "Date de création", "Actions"].map((h, i) => (
-                      <TableCell key={h} align={i >= 3 ? "center" : "left"} sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>
+                    {["Catégorie", "Description", "Fournisseur", "Statut", "Date de création", "Actions"].map((h, i) => (
+                      <TableCell key={h} align={i >= 4 ? "center" : "left"} sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>
                         {h}
                       </TableCell>
                     ))}
@@ -451,6 +477,13 @@ const Categories = () => {
                       <TableCell sx={{ color: "#64748b", fontSize: "0.875rem", maxWidth: 260 }}>
                         <Typography variant="body2" sx={{ color: "#94a3b8", fontSize: "0.875rem" }} noWrap>
                           {cat.description || <span style={{ color: "#475569", fontStyle: "italic" }}>Aucune description</span>}
+                        </Typography>
+                      </TableCell>
+
+                      {/* Supplier */}
+                      <TableCell sx={{ color: "#64748b", fontSize: "0.875rem", maxWidth: 200 }}>
+                        <Typography variant="body2" sx={{ color: "#94a3b8", fontSize: "0.875rem" }} noWrap>
+                          {cat.supplier ? (typeof cat.supplier === 'object' ? cat.supplier.name : cat.supplier) : "—"}
                         </Typography>
                       </TableCell>
 
@@ -508,7 +541,7 @@ const Categories = () => {
                     </TableRow>
                   )) : (
                     <TableRow>
-                      <TableCell colSpan={5} sx={{ border: "none" }}>
+                      <TableCell colSpan={6} sx={{ border: "none" }}>
                         <Box sx={{ textAlign: "center", py: 6 }}>
                           <CategoryIcon sx={{ fontSize: 64, color: "rgba(255,255,255,0.1)", mb: 2 }} />
                           <Typography variant="h6" sx={{ color: "white", mb: 1 }}>Aucune catégorie trouvée</Typography>
@@ -599,6 +632,32 @@ const Categories = () => {
           <TextField label="Description" value={formData.description} fullWidth size="small" sx={inputSx} multiline rows={2}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           />
+          
+          <FormControl fullWidth size="small">
+            <InputLabel sx={{ color: '#64748b', '&.Mui-focused': { color: '#3b82f6' } }}>Fournisseur</InputLabel>
+            <Select
+              value={formData.supplier_id || ""}
+              label="Fournisseur"
+              onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value || null })}
+              sx={{
+                color: '#94a3b8',
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(59,130,246,0.2)' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(59,130,246,0.4)' },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#3b82f6' },
+                bgcolor: 'rgba(59,130,246,0.05)',
+                borderRadius: '10px',
+              }}
+            >
+              <MenuItem value="">
+                <Typography sx={{ color: '#94a3b8' }}>Aucun</Typography>
+              </MenuItem>
+              {suppliers.map((supplier) => (
+                <MenuItem key={supplier.id} value={supplier.id}>
+                  <Typography sx={{ color: 'white' }}>{supplier.name || supplier.company_name}</Typography>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
       
           <FormControlLabel
             control={

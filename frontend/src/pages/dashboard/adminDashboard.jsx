@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { useActivityContext } from "../../context/ActivityContext";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -12,20 +13,10 @@ import {
   Button,
   useTheme,
   useMediaQuery,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   Paper,
   Chip,
-  LinearProgress,
   Menu,
   MenuItem,
-  TextField,
-  InputAdornment,
-  Tooltip,
   Badge,
   Dialog,
   DialogTitle,
@@ -33,43 +24,332 @@ import {
   DialogActions,
   Alert,
   Snackbar,
-  Link,
   CircularProgress,
 } from "@mui/material";
 import {
-  Person as PersonIcon,
-  Group as GroupIcon,
-  Storage as StorageIcon,
   Notifications as NotificationsIcon,
   TrendingUp as TrendingUpIcon,
-  TrendingDown as TrendingDownIcon,
   MoreVert as MoreVertIcon,
-  Search as SearchIcon,
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
   Error as ErrorIcon,
-  BarChart as BarChartIcon,
-  PieChart as PieChartIcon,
   AdminPanelSettings as AdminIcon,
   Download as DownloadIcon,
-  FilterList as FilterIcon,
   Menu as MenuIcon,
-  Refresh as RefreshIcon,
-  Dashboard as DashboardIcon,
   People as PeopleIcon,
   Sync as SyncIcon,
   Settings as SettingsIcon,
   Inventory as InventoryIcon,
   PersonAdd as PersonAddIcon,
   Category as CategoryIcon,
+  Search as SearchIcon,
 } from "@mui/icons-material";
 import SharedSidebar from "../../components/SharedSidebar";
 
+// ─────────────────────────────────────────────
+// NotificationActivityChart (Canvas Area Chart)
+// ─────────────────────────────────────────────
+const NotificationActivityChart = () => {
+  const canvasRef = useRef(null);
+  const animProgress = useRef(0);
+  const rafRef = useRef(null);
+  const [tooltip, setTooltip] = useState(null);
+
+  const days = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+
+  const datasets = [
+    {
+      label: "envoyées",
+      color: "#3b82f6",
+      fillColor: "rgba(59, 130, 246, 0.15)",
+      data: [45, 52, 60, 44, 72, 24, 18],
+    },
+    {
+      label: "résolues",
+      color: "#22c55e",
+      fillColor: "rgba(34, 197, 94, 0.15)",
+      data: [38, 44, 54, 43, 60, 22, 17],
+    },
+    {
+      label: "critiques",
+      color: "#ef4444",
+      fillColor: "rgba(239, 68, 68, 0.1)",
+      data: [6, 8, 7, 3, 12, 5, 1],
+    },
+  ];
+
+  const maxVal = 80;
+  const yTicks = [0, 20, 40, 60, 80];
+
+  const catmullRomPoints = (pts, tension = 0.4) => {
+    const result = [];
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[Math.max(0, i - 1)];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[Math.min(pts.length - 1, i + 2)];
+      result.push({
+        cp1x: p1.x + (p2.x - p0.x) * tension,
+        cp1y: p1.y + (p2.y - p0.y) * tension,
+        cp2x: p2.x - (p3.x - p1.x) * tension,
+        cp2y: p2.y - (p3.y - p1.y) * tension,
+      });
+    }
+    return result;
+  };
+
+  const drawChart = (progress = 1) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    const dpr = window.devicePixelRatio || 1;
+    const displayW = canvas.offsetWidth;
+    const displayH = canvas.offsetHeight;
+    if (displayW === 0 || displayH === 0) return;
+    canvas.width = displayW * dpr;
+    canvas.height = displayH * dpr;
+    ctx.scale(dpr, dpr);
+
+    const W = displayW;
+    const H = displayH;
+    const padL = 44;
+    const padR = 20;
+    const padT = 16;
+    const padB = 40;
+    const chartH = H - padT - padB;
+    const chartW = W - padL - padR;
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Y grid + labels
+    ctx.font = "11px 'DM Sans', sans-serif";
+    ctx.fillStyle = "#94a3b8";
+    ctx.textAlign = "right";
+    yTicks.forEach((tick) => {
+      const y = padT + chartH - (tick / maxVal) * chartH;
+      ctx.strokeStyle = "rgba(148, 163, 184, 0.15)";
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(padL, y);
+      ctx.lineTo(W - padR, y);
+      ctx.stroke();
+      ctx.fillText(tick, padL - 8, y + 4);
+    });
+
+    // X labels
+    ctx.textAlign = "center";
+    days.forEach((day, i) => {
+      const x = padL + (i / (days.length - 1)) * chartW;
+      ctx.fillText(day, x, H - padB + 18);
+    });
+
+    // Draw datasets (reversed so "envoyées" is on top)
+    [...datasets].reverse().forEach((ds) => {
+      const points = ds.data.map((val, i) => ({
+        x: padL + (i / (days.length - 1)) * chartW,
+        y: padT + chartH - (val * progress / maxVal) * chartH,
+      }));
+
+      const cps = catmullRomPoints(points);
+      const bottomY = padT + chartH;
+
+      // Filled area
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, bottomY);
+      ctx.lineTo(points[0].x, points[0].y);
+      cps.forEach(({ cp1x, cp1y, cp2x, cp2y }, i) => {
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, points[i + 1].x, points[i + 1].y);
+      });
+      ctx.lineTo(points[points.length - 1].x, bottomY);
+      ctx.closePath();
+      ctx.fillStyle = ds.fillColor;
+      ctx.fill();
+
+      // Line
+      ctx.beginPath();
+      ctx.moveTo(points[0].x, points[0].y);
+      cps.forEach(({ cp1x, cp1y, cp2x, cp2y }, i) => {
+        ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, points[i + 1].x, points[i + 1].y);
+      });
+      ctx.strokeStyle = ds.color;
+      ctx.lineWidth = 2;
+      ctx.lineJoin = "round";
+      ctx.stroke();
+
+      // Dots
+      points.forEach((pt) => {
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = ds.color;
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(pt.x, pt.y, 1.8, 0, Math.PI * 2);
+        ctx.fillStyle = "#0f172a";
+        ctx.fill();
+      });
+    });
+  };
+
+  useEffect(() => {
+    const startTime = performance.now();
+    const duration = 1000;
+    const animate = (now) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      const eased = 1 - Math.pow(1 - progress, 3);
+      animProgress.current = eased;
+      drawChart(eased);
+      if (progress < 1) rafRef.current = requestAnimationFrame(animate);
+    };
+    rafRef.current = requestAnimationFrame(animate);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, []);
+
+  useEffect(() => {
+    const handleResize = () => drawChart(animProgress.current);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  const handleMouseMove = (e) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    const W = rect.width;
+    const H = rect.height;
+    const padL = 44;
+    const padR = 20;
+    const padT = 16;
+    const padB = 40;
+    const chartH = H - padT - padB;
+    const chartW = W - padL - padR;
+
+    // Trouver le point le plus proche
+    let closestDay = null;
+    let closestDist = Infinity;
+
+    datasets[0].data.forEach((_, i) => {
+      const x = padL + (i / (days.length - 1)) * chartW;
+      const dist = Math.abs(mouseX - x);
+      if (dist < closestDist && dist < 30) {
+        closestDist = dist;
+        closestDay = i;
+      }
+    });
+
+    if (closestDay !== null) {
+      const dayData = datasets.map(ds => ({
+        label: ds.label,
+        value: ds.data[closestDay],
+        color: ds.color,
+      }));
+      setTooltip({
+        day: days[closestDay],
+        data: dayData,
+        x: e.clientX,
+        y: e.clientY,
+      });
+    } else {
+      setTooltip(null);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setTooltip(null);
+  };
+
+  return (
+    <Box sx={{ width: "100%", height: "100%" }}>
+      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 0.5 }}>
+        <Typography variant="h6" sx={{ color: "white", fontWeight: 600 }}>
+          Activité des notifications
+        </Typography>
+      </Box>
+      <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.82rem", mb: 1.5 }}>
+        Tendance sur les 7 derniers jours
+      </Typography>
+
+      {/* Canvas */}
+      <Box sx={{ width: "100%", height: 220, position: "relative" }}>
+        <canvas 
+          ref={canvasRef} 
+          style={{ width: "100%", height: "100%", display: "block", cursor: "crosshair" }}
+          onMouseMove={handleMouseMove}
+          onMouseLeave={handleMouseLeave}
+        />
+        
+        {/* Tooltip */}
+        {tooltip && (
+          <Box
+            sx={{
+              position: "fixed",
+              left: tooltip.x + 15,
+              top: tooltip.y - 10,
+              bgcolor: "rgba(15, 23, 42, 0.98)",
+              border: "1px solid rgba(59, 130, 246, 0.3)",
+              borderRadius: 2,
+              p: 1.5,
+              minWidth: 140,
+              boxShadow: "0 8px 24px rgba(0, 0, 0, 0.5)",
+              zIndex: 9999,
+              pointerEvents: "none",
+            }}
+          >
+            <Typography sx={{ color: "white", fontWeight: 700, fontSize: "0.85rem", mb: 1 }}>
+              {tooltip.day}
+            </Typography>
+            {tooltip.data.map((item) => (
+              <Box key={item.label} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, mb: 0.5 }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+                  <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: item.color }} />
+                  <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem" }}>
+                    {item.label}
+                  </Typography>
+                </Box>
+                <Typography sx={{ color: "white", fontWeight: 700, fontSize: "0.8rem" }}>
+                  {item.value}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        )}
+      </Box>
+
+      {/* Legend */}
+      <Box sx={{ display: "flex", gap: 3, justifyContent: "center", mt: 2 }}>
+        {datasets.map((ds) => (
+          <Box key={ds.label} sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+            <Box sx={{ position: "relative", width: 24, height: 12, display: "flex", alignItems: "center" }}>
+              <Box sx={{ width: "100%", height: 2, bgcolor: ds.color, borderRadius: 1 }} />
+              <Box sx={{
+                position: "absolute", left: "50%", top: "50%",
+                transform: "translate(-50%, -50%)",
+                width: 7, height: 7, borderRadius: "50%",
+                bgcolor: ds.color, border: "1.5px solid #0f172a",
+              }} />
+            </Box>
+            <Typography sx={{ fontSize: "0.8rem", color: ds.color, fontWeight: 500 }}>
+              {ds.label}
+            </Typography>
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  );
+};
+
+// ─────────────────────────────────────────────
+// AdminDashboard principal
+// ─────────────────────────────────────────────
 const AdminDashboard = () => {
   const { user } = useAuth();
+  const { activityRefreshTrigger } = useActivityContext();
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
@@ -80,11 +360,12 @@ const AdminDashboard = () => {
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(true);
-  const [openAddDialog, setOpenAddDialog] = useState(false);
   const [selectedAlert, setSelectedAlert] = useState(null);
   const [alertDetailsOpen, setAlertDetailsOpen] = useState(false);
+  const [notificationsData, setNotificationsData] = useState([]);
+  const [unreadNotifications, setUnreadNotifications] = useState([]);
+  const [notificationsAnchorEl, setNotificationsAnchorEl] = useState(null);
 
-  // Données mock pour le dashboard d'alertes
   const [dashboardData, setDashboardData] = useState({
     stats: {
       activeAlerts: 0,
@@ -93,7 +374,7 @@ const AdminDashboard = () => {
       configuredRules: 0,
       systemStatus: "active",
       totalUsers: 0,
-      activeUsers: 0, 
+      activeUsers: 0,
     },
     users: [],
     alerts: [],
@@ -103,36 +384,33 @@ const AdminDashboard = () => {
     recentActivity: [],
   });
 
-  const mockData = {
-    stats: {
-      activeAlerts: 0,
-      sentNotifications: 0,
-      resolvedAlerts: 0,
-      configuredRules: 0,
-    },
-    users: [], // Ajoutez ceci
-    alerts: [], // Ajoutez ceci
-    notifications: [], // Ajoutez ceci
-    alertTrend: [], // Ajoutez ceci
-    moduleDistribution: [], // Ajoutez ceci
-    recentActivity: [], // Ajoutez ceci
-  };
-
-  // Couleurs pour les graphiques
   const COLORS = ["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444"];
 
   const formatActivityTime = (value) => {
-    if (!value) {
-      return "Récemment";
-    }
+    if (!value) return "Récemment";
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) {
-      return value;
-    }
-    return date.toLocaleString("fr-FR", {
-      dateStyle: "short",
-      timeStyle: "short",
-    });
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
+  };
+
+  const formatRelativeTime = (value) => {
+    if (!value) return "";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "";
+    const diffMs = Date.now() - date.getTime();
+    const diffMinutes = Math.floor(diffMs / 60000);
+    if (diffMinutes < 1) return "Maintenant";
+    if (diffMinutes < 60) return `${diffMinutes}m`;
+    const diffHours = Math.floor(diffMinutes / 60);
+    if (diffHours < 24) return `${diffHours}h`;
+    return `${Math.floor(diffHours / 24)}j`;
+  };
+
+  const getNotificationDotColor = (notif) => {
+    const type = String(notif?.notification_type || "").toLowerCase();
+    if (type.includes("alert")) return "#ef4444";
+    if (type.includes("warning")) return "#f59e0b";
+    return "#10b981";
   };
 
   const mapActivityToTimeline = (activity) => {
@@ -142,339 +420,243 @@ const AdminDashboard = () => {
     let title = activity?.title || "Activité système";
     let description = activity?.description || "";
 
-    if (actionType === "product_created") {
-      icon = "package";
-      color = "#3b82f6";
-      title = activity?.title || "Nouveau produit";
-    } else if (actionType === "user_created") {
-      icon = "user";
-      color = "#10b981";
-      title = activity?.title || "Nouvel utilisateur";
-    } else if (actionType === "category_created") {
-      icon = "category";
-      color = "#f59e0b";
-      title = activity?.title || "Nouvelle catégorie";
-    } else if (actionType === "alert_created") {
-      icon = "notification";
-      color = "#ef4444";
-      title = activity?.title || "Nouvelle alerte";
-    }
+    if (actionType === "product_created") { icon = "package"; color = "#3b82f6"; title = activity?.title || "Nouveau produit"; }
+    else if (actionType === "user_created") { icon = "user"; color = "#10b981"; title = activity?.title || "Nouvel utilisateur"; }
+    else if (actionType === "category_created") { icon = "category"; color = "#f59e0b"; title = activity?.title || "Nouvelle catégorie"; }
+    else if (actionType === "alert_created") { icon = "notification"; color = "#ef4444"; title = activity?.title || "Nouvelle alerte"; }
 
     return {
       id: activity?.id || `${actionType}-${activity?.created_at || Math.random()}`,
-      icon,
-      color,
-      title,
-      description,
+      icon, color, title, description,
       time: formatActivityTime(activity?.created_at),
     };
   };
 
-  // Fonction pour obtenir l'icône selon le type d'activité
   const getActivityIcon = (iconType) => {
     switch (iconType) {
-      case "warning":
-        return <ErrorIcon sx={{ fontSize: 20 }} />;
-      case "check":
-        return <CheckCircleIcon sx={{ fontSize: 20 }} />;
-      case "notification":
-        return <NotificationsIcon sx={{ fontSize: 20 }} />;
-      case "sync":
-        return <SyncIcon sx={{ fontSize: 20 }} />;
-      case "user":
-        return <PersonAddIcon sx={{ fontSize: 20 }} />;
-      case "settings":
-        return <SettingsIcon sx={{ fontSize: 20 }} />;
-      case "package":
-        return <InventoryIcon sx={{ fontSize: 20 }} />;
-      case "category":
-        return <CategoryIcon sx={{ fontSize: 20 }} />;
-      default:
-        return <NotificationsIcon sx={{ fontSize: 20 }} />;
+      case "warning": return <ErrorIcon sx={{ fontSize: 20 }} />;
+      case "check": return <CheckCircleIcon sx={{ fontSize: 20 }} />;
+      case "notification": return <NotificationsIcon sx={{ fontSize: 20 }} />;
+      case "sync": return <SyncIcon sx={{ fontSize: 20 }} />;
+      case "user": return <PersonAddIcon sx={{ fontSize: 20 }} />;
+      case "settings": return <SettingsIcon sx={{ fontSize: 20 }} />;
+      case "package": return <InventoryIcon sx={{ fontSize: 20 }} />;
+      case "category": return <CategoryIcon sx={{ fontSize: 20 }} />;
+      default: return <NotificationsIcon sx={{ fontSize: 20 }} />;
     }
   };
-useEffect(() => {
-  const fetchData = async () => {
-    try {
-      setLoading(true);
 
-      // 1. Récupérer le token d'authentification
-      const token = localStorage.getItem("access_token");
-      console.log("Token:", token);
+  // Fetch principale
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const token = localStorage.getItem("access_token");
 
-      // 2. Appeler l'API pour avoir la liste des utilisateurs
-      const usersResponse = await fetch("http://localhost:8000/api/admin/users/", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+        const [usersResponse, alertsResponse] = await Promise.all([
+          fetch("http://localhost:8000/api/admin/users/", {
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          }),
+          fetch("http://localhost:8000/api/alerts/", {
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          }),
+        ]);
 
-      // 3. Appeler l'API pour avoir la liste des alertes
-      const alertsResponse = await fetch("http://localhost:8000/api/alerts/", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
+        const usersData = usersResponse.ok ? await usersResponse.json() : {};
+        const alertsData = alertsResponse.ok ? await alertsResponse.json() : {};
 
-      // 4. Appeler l'API pour avoir l'activité récente
-      const activityResponse = await fetch("http://localhost:8000/api/activity/recent/?limit=6", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      console.log("Status usersResponse:", usersResponse.status);
-      console.log("Status alertsResponse:", alertsResponse.status);
-      console.log("Status activityResponse:", activityResponse.status);
-
-      if (usersResponse.ok && alertsResponse.ok) {
-        const usersData = await usersResponse.json();
-        const alertsData = await alertsResponse.json();
-        const activityData = activityResponse.ok ? await activityResponse.json() : [];
-
-        // Afficher les données brutes pour debug
-        console.log("Données utilisateurs brutes:", usersData);
-        console.log("Données alertes brutes:", alertsData);
-        console.log("Type de alertsData:", typeof alertsData);
-        console.log("Est-ce un tableau?", Array.isArray(alertsData));
-
-        // Gérer les différents formats de réponse API pour les utilisateurs
         const users = Array.isArray(usersData) ? usersData : (usersData.results || []);
-        
-        // Gérer les différents formats de réponse API pour les alertes
         let allAlerts = [];
-        if (Array.isArray(alertsData)) {
-          allAlerts = alertsData;
-        } else if (alertsData.results && Array.isArray(alertsData.results)) {
-          allAlerts = alertsData.results;
-        } else if (alertsData.data && Array.isArray(alertsData.data)) {
-          allAlerts = alertsData.data;
-        } else {
-          console.log("Format d'alertes non reconnu:", alertsData);
-          allAlerts = [];
-        }
+        if (Array.isArray(alertsData)) allAlerts = alertsData;
+        else if (alertsData.results) allAlerts = alertsData.results;
+        else if (alertsData.data) allAlerts = alertsData.data;
 
-        console.log("Utilisateurs traités:", users);
-        console.log("Alertes traitées:", allAlerts);
-        console.log("Activites traitees:", activityData);
-        
-        // Afficher la première alerte pour voir sa structure
-        if (allAlerts.length > 0) {
-          console.log("Structure d'une alerte:", allAlerts[0]);
-          console.log("Propriétés disponibles:", Object.keys(allAlerts[0]));
-        }
-
-        // Compter les utilisateurs
         const totalUsers = users.length;
-        const activeUsers = users.filter((user) => user.is_active === true).length;
-        console.log("Total users:", totalUsers, "Actifs:", activeUsers);
+        const activeUsers = users.filter((u) => u.is_active === true).length;
+        const activeAlerts = allAlerts.filter((a) =>
+          a.is_active === true || a.status === "active" || a.status === "ACTIVE" || a.active === true
+        ).length;
 
-        // Compter les alertes actives - Vérifions quelle propriété utiliser
-        // Essayons différentes possibilités
-        const activeAlerts = allAlerts.filter((alert) => {
-          // Afficher la première alerte pour voir ses propriétés
-          console.log("Vérification alerte:", alert);
-          
-          // Essayer différentes propriétés possibles
-          return alert.is_active === true || 
-                 alert.status === "active" || 
-                 alert.status === "ACTIVE" ||
-                 alert.active === true ||
-                 (alert.state && alert.state === "active");
-        }).length;
-
-        console.log("Nombre d'alertes actives trouvées:", activeAlerts);
-        console.log("Nombre total d'alertes:", allAlerts.length);
-
-        // 4. Mettre à jour les données
-        setDashboardData({
+        setDashboardData((prev) => ({
+          ...prev,
           stats: {
-            activeAlerts: activeAlerts,
+            activeAlerts,
             sentNotifications: 0,
             resolvedAlerts: 0,
             configuredRules: allAlerts.length,
-            totalUsers: totalUsers,
-            activeUsers: activeUsers,
+            totalUsers,
+            activeUsers,
           },
-          users: users,
+          users,
           alerts: allAlerts,
-          notifications: [],
-          alertTrend: [],
-          moduleDistribution: [],
-          recentActivity: Array.isArray(activityData)
-            ? activityData.map(mapActivityToTimeline)
-            : [],
+        }));
+      } catch (err) {
+        console.log("Erreur dashboard:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  // Polling activités récentes
+  useEffect(() => {
+    const fetchActivities = async () => {
+      try {
+        const token = localStorage.getItem("access_token");
+        const res = await fetch("http://localhost:8000/api/activity/recent/?limit=6", {
+          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         });
-        
-        console.log("DashboardData mis à jour avec", activeAlerts, "alertes actives");
-      } else {
-        console.log("Erreur de réponse:", usersResponse.status, alertsResponse.status);
-        if (!usersResponse.ok) {
-          const errorText = await usersResponse.text();
-          console.log("Erreur users:", errorText);
+        if (res.ok) {
+          const data = await res.json();
+          const items = Array.isArray(data) ? data : (data?.results || []);
+          setDashboardData((prev) => ({
+            ...prev,
+            recentActivity: items.map(mapActivityToTimeline),
+          }));
         }
-        if (!alertsResponse.ok) {
-          const errorText = await alertsResponse.text();
-          console.log("Erreur alerts:", errorText);
-        }
+      } catch (err) {
+        console.log("Erreur activités:", err);
+      }
+    };
+    fetchActivities();
+    const interval = setInterval(fetchActivities, 3000);
+    return () => clearInterval(interval);
+  }, [activityRefreshTrigger]);
+
+  // Polling notifications
+  const fetchNotifications = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      const res = await fetch("http://localhost:8000/api/notifications/", {
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        const items = Array.isArray(json) ? json : (json?.results || []);
+        setNotificationsData(items);
+        setUnreadNotifications(items.filter((i) => i?.is_read === false));
       }
     } catch (err) {
-      console.log("Erreur catch:", err);
-    } finally {
-      setLoading(false);
+      console.log("Erreur notifications:", err);
     }
   };
 
-  fetchData();
-}, []);
+  useEffect(() => {
+    fetchNotifications();
+    const interval = setInterval(fetchNotifications, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
-  };
-
-  const handleMenuClick = (event, user) => {
-    setAnchorEl(event.currentTarget);
-    setSelectedUser(user);
-  };
-
-  const handleMenuClose = () => {
-    setAnchorEl(null);
-    setSelectedUser(null);
-  };
-
-  const handleEditUser = () => {
-    if (selectedUser && selectedUser.id) {
-      navigate(`/admin/users/${selectedUser.id}/edit`);
-      handleMenuClose();
-    }
-  };
-
-  const handleDeleteUser = () => {
-    setDeleteDialogOpen(true);
-    handleMenuClose();
-  };
-
+  // Handlers
+  const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
+  const handleMenuClick = (event, user) => { setAnchorEl(event.currentTarget); setSelectedUser(user); };
+  const handleMenuClose = () => { setAnchorEl(null); setSelectedUser(null); };
+  const handleEditUser = () => { if (selectedUser?.id) { navigate(`/admin/users/${selectedUser.id}/edit`); handleMenuClose(); } };
+  const handleDeleteUser = () => { setDeleteDialogOpen(true); handleMenuClose(); };
   const confirmDeleteUser = () => {
-    // Simulation de suppression
-    if (selectedUser?.name) {
-      setSuccessMessage(
-        `Utilisateur "${selectedUser.name}" supprimé avec succès`,
-      );
-    }
+    if (selectedUser?.name) setSuccessMessage(`Utilisateur "${selectedUser.name}" supprimé avec succès`);
     setDeleteDialogOpen(false);
     setSelectedUser(null);
   };
-
-  const handleAddUser = () => {
-    navigate("/admin/users/new");
+  const handleExportData = () => setSuccessMessage("Exportation des données démarrée");
+  const handleOpenNotifications = (e) => setNotificationsAnchorEl(e.currentTarget);
+  const handleCloseNotifications = () => setNotificationsAnchorEl(null);
+  const handleMarkAllNotificationsRead = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      const res = await fetch("http://localhost:8000/api/notifications/mark_all_as_read/", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      });
+      if (res.ok) await fetchNotifications();
+    } catch (err) {
+      console.log("Erreur marquage notifications:", err);
+    }
   };
-
-  const handleRefreshData = () => {
-    setSuccessMessage("Données actualisées avec succès");
-  };
-
-  const handleExportData = () => {
-    setSuccessMessage("Exportation des données démarrée");
-  };
-
-  const handleViewAlertDetails = (alert) => {
-    setSelectedAlert(alert);
-    setAlertDetailsOpen(true);
-  };
-
-  const handleCloseAlertDetails = () => {
-    setAlertDetailsOpen(false);
-    setSelectedAlert(null);
-  };
+  const handleViewAlertDetails = (alert) => { setSelectedAlert(alert); setAlertDetailsOpen(true); };
+  const handleCloseAlertDetails = () => { setAlertDetailsOpen(false); setSelectedAlert(null); };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case "active":
-        return "success";
-      case "inactive":
-        return "warning";
-      case "maintenance":
-        return "info";
-      case "critical":
-        return "error";
-      case "warning":
-        return "warning";
-      case "info":
-        return "info";
-      default:
-        return "default";
+      case "active": return "success";
+      case "inactive": return "warning";
+      case "critical": return "error";
+      case "warning": return "warning";
+      case "info": return "info";
+      default: return "default";
     }
   };
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case "active":
-        return <CheckCircleIcon fontSize="small" />;
-      case "inactive":
-        return <ErrorIcon fontSize="small" />;
-      case "critical":
-        return <ErrorIcon fontSize="small" />;
-      case "warning":
-        return <WarningIcon fontSize="small" />;
-      default:
-        return <WarningIcon fontSize="small" />;
+      case "active": return <CheckCircleIcon fontSize="small" />;
+      case "critical": return <ErrorIcon fontSize="small" />;
+      case "warning": return <WarningIcon fontSize="small" />;
+      default: return <WarningIcon fontSize="small" />;
     }
   };
 
-  // Vérifications initiales
+  const modulePalette = ["#1e88e5", "#a855f7", "#22c55e", "#fb923c", "#06b6d4", "#ef4444"];
+
+  const moduleDistribution = (() => {
+    const counts = {};
+    (dashboardData.alerts || []).forEach((alert) => {
+      const key = String(alert?.module || "Système").trim().toLowerCase();
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    const entries = Object.entries(counts).map(([key, value]) => ({ key, label: key, value })).sort((a, b) => b.value - a.value);
+    const top = entries.slice(0, 5);
+    const restTotal = entries.slice(5).reduce((s, i) => s + i.value, 0);
+    if (restTotal > 0) top.push({ key: "autres", label: "Autres", value: restTotal });
+    const total = entries.reduce((s, i) => s + i.value, 0);
+    const items = top.map((item, idx) => ({
+      ...item,
+      label: item.label.charAt(0).toUpperCase() + item.label.slice(1),
+      color: modulePalette[idx % modulePalette.length],
+    }));
+    return { total, items };
+  })();
+
+  const moduleDistributionItems = moduleDistribution.items.map((item) => ({
+    ...item,
+    percent: moduleDistribution.total > 0 ? Math.round((item.value / moduleDistribution.total) * 100) : 0,
+  }));
+
+  const moduleConicGradient = (() => {
+    if (moduleDistribution.total === 0) return "rgba(148, 163, 184, 0.2) 0% 100%";
+    let acc = 0;
+    return moduleDistribution.items.map((item) => {
+      const pct = (item.value / moduleDistribution.total) * 100;
+      const start = acc;
+      acc += pct;
+      return `${item.color} ${start}% ${acc}%`;
+    }).join(", ");
+  })();
+
   if (!user) {
     return (
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "100vh",
-          bgcolor: "black",
-        }}
-      >
-        <Typography variant="h4" sx={{ color: "white" }}>
-          Chargement...
-        </Typography>
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", bgcolor: "black" }}>
+        <Typography variant="h4" sx={{ color: "white" }}>Chargement...</Typography>
       </Box>
     );
   }
 
   const isAdmin = user?.is_superuser || user?.is_staff;
-  if (!isAdmin) {
-    navigate("/admin_dashboard");
-    return null;
-  }
+  if (!isAdmin) { navigate("/admin_dashboard"); return null; }
 
   if (loading) {
     return (
-      <Box
-        sx={{
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          minHeight: "100vh",
-          bgcolor: "black",
-        }}
-      >
+      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "100vh", bgcolor: "black" }}>
         <CircularProgress sx={{ color: "#3b82f6" }} />
       </Box>
     );
   }
 
-  // RENDER PRINCIPAL (UN SEUL RETURN)
   return (
     <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "black" }}>
-      {/* Sidebar partagé */}
-      <SharedSidebar
-        mobileOpen={mobileOpen}
-        onMobileClose={handleDrawerToggle}
-      />
+      <SharedSidebar mobileOpen={mobileOpen} onMobileClose={handleDrawerToggle} />
 
-      {/* Contenu principal */}
       <Box
         component="main"
         sx={{
@@ -484,321 +666,116 @@ useEffect(() => {
           bgcolor: "black",
           overflowY: "auto",
           overflowX: "hidden",
-          "&::-webkit-scrollbar": {
-            width: "8px",
-          },
-          "&::-webkit-scrollbar-track": {
-            bgcolor: "rgba(15, 23, 42, 0.4)",
-          },
+          "&::-webkit-scrollbar": { width: "8px" },
+          "&::-webkit-scrollbar-track": { bgcolor: "rgba(15, 23, 42, 0.4)" },
           "&::-webkit-scrollbar-thumb": {
             bgcolor: "rgba(59, 130, 246, 0.3)",
             borderRadius: "4px",
-            "&:hover": {
-              bgcolor: "rgba(59, 130, 246, 0.5)",
-            },
+            "&:hover": { bgcolor: "rgba(59, 130, 246, 0.5)" },
           },
         }}
       >
-        <Box
-          sx={{
-            p: 1.2,
-            borderBottom: "1px solid rgba(59, 130, 246, 0.1)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            flexWrap: "wrap",
-            gap: 2,
-          }}
-        >
-          {/* Menu mobile icon */}
+        {/* Header */}
+        <Box sx={{ p: 1.2, borderBottom: "1px solid rgba(59, 130, 246, 0.1)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 2 }}>
           {isMobile && (
-            <IconButton
-              onClick={handleDrawerToggle}
-              sx={{
-                color: "white",
-                mr: 1,
-                "&:hover": {
-                  bgcolor: "rgba(59, 130, 246, 0.1)",
-                },
-              }}
-            >
+            <IconButton onClick={handleDrawerToggle} sx={{ color: "white", mr: 1, "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>
               <MenuIcon />
             </IconButton>
           )}
 
-          {/* Barre de recherche */}
-          <Box
-            sx={{
-              flex: 1,
-              maxWidth: 500,
-              position: "relative",
-            }}
-          >
-            <SearchIcon
-              sx={{
-                position: "absolute",
-                left: 16,
-                top: "50%",
-                transform: "translateY(-50%)",
-                color: "#64748b",
-                fontSize: 20,
-              }}
-            />
+          {/* Search */}
+          <Box sx={{ flex: 1, maxWidth: 500, position: "relative" }}>
+          <SearchIcon sx={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "#64748b", fontSize: 20 }} />
             <input
               type="text"
               placeholder="Rechercher dans le dashboard..."
               style={{
-                width: "100%",
-                padding: "12px 16px 12px 48px",
+                width: "100%", padding: "12px 16px 12px 48px",
                 backgroundColor: "rgba(59, 130, 246, 0.1)",
                 border: "1px solid rgba(59, 130, 246, 0.2)",
-                borderRadius: "12px",
-                color: "#94a3b8",
-                fontSize: "0.9rem",
-                outline: "none",
-                transition: "all 0.2s ease",
+                borderRadius: "12px", color: "#94a3b8", fontSize: "0.9rem", outline: "none",
               }}
-              onFocus={(e) => {
-                e.target.style.borderColor = "#3b82f6";
-                e.target.style.backgroundColor = "rgba(59, 130, 246, 0.2)";
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = "rgba(59, 130, 246, 0.2)";
-                e.target.style.backgroundColor = "rgba(59, 130, 246, 0.1)";
-              }}
+              onFocus={(e) => { e.target.style.borderColor = "#3b82f6"; e.target.style.backgroundColor = "rgba(59, 130, 246, 0.2)"; }}
+              onBlur={(e) => { e.target.style.borderColor = "rgba(59, 130, 246, 0.2)"; e.target.style.backgroundColor = "rgba(59, 130, 246, 0.1)"; }}
             />
           </Box>
 
-          {/* Boutons d'action */}
+          {/* Right actions */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <Badge badgeContent={dashboardData.stats.activeAlerts || 0} color="error">
-              <IconButton
-                sx={{
-                  color: "#64748b",
-                  position: "relative",
-                  "&:hover": {
-                    bgcolor: "rgba(59, 130, 246, 0.1)",
-                  },
-                }}
-              >
+            <Badge badgeContent={unreadNotifications.length} color="error">
+              <IconButton onClick={handleOpenNotifications} sx={{ color: "#64748b", "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>
                 <NotificationsIcon />
               </IconButton>
             </Badge>
-
-            
-
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-              <Box
-                sx={{
-                  textAlign: "right",
-                  display: { xs: "none", sm: "block" },
-                }}
-              >
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: "white",
-                    fontWeight: 600,
-                    fontSize: "0.9rem",
-                  }}
-                >
+              <Box sx={{ textAlign: "right", display: { xs: "none", sm: "block" } }}>
+                <Typography variant="body2" sx={{ color: "white", fontWeight: 600, fontSize: "0.9rem" }}>
                   {user?.first_name || user?.username}
                 </Typography>
-                <Typography
-                  variant="caption"
-                  sx={{
-                    color: "#64748b",
-                    fontSize: "0.75rem",
-                  }}
-                >
+                <Typography variant="caption" sx={{ color: "#64748b", fontSize: "0.75rem" }}>
                   {isAdmin ? "Administrateur" : "Utilisateur"}
                 </Typography>
               </Box>
-              <Avatar
-                sx={{
-                  width: 40,
-                  height: 40,
-                  bgcolor: isAdmin ? "#ef4444" : "#3b82f6",
-                  fontWeight: 600,
-                  fontSize: "1rem",
-                }}
-              >
-                {user?.first_name?.charAt(0) ||
-                  user?.username?.charAt(0) ||
-                  "U"}
+              <Avatar sx={{ width: 40, height: 40, bgcolor: isAdmin ? "#ef4444" : "#3b82f6", fontWeight: 600, fontSize: "1rem" }}>
+                {user?.first_name?.charAt(0) || user?.username?.charAt(0) || "U"}
               </Avatar>
             </Box>
           </Box>
         </Box>
-        {/* Titre de la page - sous l'en-tête */}
+
+        {/* Page title */}
         <Box sx={{ p: 3, pb: 0 }}>
-          <Box
-            sx={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              mb: 1,
-              flexWrap: "wrap",
-              gap: 2,
-            }}
-          >
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1, flexWrap: "wrap", gap: 2 }}>
             <Box>
-              <Typography
-                variant="h4"
-                sx={{
-                  color: "white",
-                  fontWeight: 700,
-                  mb: 0.5,
-                }}
-              >
+              <Typography variant="h4" sx={{ color: "white", fontWeight: 700, mb: 0.5 }}>
                 Tableau de Bord Administrateur
               </Typography>
-              <Typography
-                variant="body2"
-                sx={{
-                  color: "#64748b",
-                  fontSize: "0.95rem",
-                }}
-              >
+              <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.95rem" }}>
                 Gestion complète du système et surveillance
               </Typography>
             </Box>
           </Box>
-         
         </Box>
 
-        {/* Contenu du dashboard */}
-        <Box sx={{ p: 3, pt: 0, pb: 6 }}>
-          {/* Statistiques principales */}
+        {/* Dashboard content */}
+        <Box sx={{ p: 3, pt: 2, pb: 6 }}>
+
+          {/* Stats cards */}
           <Grid container spacing={3} sx={{ mb: 4 }}>
             {/* Alertes Actives */}
             <Grid item xs={12} sm={6} md={3}>
-              <Card
-                sx={{
-                  bgcolor: "rgba(239, 68, 68, 0.1)",
-                  border: "1px solid rgba(239, 68, 68, 0.2)",
-                  borderRadius: 3,
-                  transition: "all 0.3s ease",
-                  "&:hover": {
-                    transform: "translateY(-4px)",
-                    boxShadow: "0 8px 24px rgba(239, 68, 68, 0.2)",
-                  },
-                }}
-              >
+              <Card sx={{ bgcolor: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: 3, transition: "all 0.3s ease", "&:hover": { transform: "translateY(-4px)", boxShadow: "0 8px 24px rgba(239, 68, 68, 0.2)" } }}>
                 <CardContent sx={{ p: 3 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      justifyContent: "space-between",
-                      mb: 2,
-                    }}
-                  >
-                    <Typography
-                      variant="body2"
-                      sx={{ color: "#94a3b8", fontSize: "0.85rem" }}
-                    >
-                      Alertes Actives
-                    </Typography>
-                    <Box
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 2,
-                        bgcolor: "rgba(239, 68, 68, 0.15)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
+                  <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 2 }}>
+                    <Typography variant="body2" sx={{ color: "#94a3b8", fontSize: "0.85rem" }}>Alertes Actives</Typography>
+                    <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: "rgba(239, 68, 68, 0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <WarningIcon sx={{ color: "#ef4444", fontSize: 20 }} />
                     </Box>
                   </Box>
-                  <Typography
-                    variant="h3"
-                    sx={{ color: "white", fontWeight: 700, mb: 1 }}
-                  >
-                    {dashboardData.stats.activeAlerts}
-                  </Typography>
+                  <Typography variant="h3" sx={{ color: "white", fontWeight: 700, mb: 1 }}>{dashboardData.stats.activeAlerts}</Typography>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <ErrorIcon sx={{ color: "#ef4444", fontSize: 16 }} />
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: "#ef4444",
-                        fontSize: "0.8rem",
-                        fontWeight: 500,
-                      }}
-                    >
-                      Nécessite attention
-                    </Typography>
+                    <Typography variant="caption" sx={{ color: "#ef4444", fontSize: "0.8rem", fontWeight: 500 }}>Nécessite attention</Typography>
                   </Box>
                 </CardContent>
               </Card>
             </Grid>
 
-            {/* Notifications Envoyées */}
+            {/* Notifications Totales */}
             <Grid item xs={12} sm={6} md={3}>
-              <Card
-                sx={{
-                  bgcolor: "rgba(59, 130, 246, 0.1)",
-                  border: "1px solid rgba(59, 130, 246, 0.2)",
-                  borderRadius: 3,
-                  transition: "all 0.3s ease",
-                  "&:hover": {
-                    transform: "translateY(-4px)",
-                    boxShadow: "0 8px 24px rgba(59, 130, 246, 0.2)",
-                  },
-                }}
-              >
+              <Card sx={{ bgcolor: "rgba(59, 130, 246, 0.1)", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: 3, transition: "all 0.3s ease", "&:hover": { transform: "translateY(-4px)", boxShadow: "0 8px 24px rgba(59, 130, 246, 0.2)" } }}>
                 <CardContent sx={{ p: 3 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      justifyContent: "space-between",
-                      mb: 2,
-                    }}
-                  >
-                    <Typography
-                      variant="body2"
-                      sx={{ color: "#94a3b8", fontSize: "0.85rem" }}
-                    >
-                      Notifications Envoyées
-                    </Typography>
-                    <Box
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 2,
-                        bgcolor: "rgba(59, 130, 246, 0.15)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <NotificationsIcon
-                        sx={{ color: "#3b82f6", fontSize: 20 }}
-                      />
+                  <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 2 }}>
+                    <Typography variant="body2" sx={{ color: "#94a3b8", fontSize: "0.85rem" }}>Notifications Totales</Typography>
+                    <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: "rgba(59, 130, 246, 0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <NotificationsIcon sx={{ color: "#3b82f6", fontSize: 20 }} />
                     </Box>
                   </Box>
-                  <Typography
-                    variant="h3"
-                    sx={{ color: "white", fontWeight: 700, mb: 1 }}
-                  >
-                    {dashboardData.stats.sentNotifications.toLocaleString()}
-                  </Typography>
+                  <Typography variant="h3" sx={{ color: "white", fontWeight: 700, mb: 1 }}>{notificationsData.length.toLocaleString()}</Typography>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <TrendingUpIcon sx={{ color: "#10b981", fontSize: 16 }} />
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: "#10b981",
-                        fontSize: "0.8rem",
-                        fontWeight: 500,
-                      }}
-                    >
-                      //notifications envoyees
+                    <Typography variant="caption" sx={{ color: "#10b981", fontSize: "0.8rem", fontWeight: 500 }}>
+                      {unreadNotifications.length} non lues
                     </Typography>
                   </Box>
                 </CardContent>
@@ -807,67 +784,18 @@ useEffect(() => {
 
             {/* Alertes Résolues */}
             <Grid item xs={12} sm={6} md={3}>
-              <Card
-                sx={{
-                  bgcolor: "rgba(16, 185, 129, 0.1)",
-                  border: "1px solid #10B98133",
-                  borderRadius: 3,
-                  transition: "all 0.3s ease",
-                  "&:hover": {
-                    transform: "translateY(-4px)",
-                    boxShadow: "0 8px 24px rgba(16, 185, 129, 0.2)",
-                  },
-                }}
-              >
+              <Card sx={{ bgcolor: "rgba(16, 185, 129, 0.1)", border: "1px solid #10B98133", borderRadius: 3, transition: "all 0.3s ease", "&:hover": { transform: "translateY(-4px)", boxShadow: "0 8px 24px rgba(16, 185, 129, 0.2)" } }}>
                 <CardContent sx={{ p: 3 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      justifyContent: "space-between",
-                      mb: 2,
-                    }}
-                  >
-                    <Typography
-                      variant="body2"
-                      sx={{ color: "#94a3b8", fontSize: "0.85rem" }}
-                    >
-                      Alertes Résolues
-                    </Typography>
-                    <Box
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 2,
-                        bgcolor: "rgba(16, 185, 129, 0.15)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <CheckCircleIcon
-                        sx={{ color: "#10b981", fontSize: 20 }}
-                      />
+                  <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 2 }}>
+                    <Typography variant="body2" sx={{ color: "#94a3b8", fontSize: "0.85rem" }}>Alertes Résolues</Typography>
+                    <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: "rgba(16, 185, 129, 0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <CheckCircleIcon sx={{ color: "#10b981", fontSize: 20 }} />
                     </Box>
                   </Box>
-                  <Typography
-                    variant="h3"
-                    sx={{ color: "white", fontWeight: 700, mb: 1 }}
-                  >
-                    {dashboardData.stats.resolvedAlerts}
-                  </Typography>
+                  <Typography variant="h3" sx={{ color: "white", fontWeight: 700, mb: 1 }}>{dashboardData.stats.resolvedAlerts}</Typography>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <TrendingUpIcon sx={{ color: "#10b981", fontSize: 16 }} />
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: "#10b981",
-                        fontSize: "0.8rem",
-                        fontWeight: 500,
-                      }}
-                    >
-                      //nombre d'alerte
-                    </Typography>
+                    <Typography variant="caption" sx={{ color: "#10b981", fontSize: "0.8rem", fontWeight: 500 }}>Alertes résolues</Typography>
                   </Box>
                 </CardContent>
               </Card>
@@ -875,63 +803,18 @@ useEffect(() => {
 
             {/* Utilisateurs Totaux */}
             <Grid item xs={12} sm={6} md={3}>
-              <Card
-                sx={{
-                  bgcolor: "rgba(139, 92, 246, 0.1)",
-                  border: "1px solid rgba(139, 92, 246, 0.2)",
-                  borderRadius: 3,
-                  transition: "all 0.3s ease",
-                  "&:hover": {
-                    transform: "translateY(-4px)",
-                    boxShadow: "0 8px 24px rgba(139, 92, 246, 0.2)",
-                  },
-                }}
-              >
+              <Card sx={{ bgcolor: "rgba(139, 92, 246, 0.1)", border: "1px solid rgba(139, 92, 246, 0.2)", borderRadius: 3, transition: "all 0.3s ease", "&:hover": { transform: "translateY(-4px)", boxShadow: "0 8px 24px rgba(139, 92, 246, 0.2)" } }}>
                 <CardContent sx={{ p: 3 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "flex-start",
-                      justifyContent: "space-between",
-                      mb: 2,
-                    }}
-                  >
-                    <Typography
-                      variant="body2"
-                      sx={{ color: "#94a3b8", fontSize: "0.85rem" }}
-                    >
-                      Utilisateurs Totaux
-                    </Typography>
-                    <Box
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 2,
-                        bgcolor: "rgba(139, 92, 246, 0.15)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
+                  <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 2 }}>
+                    <Typography variant="body2" sx={{ color: "#94a3b8", fontSize: "0.85rem" }}>Utilisateurs Totaux</Typography>
+                    <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: "rgba(139, 92, 246, 0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                       <PeopleIcon sx={{ color: "#8b5cf6", fontSize: 20 }} />
                     </Box>
                   </Box>
-                  <Typography
-                    variant="h3"
-                    sx={{ color: "white", fontWeight: 700, mb: 1 }}
-                  >
-                    {dashboardData.stats.totalUsers || 0}
-                  </Typography>
+                  <Typography variant="h3" sx={{ color: "white", fontWeight: 700, mb: 1 }}>{dashboardData.stats.totalUsers || 0}</Typography>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                     <PeopleIcon sx={{ color: "#8b5cf6", fontSize: 16 }} />
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        color: "#8b5cf6",
-                        fontSize: "0.8rem",
-                        fontWeight: 500,
-                      }}
-                    >
+                    <Typography variant="caption" sx={{ color: "#8b5cf6", fontSize: "0.8rem", fontWeight: 500 }}>
                       {dashboardData.stats.activeUsers || 0} actifs
                     </Typography>
                   </Box>
@@ -940,278 +823,89 @@ useEffect(() => {
             </Grid>
           </Grid>
 
-          {/* Graphiques et données */}
+          {/* Charts row */}
           <Grid container spacing={3} sx={{ mb: 4 }}>
-            {/* Activité des notifications */}
+            {/* ✅ Activité des notifications - Area Chart */}
             <Grid item xs={12} lg={8}>
-              <Card
-                sx={{
-                  bgcolor: "rgba(30, 41, 59, 0.5)",
-                  border: "1px solid rgba(59, 130, 246, 0.1)",
-                  borderRadius: 3,
-                  height: "100%",
-                }}
-              >
+              <Card sx={{ bgcolor: "rgba(30, 41, 59, 0.5)", border: "1px solid rgba(59, 130, 246, 0.1)", borderRadius: 3, height: "100%" }}>
                 <CardContent sx={{ p: 3, height: "100%" }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      mb: 3,
-                    }}
-                  >
-                    <Typography
-                      variant="h6"
-                      sx={{ color: "white", fontWeight: 600 }}
-                    >
-                      Activité des notifications
-                    </Typography>
-                  </Box>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "center",
-                      alignItems: "center",
-                      height: 200,
-                    }}
-                  >
-                    <BarChartIcon
-                      sx={{ fontSize: 48, color: "#3b82f6", mb: 1 }}
-                    />
-                    <Typography sx={{ color: "#94a3b8", ml: 2 }}>
-                      Graphique 
-                    </Typography>
-                  </Box>
+                  <NotificationActivityChart />
                 </CardContent>
               </Card>
             </Grid>
 
             {/* Répartition des alertes */}
             <Grid item xs={12} lg={4}>
-              <Card
-                sx={{
-                  bgcolor: "rgba(30, 41, 59, 0.5)",
-                  border: "1px solid rgba(59, 130, 246, 0.1)",
-                  borderRadius: 3,
-                  height: "100%",
-                }}
-              >
+              <Card sx={{ bgcolor: "rgba(30, 41, 59, 0.5)", border: "1px solid rgba(59, 130, 246, 0.1)", borderRadius: 3, height: "100%" }}>
                 <CardContent sx={{ p: 3, height: "100%" }}>
-                  <Typography
-                    variant="h6"
-                    sx={{ color: "white", fontWeight: 600, mb: 3 }}
-                  >
-                    Répartition des alertes
-                  </Typography>
-                  <Box sx={{ height: 300 }}>
-                    <Box
-                      sx={{ display: "flex", flexDirection: "column", gap: 2 }}
-                    >
-                      {dashboardData.alertTrend &&
-                      dashboardData.alertTrend.length > 0 ? (
-                        dashboardData.alertTrend
-                          .slice(0, 5)
-                          .map((day, index) => {
-                            const percentage = (day.alerts / 20) * 100;
-                            return (
-                              <Box key={index} sx={{ mb: 1 }}>
-                                <Box
-                                  sx={{
-                                    display: "flex",
-                                    justifyContent: "space-between",
-                                    mb: 0.5,
-                                  }}
-                                >
-                                  <Typography
-                                    sx={{
-                                      color: "white",
-                                      fontSize: "0.875rem",
-                                    }}
-                                  >
-                                    {day.name}
-                                  </Typography>
-                                  <Typography
-                                    sx={{
-                                      color: "#94a3b8",
-                                      fontSize: "0.875rem",
-                                      fontWeight: 600,
-                                    }}
-                                  >
-                                    {day.alerts} alertes
-                                  </Typography>
-                                </Box>
-                                <LinearProgress
-                                  variant="determinate"
-                                  value={percentage}
-                                  sx={{
-                                    height: 8,
-                                    borderRadius: 4,
-                                    bgcolor: "rgba(255, 255, 255, 0.1)",
-                                    "& .MuiLinearProgress-bar": {
-                                      bgcolor: COLORS[index % COLORS.length],
-                                      borderRadius: 4,
-                                    },
-                                  }}
-                                />
-                              </Box>
-                            );
-                          })
-                      ) : (
-                        <Typography
-                          sx={{ color: "#64748b", textAlign: "center", py: 4 }}
-                        >
-                          Aucune donnée de tendance disponible
-                        </Typography>
-                      )}
-                    </Box>
+                  <Typography variant="h6" sx={{ color: "white", fontWeight: 600, mb: 3 }}>Répartition des alertes</Typography>
+                  <Box sx={{ height: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2 }}>
+                    {moduleDistribution.total > 0 ? (
+                      <>
+                        <Box sx={{
+                          width: 180, height: 180, borderRadius: "50%",
+                          background: `conic-gradient(${moduleConicGradient})`,
+                          position: "relative",
+                          boxShadow: "0 10px 24px rgba(0,0,0,0.35)",
+                          animation: "alertDonutIn 0.8s ease-out",
+                          "@keyframes alertDonutIn": { "0%": { transform: "scale(0.85)", opacity: 0 }, "100%": { transform: "scale(1)", opacity: 1 } },
+                        }}>
+                          <Box sx={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 110, height: 110, borderRadius: "50%", bgcolor: "rgba(15, 23, 42, 0.95)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" }}>
+                            <Typography sx={{ color: "white", fontWeight: 700, fontSize: "1.5rem" }}>{moduleDistribution.items.length}</Typography>
+                            <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem" }}>modules</Typography>
+                          </Box>
+                        </Box>
+                        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", justifyContent: "center" }}>
+                          {moduleDistributionItems.map((item) => (
+                            <Box key={item.key} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                              <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: item.color }} />
+                              <Typography sx={{ color: "#94a3b8", fontSize: "0.8rem" }}>{item.label} ({item.percent}%)</Typography>
+                            </Box>
+                          ))}
+                        </Box>
+                      </>
+                    ) : (
+                      <Typography sx={{ color: "#64748b", textAlign: "center", py: 4 }}>Aucune donnée disponible</Typography>
+                    )}
                   </Box>
                 </CardContent>
               </Card>
             </Grid>
           </Grid>
 
-          {/* Liste des utilisateurs et activité récente */}
+          {/* Bottom row */}
           <Grid container spacing={3}>
-            {/* Activité récente - Timeline */}
+            {/* Activités récentes - Timeline */}
             <Grid item xs={12} lg={6}>
-              <Card
-                sx={{
-                  bgcolor: "rgba(30, 41, 59, 0.5)",
-                  border: "1px solid rgba(59, 130, 246, 0.1)",
-                  borderRadius: 3,
-                }}
-              >
+              <Card sx={{ bgcolor: "rgba(30, 41, 59, 0.5)", border: "1px solid rgba(59, 130, 246, 0.1)", borderRadius: 3 }}>
                 <CardContent sx={{ p: 3 }}>
                   <Box sx={{ mb: 3 }}>
-                    <Typography
-                      variant="h6"
-                      sx={{ color: "white", fontWeight: 600, mb: 0.5 }}
-                    >
-                      Mes activités récentes
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      sx={{ color: "#64748b", fontSize: "0.875rem" }}
-                    >
-                      Ce que vous avez fait récemment
-                    </Typography>
+                    <Typography variant="h6" sx={{ color: "white", fontWeight: 600, mb: 0.5 }}>Mes activités récentes</Typography>
+                    <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.875rem" }}>Ce que vous avez fait récemment</Typography>
                   </Box>
-
-                  {/* Timeline */}
                   <Box sx={{ position: "relative", pl: 4 }}>
-                    {/* Ligne verticale de la timeline */}
-                    <Box
-                      sx={{
-                        position: "absolute",
-                        left: "18px",
-                        top: "12px",
-                        bottom: "12px",
-                        width: "2px",
-                        bgcolor: "rgba(59, 130, 246, 0.2)",
-                      }}
-                    />
-
-                    {/* Événements */}
-                    <Box
-                      sx={{ display: "flex", flexDirection: "column", gap: 3 }}
-                    >
+                    <Box sx={{ position: "absolute", left: "18px", top: "12px", bottom: "12px", width: "2px", bgcolor: "rgba(59, 130, 246, 0.2)" }} />
+                    <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
                       {dashboardData.recentActivity.length > 0 ? (
-                        dashboardData.recentActivity.map((activity, index) => (
-                        <Box
-                          key={activity.id}
-                          sx={{
-                            position: "relative",
-                            transition: "all 0.2s ease",
-                            "&:hover": {
-                              transform: "translateX(4px)",
-                            },
-                          }}
-                        >
-                          {/* Icône de l'événement */}
-                          <Box
-                            sx={{
-                              position: "absolute",
-                              left: "-34px",
-                              top: "2px",
-                              width: 36,
-                              height: 36,
-                              borderRadius: "50%",
-                              bgcolor: `${activity.color}15`,
-                              border: `2px solid ${activity.color}`,
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              color: activity.color,
-                              zIndex: 1,
-                            }}
-                          >
-                            {getActivityIcon(activity.icon)}
-                          </Box>
-
-                          {/* Contenu de l'événement */}
-                          <Box>
-                            <Box
-                              sx={{
-                                display: "flex",
-                                justifyContent: "space-between",
-                                alignItems: "flex-start",
-                                mb: 0.5,
-                              }}
-                            >
-                              <Typography
-                                variant="subtitle2"
-                                sx={{
-                                  color: "white",
-                                  fontWeight: 600,
-                                  fontSize: "0.9rem",
-                                }}
-                              >
-                                {activity.title}
-                              </Typography>
-                              <Typography
-                                variant="caption"
-                                sx={{
-                                  color: "#64748b",
-                                  fontSize: "0.75rem",
-                                  whiteSpace: "nowrap",
-                                  ml: 2,
-                                }}
-                              >
-                                {activity.time}
-                              </Typography>
+                        dashboardData.recentActivity.map((activity) => (
+                          <Box key={activity.id} sx={{ position: "relative", transition: "all 0.2s ease", "&:hover": { transform: "translateX(4px)" } }}>
+                            <Box sx={{ position: "absolute", left: "-34px", top: "2px", width: 36, height: 36, borderRadius: "50%", bgcolor: `${activity.color}15`, border: `2px solid ${activity.color}`, display: "flex", alignItems: "center", justifyContent: "center", color: activity.color, zIndex: 1 }}>
+                              {getActivityIcon(activity.icon)}
                             </Box>
-                            <Typography
-                              variant="body2"
-                              sx={{ color: "#94a3b8", fontSize: "0.85rem" }}
-                            >
-                              {activity.description}
-                            </Typography>
+                            <Box>
+                              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 0.5 }}>
+                                <Typography variant="subtitle2" sx={{ color: "white", fontWeight: 600, fontSize: "0.9rem" }}>{activity.title}</Typography>
+                                <Typography variant="caption" sx={{ color: "#64748b", fontSize: "0.75rem", whiteSpace: "nowrap", ml: 2 }}>{activity.time}</Typography>
+                              </Box>
+                              <Typography variant="body2" sx={{ color: "#94a3b8", fontSize: "0.85rem" }}>{activity.description}</Typography>
+                            </Box>
                           </Box>
-                        </Box>
-                      ))
+                        ))
                       ) : (
-                        <Box
-                          sx={{
-                            textAlign: "center",
-                            py: 6,
-                          }}
-                        >
-                          <NotificationsIcon
-                            sx={{ fontSize: 48, color: "#64748b", mb: 2 }}
-                          />
-                          <Typography
-                            variant="body1"
-                            sx={{ color: "#94a3b8", mb: 1 }}
-                          >
-                            Aucune activité récente
-                          </Typography>
-                          <Typography
-                            variant="body2"
-                            sx={{ color: "#64748b", fontSize: "0.85rem" }}
-                          >
-                            Vos actions apparaîtront ici
-                          </Typography>
+                        <Box sx={{ textAlign: "center", py: 6 }}>
+                          <NotificationsIcon sx={{ fontSize: 48, color: "#64748b", mb: 2 }} />
+                          <Typography variant="body1" sx={{ color: "#94a3b8", mb: 1 }}>Aucune activité récente</Typography>
+                          <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.85rem" }}>Vos actions apparaîtront ici</Typography>
                         </Box>
                       )}
                     </Box>
@@ -1222,163 +916,48 @@ useEffect(() => {
 
             {/* Alertes récentes */}
             <Grid item xs={12} lg={6}>
-              <Card
-                sx={{
-                  bgcolor: "rgba(30, 41, 59, 0.5)",
-                  border: "1px solid rgba(59, 130, 246, 0.1)",
-                  borderRadius: 3,
-                }}
-              >
+              <Card sx={{ bgcolor: "rgba(30, 41, 59, 0.5)", border: "1px solid rgba(59, 130, 246, 0.1)", borderRadius: 3 }}>
                 <CardContent sx={{ p: 3 }}>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      mb: 3,
-                    }}
-                  >
-                    <Typography
-                      variant="h6"
-                      sx={{ color: "white", fontWeight: 600 }}
-                    >
-                      Alertes Récentes
-                    </Typography>
-                    <Badge
-                      badgeContent={dashboardData.stats.activeAlerts}
-                      color="error"
-                    >
-                      <Button
-                        size="small"
-                        startIcon={<DownloadIcon />}
-                        onClick={handleExportData}
-                        sx={{
-                          color: "#3b82f6",
-                          textTransform: "none",
-                          fontSize: "0.875rem",
-                        }}
-                      >
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+                    <Typography variant="h6" sx={{ color: "white", fontWeight: 600 }}>Alertes Récentes</Typography>
+                    <Badge badgeContent={dashboardData.stats.activeAlerts} color="error">
+                      <Button size="small" startIcon={<DownloadIcon />} onClick={handleExportData} sx={{ color: "#3b82f6", textTransform: "none", fontSize: "0.875rem" }}>
                         Exporter
                       </Button>
                     </Badge>
                   </Box>
-                  <Box
-                    sx={{ display: "flex", flexDirection: "column", gap: 2 }}
-                  >
+                  <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                     {dashboardData.alerts && dashboardData.alerts.length > 0 ? (
                       dashboardData.alerts.slice(0, 4).map((alert) => (
-                        <Paper
-                          key={alert.id}
-                          sx={{
-                            p: 2,
-                            bgcolor: "rgba(30, 41, 59, 0.3)",
-                            border: "1px solid",
-                            borderColor:
-                              alert.type === "critical"
-                                ? "rgba(239, 68, 68, 0.2)"
-                                : alert.type === "warning"
-                                  ? "rgba(251, 146, 60, 0.2)"
-                                  : "rgba(59, 130, 246, 0.2)",
-                            borderRadius: 2,
-                            transition: "all 0.2s ease",
-                            "&:hover": {
-                              transform: "translateX(4px)",
-                              borderColor:
-                                alert.type === "critical"
-                                  ? "#ef4444"
-                                  : alert.type === "warning"
-                                    ? "#f59e0b"
-                                    : "#3b82f6",
-                            },
-                          }}
-                        >
-                          <Box
-                            sx={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "flex-start",
-                            }}
-                          >
+                        <Paper key={alert.id} sx={{
+                          p: 2, bgcolor: "rgba(30, 41, 59, 0.3)", border: "1px solid",
+                          borderColor: alert.type === "critical" ? "rgba(239, 68, 68, 0.2)" : alert.type === "warning" ? "rgba(251, 146, 60, 0.2)" : "rgba(59, 130, 246, 0.2)",
+                          borderRadius: 2, transition: "all 0.2s ease",
+                          "&:hover": { transform: "translateX(4px)", borderColor: alert.type === "critical" ? "#ef4444" : alert.type === "warning" ? "#f59e0b" : "#3b82f6" },
+                        }}>
+                          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                             <Box>
-                              <Box
-                                sx={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 1,
-                                  mb: 0.5,
-                                }}
-                              >
+                              <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
                                 {getStatusIcon(alert.type)}
-                                <Typography
-                                  variant="subtitle2"
-                                  sx={{ color: "white", fontWeight: 600 }}
-                                >
-                                  {alert.module || "Système"}
-                                </Typography>
-                                <Chip
-                                  label={
-                                    alert.type === "critical"
-                                      ? "Critique"
-                                      : alert.type === "warning"
-                                        ? "Avertissement"
-                                        : "Info"
-                                  }
-                                  size="small"
-                                  color={getStatusColor(alert.type)}
-                                  sx={{ height: 20, fontSize: "0.65rem" }}
-                                />
+                                <Typography variant="subtitle2" sx={{ color: "white", fontWeight: 600 }}>{alert.module || "Système"}</Typography>
+                                <Chip label={alert.type === "critical" ? "Critique" : alert.type === "warning" ? "Avertissement" : "Info"} size="small" color={getStatusColor(alert.type)} sx={{ height: 20, fontSize: "0.65rem" }} />
                               </Box>
-                              <Typography
-                                variant="body2"
-                                sx={{ color: "#94a3b8", mb: 1 }}
-                              >
-                                {alert.message || "Alerte système"}
-                              </Typography>
+                              <Typography variant="body2" sx={{ color: "#94a3b8", mb: 1 }}>{alert.message || "Alerte système"}</Typography>
                             </Box>
-                            <Typography
-                              variant="caption"
-                              sx={{ color: "#64748b" }}
-                            >
-                              {alert.time || "Récemment"}
-                            </Typography>
+                            <Typography variant="caption" sx={{ color: "#64748b" }}>{alert.time || "Récemment"}</Typography>
                           </Box>
-                          <Box
-                            sx={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              alignItems: "center",
-                              mt: 1,
-                            }}
-                          >
-                            <Typography
-                              variant="caption"
-                              sx={{ color: "#64748b" }}
-                            >
-                              Status:{" "}
-                              {alert.status === "active" ? "Actif" : "Résolu"}
+                          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 1 }}>
+                            <Typography variant="caption" sx={{ color: "#64748b" }}>
+                              Status: {alert.status === "active" ? "Actif" : "Résolu"}
                             </Typography>
-                            <Button 
-                              size="small" 
-                              onClick={() => handleViewAlertDetails(alert)}
-                              sx={{ 
-                                fontSize: "0.75rem",
-                                color: "#3b82f6",
-                                "&:hover": {
-                                  bgcolor: "rgba(59, 130, 246, 0.1)",
-                                },
-                              }}
-                            >
+                            <Button size="small" onClick={() => handleViewAlertDetails(alert)} sx={{ fontSize: "0.75rem", color: "#3b82f6", "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>
                               Voir les détails
                             </Button>
                           </Box>
                         </Paper>
                       ))
                     ) : (
-                      <Typography
-                        sx={{ color: "#64748b", textAlign: "center", py: 4 }}
-                      >
-                        Aucune alerte récente
-                      </Typography>
+                      <Typography sx={{ color: "#64748b", textAlign: "center", py: 4 }}>Aucune alerte récente</Typography>
                     )}
                   </Box>
                 </CardContent>
@@ -1388,295 +967,66 @@ useEffect(() => {
         </Box>
       </Box>
 
-      {/* Menu contextuel */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-        PaperProps={{
-          sx: {
-            bgcolor: "#1e293b",
-            border: "1px solid rgba(59, 130, 246, 0.2)",
-            borderRadius: 2,
-            minWidth: 180,
-          },
-        }}
-      >
-        <MenuItem
-          onClick={handleEditUser}
-          sx={{
-            color: "#94a3b8",
-            "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" },
-          }}
-        >
-          <EditIcon sx={{ mr: 1, fontSize: 20, color: "#3b82f6" }} />
-          Modifier
+      {/* Context menu */}
+      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose} PaperProps={{ sx: { bgcolor: "#1e293b", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: 2, minWidth: 180 } }}>
+        <MenuItem onClick={handleEditUser} sx={{ color: "#94a3b8", "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>
+          <EditIcon sx={{ mr: 1, fontSize: 20, color: "#3b82f6" }} /> Modifier
         </MenuItem>
-        <MenuItem
-          onClick={handleDeleteUser}
-          sx={{
-            color: "#94a3b8",
-            "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" },
-          }}
-        >
-          <DeleteIcon sx={{ mr: 1, fontSize: 20, color: "#ef4444" }} />
-          Supprimer
+        <MenuItem onClick={handleDeleteUser} sx={{ color: "#94a3b8", "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>
+          <DeleteIcon sx={{ mr: 1, fontSize: 20, color: "#ef4444" }} /> Supprimer
         </MenuItem>
       </Menu>
 
-      {/* Dialog des détails d'alerte */}
-      <Dialog
-        open={alertDetailsOpen}
-        onClose={handleCloseAlertDetails}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: {
-            bgcolor: "black",
-            border: "1px solid #3B82F633",
-            borderRadius: 3,
-          },
-        }}
-      >
-        <DialogTitle
-          sx={{
-            color: "white",
-            borderBottom: "1px solid rgba(59, 130, 246, 0.1)",
-            pb: 2,
-          }}
-        >
+      {/* Alert details dialog */}
+      <Dialog open={alertDetailsOpen} onClose={handleCloseAlertDetails} maxWidth="md" fullWidth PaperProps={{ sx: { bgcolor: "black", border: "1px solid #3B82F633", borderRadius: 3 } }}>
+        <DialogTitle sx={{ color: "white", borderBottom: "1px solid rgba(59, 130, 246, 0.1)", pb: 2 }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <Box
-              sx={{
-                width: 48,
-                height: 48,
-                borderRadius: 2,
-                bgcolor: selectedAlert?.type === "critical"
-                  ? "rgba(239, 68, 68, 0.15)"
-                  : selectedAlert?.type === "warning"
-                  ? "rgba(251, 146, 60, 0.15)"
-                  : "rgba(59, 130, 246, 0.15)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
+            <Box sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: selectedAlert?.type === "critical" ? "rgba(239, 68, 68, 0.15)" : "rgba(59, 130, 246, 0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
               {getStatusIcon(selectedAlert?.type)}
             </Box>
             <Box>
-              <Typography variant="h6" sx={{ color: "white", fontWeight: 600 }}>
-                Détails de l'alerte
-              </Typography>
-              <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.875rem" }}>
-                {selectedAlert?.module || "Système"}
-              </Typography>
+              <Typography variant="h6" sx={{ color: "white", fontWeight: 600 }}>Détails de l'alerte</Typography>
+              <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.875rem" }}>{selectedAlert?.module || "Système"}</Typography>
             </Box>
           </Box>
         </DialogTitle>
         <DialogContent sx={{ pt: 3 }}>
           {selectedAlert && (
             <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-              {/* Type et statut */}
               <Box>
-                <Typography variant="caption" sx={{ color: "white", display: "block", mb: 1 }}>
-                  Type et statut
-                </Typography>
+                <Typography variant="caption" sx={{ color: "white", display: "block", mb: 1 }}>Type et statut</Typography>
                 <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
-                  <Chip
-                    label={
-                      selectedAlert.type === "critical"
-                        ? "Critique"
-                        : selectedAlert.type === "warning"
-                        ? "Avertissement"
-                        : "Info"
-                    }
-                    color={selectedAlert.type !== "info" ? getStatusColor(selectedAlert.type) : undefined}
-                    sx={{
-                      fontWeight: 600,
-                      color: selectedAlert.type === "info" ? "white !important" : undefined,
-                      bgcolor: selectedAlert.type === "info" ? "rgba(59, 130, 246, 0.25) !important" : undefined,
-                      borderColor: selectedAlert.type === "info" ? "rgba(59, 130, 246, 0.5) !important" : undefined,
-                      '& .MuiChip-label': {
-                        color: selectedAlert.type === "info" ? "white !important" : undefined,
-                      },
-                    }}
-                  />
-                  <Chip
-                    label={selectedAlert.status === "active" ? "Actif" : "Résolu"}
-                    color={selectedAlert.status === "active" ? "error" : undefined}
-                    variant="outlined"
-                    sx={{
-                      fontWeight: 600,
-                      color: selectedAlert.status === "active" ? undefined : "white !important",
-                      bgcolor: selectedAlert.status === "active" ? undefined : "rgba(16, 185, 129, 0.15) !important",
-                      borderColor: selectedAlert.status === "active" ? undefined : "rgba(16, 185, 129, 0.5) !important",
-                      '& .MuiChip-label': {
-                        color: selectedAlert.status === "active" ? undefined : "white !important",
-                      },
-                    }}
-                  />
+                  <Chip label={selectedAlert.type === "critical" ? "Critique" : selectedAlert.type === "warning" ? "Avertissement" : "Info"} color={getStatusColor(selectedAlert.type)} sx={{ fontWeight: 600 }} />
+                  <Chip label={selectedAlert.status === "active" ? "Actif" : "Résolu"} variant="outlined" sx={{ fontWeight: 600, color: "white", borderColor: "rgba(59,130,246,0.4)" }} />
                 </Box>
               </Box>
-
-              {/* Message */}
               <Box>
-                <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 1 }}>
-                  Message
-                </Typography>
-                <Paper
-                  sx={{
-                    p: 2,
-                    bgcolor: "rgba(30, 41, 59, 0.3)",
-                    border: "1px solid rgba(59, 130, 246, 0.2)",
-                    borderRadius: 2,
-                  }}
-                >
-                  <Typography sx={{ color: "#94a3b8" }}>
-                    {selectedAlert.message || "Alerte système"}
-                  </Typography>
+                <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 1 }}>Message</Typography>
+                <Paper sx={{ p: 2, bgcolor: "rgba(30, 41, 59, 0.3)", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: 2 }}>
+                  <Typography sx={{ color: "#94a3b8" }}>{selectedAlert.message || "Alerte système"}</Typography>
                 </Paper>
               </Box>
-
-              {/* Informations détaillées */}
               <Box>
-                <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 1.5 }}>
-                  Informations détaillées
-                </Typography>
+                <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 1.5 }}>Informations détaillées</Typography>
                 <Grid container spacing={2}>
-                  <Grid item xs={6}>
-                    <Box
-                      sx={{
-                        p: 2,
-                        bgcolor: "rgba(30, 41, 59, 0.3)",
-                        border: "1px solid rgba(59, 130, 246, 0.2)",
-                        borderRadius: 2,
-                      }}
-                    >
-                      <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 0.5 }}>
-                        Module
-                      </Typography>
-                      <Typography sx={{ color: "white", fontWeight: 600 }}>
-                        {selectedAlert.module || "N/A"}
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Box
-                      sx={{
-                        p: 2,
-                        bgcolor: "rgba(30, 41, 59, 0.3)",
-                        border: "1px solid rgba(59, 130, 246, 0.2)",
-                        borderRadius: 2,
-                      }}
-                    >
-                      <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 0.5 }}>
-                        Date/Heure
-                      </Typography>
-                      <Typography sx={{ color: "white", fontWeight: 600 }}>
-                        {selectedAlert.time || "Récemment"}
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Box
-                      sx={{
-                        p: 2,
-                        bgcolor: "rgba(30, 41, 59, 0.3)",
-                        border: "1px solid rgba(59, 130, 246, 0.2)",
-                        borderRadius: 2,
-                      }}
-                    >
-                      <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 0.5 }}>
-                        ID Alerte
-                      </Typography>
-                      <Typography sx={{ color: "white", fontWeight: 600, fontFamily: "monospace" }}>
-                        #{selectedAlert.id || "N/A"}
-                      </Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={6}>
-                    <Box
-                      sx={{
-                        p: 2,
-                        bgcolor: "rgba(30, 41, 59, 0.3)",
-                        border: "1px solid rgba(59, 130, 246, 0.2)",
-                        borderRadius: 2,
-                      }}
-                    >
-                      <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 0.5 }}>
-                        Priorité
-                      </Typography>
-                      <Typography sx={{ color: "white", fontWeight: 600 }}>
-                        {selectedAlert.type === "critical" ? "Haute" : selectedAlert.type === "warning" ? "Moyenne" : "Basse"}
-                      </Typography>
-                    </Box>
-                  </Grid>
+                  {[
+                    { label: "Module", value: selectedAlert.module || "N/A" },
+                    { label: "Date/Heure", value: selectedAlert.time || "Récemment" },
+                    { label: "ID Alerte", value: `#${selectedAlert.id || "N/A"}`, mono: true },
+                    { label: "Priorité", value: selectedAlert.type === "critical" ? "Haute" : selectedAlert.type === "warning" ? "Moyenne" : "Basse" },
+                  ].map(({ label, value, mono }) => (
+                    <Grid item xs={6} key={label}>
+                      <Box sx={{ p: 2, bgcolor: "rgba(30, 41, 59, 0.3)", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: 2 }}>
+                        <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 0.5 }}>{label}</Typography>
+                        <Typography sx={{ color: "white", fontWeight: 600, fontFamily: mono ? "monospace" : "inherit" }}>{value}</Typography>
+                      </Box>
+                    </Grid>
+                  ))}
                 </Grid>
               </Box>
-
-              {/* Informations supplémentaires */}
-              {Object.keys(selectedAlert).filter(key => 
-                !["id", "type", "status", "message", "module", "time"].includes(key)
-              ).length > 0 && (
-                <Box>
-                  <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 1.5 }}>
-                    Données supplémentaires
-                  </Typography>
-                  <Paper
-                    sx={{
-                      p: 2,
-                      bgcolor: "rgba(30, 41, 59, 0.3)",
-                      border: "1px solid rgba(59, 130, 246, 0.2)",
-                      borderRadius: 2,
-                      maxHeight: 200,
-                      overflowY: "auto",
-                    }}
-                  >
-                    <Box sx={{ fontFamily: "monospace", fontSize: "0.85rem" }}>
-                      {Object.entries(selectedAlert)
-                        .filter(([key]) => !["id", "type", "status", "message", "module", "time"].includes(key))
-                        .map(([key, value]) => (
-                          <Box key={key} sx={{ mb: 1 }}>
-                            <Typography component="span" sx={{ color: "#3b82f6" }}>
-                              {key}:
-                            </Typography>
-                            <Typography component="span" sx={{ color: "#94a3b8", ml: 1 }}>
-                              {typeof value === "object" ? JSON.stringify(value) : String(value)}
-                            </Typography>
-                          </Box>
-                        ))}
-                    </Box>
-                  </Paper>
-                </Box>
-              )}
-
-              {/* Actions recommandées */}
               <Box>
-                <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 1 }}>
-                  Actions recommandées
-                </Typography>
-                <Alert
-                  severity={selectedAlert.type === "critical" ? "error" : selectedAlert.type === "warning" ? "warning" : "info"}
-                  sx={{
-                    bgcolor: selectedAlert.type === "critical"
-                      ? "rgba(239, 68, 68, 0.1)"
-                      : selectedAlert.type === "warning"
-                      ? "rgba(251, 146, 60, 0.1)"
-                      : "rgba(59, 130, 246, 0.1)",
-                    color: selectedAlert.type === "critical"
-                      ? "#fecaca"
-                      : selectedAlert.type === "warning"
-                      ? "#fde68a"
-                      : "#ffffff",
-                    border: `1px solid ${
-                      selectedAlert.type === "critical"
-                        ? "rgba(239, 68, 68, 0.2)"
-                        : selectedAlert.type === "warning"
-                        ? "rgba(251, 146, 60, 0.2)"
-                        : "rgba(28, 29, 30, 0.2)"
-                    }`,
-                  }}
-                >
+                <Typography variant="caption" sx={{ color: "#64748b", display: "block", mb: 1 }}>Actions recommandées</Typography>
+                <Alert severity={selectedAlert.type === "critical" ? "error" : selectedAlert.type === "warning" ? "warning" : "info"}>
                   {selectedAlert.type === "critical"
                     ? "Action immédiate requise - Vérifiez les logs système et contactez l'équipe technique."
                     : selectedAlert.type === "warning"
@@ -1687,130 +1037,76 @@ useEffect(() => {
             </Box>
           )}
         </DialogContent>
-        <DialogActions
-          sx={{ p: 3, borderTop: "1px solid rgba(59, 130, 246, 0.1)" }}
-        >
-          <Button
-            onClick={handleCloseAlertDetails}
-            sx={{
-              color: "#94a3b8",
-              "&:hover": {
-                bgcolor: "rgba(59, 130, 246, 0.1)",
-              },
-            }}
-          >
-            Fermer
-          </Button>
-          <Button
-            variant="contained"
-            sx={{
-              bgcolor: "#3b82f6",
-              color: "white",
-              fontWeight: 600,
-              "&:hover": {
-                bgcolor: "#2563eb",
-              },
-            }}
-            onClick={() => {
-              handleCloseAlertDetails();
-              setSuccessMessage("Alerte marquée comme traitée");
-            }}
-          >
+        <DialogActions sx={{ p: 3, borderTop: "1px solid rgba(59, 130, 246, 0.1)" }}>
+          <Button onClick={handleCloseAlertDetails} sx={{ color: "#94a3b8", "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>Fermer</Button>
+          <Button variant="contained" sx={{ bgcolor: "#3b82f6", color: "white", fontWeight: 600, "&:hover": { bgcolor: "#2563eb" } }} onClick={() => { handleCloseAlertDetails(); setSuccessMessage("Alerte marquée comme traitée"); }}>
             Marquer comme traitée
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Dialog de confirmation de suppression */}
-      <Dialog
-        open={deleteDialogOpen}
-        onClose={() => setDeleteDialogOpen(false)}
-        PaperProps={{
-          sx: {
-            bgcolor: "#1e293b",
-            border: "1px solid rgba(239, 68, 68, 0.2)",
-            borderRadius: 3,
-          },
-        }}
-      >
-        <DialogTitle
-          sx={{
-            color: "white",
-            borderBottom: "1px solid rgba(239, 68, 68, 0.1)",
-          }}
-        >
+      {/* Notifications menu */}
+      <Menu anchorEl={notificationsAnchorEl} open={Boolean(notificationsAnchorEl)} onClose={handleCloseNotifications} PaperProps={{ sx: { mt: 1, width: 360, bgcolor: "#0f172a", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: 2, overflow: "hidden" } }}>
+        <Box sx={{ p: 2, borderBottom: "1px solid rgba(59, 130, 246, 0.1)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Typography sx={{ color: "white", fontWeight: 700 }}>Notifications</Typography>
+          <Button size="small" onClick={handleMarkAllNotificationsRead} sx={{ color: "#3b82f6", textTransform: "none", fontSize: "0.75rem" }}>Tout marquer comme lu</Button>
+        </Box>
+        <Box sx={{ maxHeight: 360, overflowY: "auto" }}>
+          {unreadNotifications.length > 0 ? (
+            unreadNotifications.slice(0, 6).map((notif) => (
+              <Box key={notif.id} sx={{ px: 2, py: 1.5, display: "flex", gap: 1.5, borderBottom: "1px solid rgba(59, 130, 246, 0.08)" }}>
+                <Box sx={{ pt: 0.6 }}>
+                  <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: getNotificationDotColor(notif) }} />
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
+                    <Typography sx={{ color: "white", fontWeight: 600, fontSize: "0.9rem" }}>{notif.title}</Typography>
+                    <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", whiteSpace: "nowrap" }}>{formatRelativeTime(notif.created_at)}</Typography>
+                  </Box>
+                  <Typography sx={{ color: "#94a3b8", fontSize: "0.8rem" }}>{notif.message}</Typography>
+                </Box>
+              </Box>
+            ))
+          ) : (
+            <Box sx={{ p: 2 }}>
+              <Typography sx={{ color: "#94a3b8", fontSize: "0.85rem" }}>Aucune notification non lue</Typography>
+            </Box>
+          )}
+        </Box>
+        <Box sx={{ p: 1.5, borderTop: "1px solid rgba(59, 130, 246, 0.1)", textAlign: "center" }}>
+          <Button size="small" onClick={() => { handleCloseNotifications(); navigate("/notifications"); }} sx={{ color: "#3b82f6", textTransform: "none", fontSize: "0.85rem" }}>
+            Voir toutes les notifications
+          </Button>
+        </Box>
+      </Menu>
+
+      {/* Delete dialog */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} PaperProps={{ sx: { bgcolor: "#1e293b", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: 3 } }}>
+        <DialogTitle sx={{ color: "white", borderBottom: "1px solid rgba(239, 68, 68, 0.1)" }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-            <ErrorIcon sx={{ color: "#ef4444" }} />
-            Confirmer la suppression
+            <ErrorIcon sx={{ color: "#ef4444" }} /> Confirmer la suppression
           </Box>
         </DialogTitle>
         <DialogContent sx={{ pt: 3 }}>
           <Typography sx={{ color: "#94a3b8", mb: 2 }}>
-            Êtes-vous sûr de vouloir supprimer l'utilisateur{" "}
-            <strong style={{ color: "white" }}>{selectedUser?.name}</strong> ?
+            Êtes-vous sûr de vouloir supprimer l'utilisateur <strong style={{ color: "white" }}>{selectedUser?.name}</strong> ?
           </Typography>
-          <Alert
-            severity="warning"
-            sx={{
-              bgcolor: "rgba(251, 146, 60, 0.1)",
-              border: "1px solid rgba(251, 146, 60, 0.2)",
-            }}
-          >
-            Cette action est irréversible. Toutes les données associées seront
-            également supprimées.
+          <Alert severity="warning" sx={{ bgcolor: "rgba(251, 146, 60, 0.1)", border: "1px solid rgba(251, 146, 60, 0.2)" }}>
+            Cette action est irréversible. Toutes les données associées seront également supprimées.
           </Alert>
         </DialogContent>
-        <DialogActions
-          sx={{ p: 3, borderTop: "1px solid rgba(239, 68, 68, 0.1)" }}
-        >
-          <Button
-            onClick={() => setDeleteDialogOpen(false)}
-            sx={{
-              color: "#94a3b8",
-              "&:hover": {
-                bgcolor: "rgba(59, 130, 246, 0.1)",
-              },
-            }}
-          >
-            Annuler
-          </Button>
-          <Button
-            onClick={confirmDeleteUser}
-            variant="contained"
-            sx={{
-              bgcolor: "#ef4444",
-              color: "white",
-              fontWeight: 600,
-              "&:hover": {
-                bgcolor: "#dc2626",
-              },
-            }}
-          >
-            Supprimer
-          </Button>
+        <DialogActions sx={{ p: 3, borderTop: "1px solid rgba(239, 68, 68, 0.1)" }}>
+          <Button onClick={() => setDeleteDialogOpen(false)} sx={{ color: "#94a3b8", "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>Annuler</Button>
+          <Button onClick={confirmDeleteUser} variant="contained" sx={{ bgcolor: "#ef4444", color: "white", fontWeight: 600, "&:hover": { bgcolor: "#dc2626" } }}>Supprimer</Button>
         </DialogActions>
       </Dialog>
 
-      {/* Snackbar pour les messages */}
-      <Snackbar
-        open={!!successMessage}
-        autoHideDuration={3000}
-        onClose={() => setSuccessMessage("")}
-        anchorOrigin={{ vertical: "top", horizontal: "right" }}
-      >
-        <Alert severity="success" sx={{ width: "100%" }}>
-          {successMessage}
-        </Alert>
+      {/* Snackbars */}
+      <Snackbar open={!!successMessage} autoHideDuration={3000} onClose={() => setSuccessMessage("")} anchorOrigin={{ vertical: "top", horizontal: "right" }}>
+        <Alert severity="success" sx={{ width: "100%" }}>{successMessage}</Alert>
       </Snackbar>
-      <Snackbar
-        open={!!errorMessage}
-        autoHideDuration={3000}
-        onClose={() => setErrorMessage("")}
-        anchorOrigin={{ vertical: "top", horizontal: "right" }}
-      >
-        <Alert severity="error" sx={{ width: "100%" }}>
-          {errorMessage}
-        </Alert>
+      <Snackbar open={!!errorMessage} autoHideDuration={3000} onClose={() => setErrorMessage("")} anchorOrigin={{ vertical: "top", horizontal: "right" }}>
+        <Alert severity="error" sx={{ width: "100%" }}>{errorMessage}</Alert>
       </Snackbar>
     </Box>
   );

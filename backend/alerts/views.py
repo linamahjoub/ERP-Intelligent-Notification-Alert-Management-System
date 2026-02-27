@@ -5,11 +5,9 @@ from django.shortcuts import get_object_or_404
 from django.core.mail import send_mail, EmailMessage
 from django.conf import settings
 import logging
-import json
-import urllib.request
-import urllib.error
 from .models import Alert
 from .serializers import AlertSerializer
+from activity.models import ActivityLog
 
 # Configurer le logger
 logger = logging.getLogger(__name__)
@@ -21,93 +19,6 @@ def normalize_channels(channels):
     if isinstance(channels, list):
         return [str(c).strip().lower() for c in channels if str(c).strip()]
     return [str(channels).strip().lower()]
-
-
-def extract_telegram_recipients(recipients):
-    if isinstance(recipients, str):
-        candidate_list = [recipients]
-    elif isinstance(recipients, list):
-        candidate_list = recipients
-    else:
-        logger.warning(f"Types de destinataires Telegram invalide: {type(recipients)}")
-        return []
-
-    telegram_list = []
-    for recipient in candidate_list:
-        value = str(recipient).strip()
-        if not value:
-            continue
-        if value.startswith('@') or value.lstrip('-').isdigit():
-            telegram_list.append(value)
-    return telegram_list
-
-
-def send_telegram_message(chat_id, text):
-    token = getattr(settings, 'TELEGRAM_BOT_TOKEN', '')
-    if not token or token == 'PASTE_YOUR_TELEGRAM_BOT_TOKEN':
-        logger.warning("TELEGRAM_BOT_TOKEN non configuré")
-        return False
-
-    url = f"https://api.telegram.org/bot{token}/sendMessage"
-    payload = json.dumps({
-        'chat_id': chat_id,
-        'text': text,
-    }).encode('utf-8')
-
-    request = urllib.request.Request(
-        url,
-        data=payload,
-        headers={'Content-Type': 'application/json'},
-    )
-
-    try:
-        with urllib.request.urlopen(request, timeout=10) as response:
-            body = response.read().decode('utf-8')
-        parsed = json.loads(body) if body else {}
-        if not parsed.get('ok'):
-            logger.error(f"Erreur Telegram API: {parsed}")
-            return False
-        return True
-    except urllib.error.HTTPError as e:
-        logger.error(f"Erreur HTTP Telegram: {e.read().decode('utf-8')}")
-        return False
-    except Exception as e:
-        logger.error(f"Erreur lors de l'envoi Telegram: {str(e)}", exc_info=True)
-        return False
-
-
-def send_alert_telegram(recipients, alert_name, module, severity, message=""):
-    telegram_list = extract_telegram_recipients(recipients)
-    if not telegram_list:
-        logger.warning("Aucun destinataire Telegram valide à envoyer")
-        return False
-
-    severity_map = {
-        'critical': 'CRITIQUE',
-        'high': 'HAUTE',
-        'medium': 'MOYENNE',
-        'low': 'BASSE'
-    }
-    severity_label = severity_map.get(severity, severity)
-
-    telegram_body = (
-        "⚠️ ALERTE DÉCLENCHÉE\n"
-        f"Nom: {alert_name}\n"
-        f"Module: {module}\n"
-        f"Sévérité: {severity_label}\n"
-        f"Timestamp: {__import__('datetime').datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
-        f"{message}\n\n"
-        f"Détails: {settings.FRONTEND_URL}"
-    )
-
-    any_success = False
-    for chat_id in telegram_list:
-        if send_telegram_message(chat_id, telegram_body):
-            any_success = True
-
-    if any_success:
-        logger.info(f"Alerte Telegram envoyée à {len(telegram_list)} destinataire(s)")
-    return any_success
 
 
 def send_alert_email(recipients, alert_name, module, severity, message=""):
@@ -202,6 +113,13 @@ class AlertViewSet(viewsets.ModelViewSet):
         # Les utilisateurs normaux ne voient que leurs propres alertes
         return Alert.objects.filter(user=user)
     
+    def update(self, request, *args, **kwargs):
+        """Log la mise à jour"""
+        print(f"\n[VIEWSET UPDATE] Requête {request.method} pour alertes")
+        print(f"[VIEWSET UPDATE] URL: {request.path}")
+        print(f"[VIEWSET UPDATE] Utilisateur: {request.user}")
+        return super().update(request, *args, **kwargs)
+    
     def list(self, request, *args, **kwargs):
         """Retourner la liste des alertes"""
         queryset = self.get_queryset()
@@ -210,12 +128,31 @@ class AlertViewSet(viewsets.ModelViewSet):
     
     def perform_create(self, serializer):
         """Associer l'alerte à l'utilisateur actuel et envoyer un email de confirmation"""
+        print("\n" + "="*80)
+        print("[PERFORM_CREATE]  perform_create() a été appelé!")
+        print("="*80)
+        
         alert = serializer.save(user=self.request.user)
         channels = normalize_channels(alert.notification_channels)
+        
+        # Logger l'activité
+        ActivityLog.objects.create(
+            actor=self.request.user,
+            action_type=ActivityLog.ACTION_ALERT_CREATED,
+            title=f"Nouvelle alerte: {alert.name}",
+            description=f"Sévérité: {alert.get_severity_display()} | Module: {alert.module}",
+        )
         
         # Envoyer un email de confirmation au créateur
         try:
             user_email = self.request.user.email
+            print(f"[ALERT CREATE] Email utilisateur: {user_email}")
+            
+            if not user_email:
+                print(f"[ALERT CREATE] ⚠️ Email utilisateur VIDE! Impossible d'envoyer.")
+                logger.warning(f"Email utilisateur vide pour {self.request.user.username}")
+                return
+            
             alert_name = alert.name
             module = alert.module
             severity = alert.severity
@@ -249,29 +186,22 @@ Cordialement,
 L'équipe SmartNotify
             """
             
-            send_mail(
+            print(f"[ALERT CREATE] Envoi d'email à: {user_email}")
+            result = send_mail(
                 subject,
                 message,
                 settings.DEFAULT_FROM_EMAIL,
                 [user_email],
                 fail_silently=False,
             )
-            logger.info(f"Email de confirmation d'alerte envoyé à {user_email}")
-
-            if self.request.user.telegram_chat_id:
-                telegram_message = (
-                    "✅ Alerte créée avec succès\n"
-                    f"Nom: {alert_name}\n"
-                    f"Module: {module}\n"
-                    f"Sévérité: {alert.get_severity_display()}\n"
-                    f"Type: {alert.get_condition_type_display()}\n"
-                    f"Statut: {'ACTIVE' if alert.is_active else 'INACTIVE'}\n"
-                    f"Canaux: {', '.join(channels) if channels else 'Aucun'}\n\n"
-                    f"Gérer: {settings.FRONTEND_URL}/alerts"
-                )
-                send_telegram_message(self.request.user.telegram_chat_id, telegram_message)
+            print(f"[ALERT CREATE] Résultat send_mail: {result}")
+            
+            if result > 0:
+                print(f"[ALERT CREATE] ✅ Email envoyé avec succès à {user_email}")
+                logger.info(f"✅ Email de confirmation d'alerte envoyé à {user_email}")
             else:
-                logger.warning("telegram_chat_id manquant pour l'utilisateur")
+                print(f"[ALERT CREATE] ⚠️ send_mail a retourné {result}")
+                logger.warning(f"⚠️ Email de création non envoyé à {user_email} (result={result})")
             
             # Envoyer un email aux destinataires spécifiés
             if alert.recipients and 'email' in channels:
@@ -284,29 +214,86 @@ L'équipe SmartNotify
                 )
                 if success:
                     logger.info(f" Alerte envoyée à {len(alert.recipients)} destinataire(s)")
-
-            if alert.recipients and 'telegram' in channels:
-                send_alert_telegram(
-                    alert.recipients,
-                    alert_name,
-                    module,
-                    severity,
-                    f"Nouvelle alerte configurée.\n\nDescription: {alert.description or 'Aucune'}\nThreshold: {alert.threshold_value or 'Non défini'}"
-                )
             
         except Exception as e:
             # Log l'erreur mais ne pas empêcher la création de l'alerte
-            logger.error(f" Erreur lors de l'envoi des emails: {str(e)}", exc_info=True)
+            print(f"[ALERT CREATE] ❌ ERREUR: {type(e).__name__}: {str(e)}")
+            logger.error(f"❌ Erreur lors de l'envoi de l'email de création: {str(e)}", exc_info=True)
     
     def perform_update(self, serializer):
-        """Vérifier que l'utilisateur ne peut modifier que ses propres alertes"""
+        """Vérifier que l'utilisateur ne peut modifier que ses propres alertes et envoyer une notification"""
+        from rest_framework.exceptions import PermissionDenied
+        
+        print("\n" + "="*80)
+        print("[PERFORM_UPDATE] ✅ perform_update() a été appelé!")
+        print("="*80)
+        
         alert = self.get_object()
         if alert.user != self.request.user and not self.request.user.is_staff:
-            return Response(
-                {'error': 'Vous n\'avez pas la permission de modifier cette alerte'},
-                status=status.HTTP_403_FORBIDDEN
+            raise PermissionDenied("Vous n'avez pas la permission de modifier cette alerte")
+        
+        # Sauvegarder les modifications
+        alert_updated = serializer.save()
+        print(f"\n[ALERT UPDATE] Alerte mise à jour: {alert_updated.name}")
+        
+        # Envoyer une notification de modification
+        user_email = self.request.user.email
+        print(f"[ALERT UPDATE] Email utilisateur: {user_email}")
+        
+        if not user_email:
+            print(f"[ALERT UPDATE]  Email utilisateur vide! Impossible d'envoyer.")
+            logger.warning(f"Email utilisateur vide pour {self.request.user.username}")
+            return
+        
+        try:
+            alert_name = alert_updated.name
+            module = alert_updated.module
+            
+            subject = 'Alerte modifiée avec succès'
+            message = f"""
+Bonjour {self.request.user.username},
+
+Votre alerte a été modifiée avec succès!
+
+Détails de votre alerte:
+  ├─ Nom: {alert_name}
+  ├─ Module: {module}
+  ├─ Sévérité: {alert_updated.get_severity_display()}
+  ├─ Type: {alert_updated.get_condition_type_display()}
+  ├─ Statut: {'ACTIVE' if alert_updated.is_active else 'INACTIVE'}
+  └─ Canaux: {', '.join(alert_updated.notification_channels) if alert_updated.notification_channels else 'Aucun'}
+
+Destinataires d'alerte: 
+  {', '.join(alert_updated.recipients) if alert_updated.recipients else 'Aucun destinataire configuré'}
+
+Vous et les destinataires recevrez des notifications selon la configuration actuelle.
+
+Connectez-vous pour gérer vos alertes: {settings.FRONTEND_URL}/alerts
+
+Cordialement,
+L'équipe SmartNotify
+            """
+            
+            print(f"[ALERT UPDATE] Envoi d'email à: {user_email}")
+            result = send_mail(
+                subject,
+                message,
+                settings.DEFAULT_FROM_EMAIL,
+                [user_email],
+                fail_silently=False,
             )
-        serializer.save()
+            print(f"[ALERT UPDATE] Résultat send_mail: {result}")
+            
+            if result > 0:
+                print(f"[ALERT UPDATE] ✅ Email envoyé avec succès à {user_email}")
+                logger.info(f"✅ Email de modification d'alerte envoyé avec succès à {user_email}")
+            else:
+                print(f"[ALERT UPDATE] ⚠️ send_mail a retourné {result}")
+                logger.warning(f"⚠️ Email de modification non envoyé à {user_email} (result={result})")
+            
+        except Exception as e:
+            print(f"[ALERT UPDATE] ❌ ERREUR: {type(e).__name__}: {str(e)}")
+            logger.error(f"❌ Erreur lors de l'envoi de l'email de modification: {str(e)}", exc_info=True)
     
     def perform_destroy(self, instance):
         """Vérifier que l'utilisateur ne peut supprimer que ses propres alertes"""
@@ -364,7 +351,6 @@ L'équipe SmartNotify
         message = f"Description: {alert.description or 'Aucune'}\n\nCondition: {alert.threshold_value or 'Non défini'}"
 
         email_success = False
-        telegram_success = False
 
         if 'email' in channels:
             email_success = send_alert_email(
@@ -375,16 +361,7 @@ L'équipe SmartNotify
                 message
             )
 
-        if 'telegram' in channels:
-            telegram_success = send_alert_telegram(
-                alert.recipients,
-                alert.name,
-                alert.module,
-                alert.severity,
-                message
-            )
-
-        if email_success or telegram_success:
+        if email_success:
             logger.info(f" Alerte {alert.id} envoyée à {len(alert.recipients)} destinataire(s)")
             return Response({
                 'message': f'Alerte envoyée avec succès à {len(alert.recipients)} destinataire(s)',

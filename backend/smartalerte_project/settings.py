@@ -5,6 +5,10 @@ Django settings for smartalerte_project.
 from pathlib import Path
 from datetime import timedelta
 import os
+from dotenv import load_dotenv
+
+# Charger les variables d'environnement depuis .env
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -35,9 +39,11 @@ INSTALLED_APPS = [
     'accounts',
     'alerts',
     'notifications',
+    'activity',
     'stock',
     'fournisseur',
     'categories',
+    'entrepots',
 ]
 
 MIDDLEWARE = [
@@ -197,16 +203,13 @@ SIMPLE_JWT = {
     
     'JTI_CLAIM': 'jti',
 }
-# Configuration email - À MODIFIER AVEC VOS VRAIS IDENTIFIANTS
+# Configuration email
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'mahjoublina1010@gmail.com'  # REMPLACEZ PAR VOTRE EMAIL
-EMAIL_HOST_PASSWORD = 'lgrf nvum dtik mzet'  # REMPLACEZ PAR LE MOT DE PASSE D'APPLICATION
-DEFAULT_FROM_EMAIL = 'SmartNotify <mahjoublina1010@gmail.com>'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'mahjoublina1010@gmail.com')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')  # À configurer dans .env
+DEFAULT_FROM_EMAIL = f'SmartNotify <{EMAIL_HOST_USER}>'
 FRONTEND_URL = 'http://localhost:3004'
-
-# Telegram bot configuration
-TELEGRAM_BOT_TOKEN = '8581911771:AAE4kZ8za8DfOn37t60-m3NX0I2pGw8fPXQ'
 

@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { useActivityContext } from "../../context/ActivityContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Box, Typography, Grid, Card, CardContent, Avatar, IconButton, Button,
   useTheme, useMediaQuery, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Chip, Menu, MenuItem, TextField, Tooltip, Dialog,
   DialogTitle, DialogContent, DialogActions, Alert, Snackbar, Badge, Divider,
+  FormControl, InputLabel, Select,
 } from "@mui/material";
 import {
   Inventory as InventoryIcon,
@@ -65,6 +67,7 @@ const StatCard = ({ label, value, color, onClick }) => {
 
 const DashboardStock = () => {
   const { user } = useAuth();
+  const { triggerActivityRefresh } = useActivityContext();
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -81,6 +84,8 @@ const DashboardStock = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [anchorEl, setAnchorEl] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [availableCategories, setAvailableCategories] = useState([]);
+  const [availableSuppliers, setAvailableSuppliers] = useState([]);
   const [formData, setFormData] = useState({
     id: null, name: "", sku: "", category: "", status: "optimal",
     quantity: 0, minQuantity: 0, maxQuantity: 0, price: 0, supplier: "",
@@ -192,6 +197,8 @@ const DashboardStock = () => {
       } else {
         setProducts([saved, ...products]);
         setSuccessMessage("Produit ajouté avec succès");
+        // Déclencher le rafraîchissement des activités récentes
+        triggerActivityRefresh();
       }
       handleCloseAddDialog();
     } catch (error) {
@@ -301,7 +308,51 @@ const DashboardStock = () => {
 
   useEffect(() => {
     fetchProducts();
+    fetchCategories();
+    fetchSuppliers();
   }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const res = await fetch('http://localhost:8000/api/categories/', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Erreur API');
+      const data = await res.json();
+      const items = Array.isArray(data) ? data : (data.results || []);
+      console.log('Catégories reçues:', items);
+      setAvailableCategories(items);
+    } catch (err) {
+      console.error('Erreur lors du chargement des catégories:', err);
+      setAvailableCategories([]);
+    }
+  };
+
+  const fetchSuppliers = async () => {
+    try {
+      const token = localStorage.getItem('access_token');
+      const res = await fetch('http://localhost:8000/api/fournisseurs/', {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error('Erreur API');
+      const data = await res.json();
+      console.log('Réponse API fournisseurs:', data);
+      let items = [];
+      if (Array.isArray(data)) {
+        items = data;
+      } else if (data.results && Array.isArray(data.results)) {
+        items = data.results;
+      } else {
+        console.warn('Format de réponse inattendu:', data);
+      }
+      console.log('Fournisseurs traités:', items);
+      setAvailableSuppliers(items);
+    } catch (err) {
+      console.error('Erreur lors du chargement des fournisseurs:', err);
+      setAvailableSuppliers([]);
+    }
+  };
 
   useEffect(() => {
     if (location.pathname === "/stock/new") {
@@ -600,12 +651,71 @@ const DashboardStock = () => {
           {[
             { label: "Nom du produit", key: "name", type: "text" },
             { label: "SKU", key: "sku", type: "text" },
-            { label: "Catégorie", key: "category", type: "text" },
+          ].map(({ label, key, type }) => (
+            <TextField key={key} label={label} type={type} value={formData[key]} fullWidth size="small" sx={inputSx}
+              onChange={(e) => setFormData({ ...formData, [key]: e.target.value })}
+            />
+          ))}
+          
+          {/* Category Dropdown */}
+          <FormControl fullWidth size="small">
+            <InputLabel sx={{ color: '#64748b', '&.Mui-focused': { color: '#3b82f6' } }}>Catégorie</InputLabel>
+            <Select
+              value={formData.category || ""}
+              label="Catégorie"
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              sx={{
+                color: '#94a3b8',
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(59,130,246,0.2)' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(59,130,246,0.4)' },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#3b82f6' },
+                bgcolor: 'rgba(59,130,246,0.05)',
+                borderRadius: '10px',
+              }}
+            >
+              <MenuItem value="">
+                <Typography sx={{ color: '#94a3b8' }}>Sélectionner une catégorie</Typography>
+              </MenuItem>
+              {availableCategories.map((cat) => (
+                <MenuItem key={cat.id} value={cat.name}>
+                  <Typography sx={{ color: 'white' }}>{cat.name}</Typography>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          
+          {/* Supplier Dropdown */}
+          <FormControl fullWidth size="small">
+            <InputLabel sx={{ color: '#64748b', '&.Mui-focused': { color: '#3b82f6' } }}>Fournisseur</InputLabel>
+            <Select
+              value={formData.supplier || ""}
+              label="Fournisseur"
+              onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
+              sx={{
+                color: '#94a3b8',
+                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(59,130,246,0.2)' },
+                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(59,130,246,0.4)' },
+                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#3b82f6' },
+                bgcolor: 'rgba(59,130,246,0.05)',
+                borderRadius: '10px',
+              }}
+            >
+              <MenuItem value="">
+                <Typography sx={{ color: '#94a3b8' }}>Sélectionner un fournisseur</Typography>
+              </MenuItem>
+              {availableSuppliers.map((supplier) => (
+                <MenuItem key={supplier.id} value={supplier.name}>
+                  <Typography sx={{ color: 'white' }}>{supplier.name}</Typography>
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+          
+          {[
             { label: "Quantité", key: "quantity", type: "number" },
             { label: "Quantité min.", key: "minQuantity", type: "number" },
             { label: "Quantité max.", key: "maxQuantity", type: "number" },
             { label: "Prix", key: "price", type: "number" },
-            { label: "Fournisseur", key: "supplier", type: "text" },
           ].map(({ label, key, type }) => (
             <TextField key={key} label={label} type={type} value={formData[key]} fullWidth size="small" sx={inputSx}
               onChange={(e) => setFormData({ ...formData, [key]: type === "number" ? (key === "price" ? parseFloat(e.target.value) || 0 : parseInt(e.target.value) || 0) : e.target.value })}

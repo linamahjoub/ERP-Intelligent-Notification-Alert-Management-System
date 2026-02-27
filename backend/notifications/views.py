@@ -3,7 +3,9 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
-from .models import Notification
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
+from .models import Notification, NotificationEmailRecipient
 from .serializers import NotificationSerializer, CreateNotificationSerializer
 
 
@@ -77,3 +79,36 @@ class NotificationViewSet(viewsets.ModelViewSet):
             'message': f'{deleted_count} notification(s) supprimée(s)',
             'count': deleted_count
         })
+
+    @action(detail=False, methods=['get', 'put'])
+    def email_recipients(self, request):
+        """Lister ou remplacer les emails de notification de l'utilisateur"""
+        user = request.user
+
+        if request.method == 'GET':
+            emails = list(NotificationEmailRecipient.objects.filter(user=user).values_list('email', flat=True))
+            return Response({'emails': emails})
+
+        emails = request.data.get('emails', [])
+        if not isinstance(emails, list):
+            return Response({'detail': 'Le champ emails doit être une liste.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        cleaned = []
+        for raw in emails:
+            if not isinstance(raw, str):
+                continue
+            email = raw.strip()
+            if not email:
+                continue
+            try:
+                validate_email(email)
+            except ValidationError:
+                return Response({'detail': f'Adresse email invalide: {email}'}, status=status.HTTP_400_BAD_REQUEST)
+            cleaned.append(email)
+
+        NotificationEmailRecipient.objects.filter(user=user).delete()
+        NotificationEmailRecipient.objects.bulk_create([
+            NotificationEmailRecipient(user=user, email=email) for email in sorted(set(cleaned))
+        ])
+
+        return Response({'emails': cleaned})

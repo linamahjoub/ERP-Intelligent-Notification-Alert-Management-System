@@ -1,4 +1,10 @@
 from django.contrib import admin
+from .models import NotificationEmailRecipient
+# Optional: manage extra notification recipients
+@admin.register(NotificationEmailRecipient)
+class NotificationEmailRecipientAdmin(admin.ModelAdmin):
+    list_display = ('user', 'email', 'created_at')
+    search_fields = ('user__username', 'user__email', 'email')
 from .models import Notification
 
 

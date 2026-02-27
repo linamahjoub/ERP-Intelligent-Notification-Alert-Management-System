@@ -15,8 +15,8 @@ class UserSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'id', 'email', 'username', 'first_name', 'last_name',
-            'full_name', 'phone_number', 'telegram_chat_id', 'role', 'company', 'profile_picture',
-            'is_active', 'is_staff', 'is_superuser', 'is_primary_admin',
+            'full_name', 'phone_number', 'role', 'company', 'profile_picture',
+            'authorized_pages', 'is_active', 'is_staff', 'is_superuser', 'is_primary_admin',
             'is_admin', 'date_joined', 'last_login', 'created_at', 'updated_at'
         ]
         read_only_fields = [
@@ -102,7 +102,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'first_name', 'last_name', 'username',
-            'phone_number', 'telegram_chat_id', 'company', 'profile_picture'
+            'phone_number', 'company', 'profile_picture'
         ]
     
     def validate_username(self, value):
@@ -126,7 +126,7 @@ class AdminUserCreateSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'email', 'username', 'password', 'first_name', 'last_name',
-            'phone_number', 'telegram_chat_id', 'company', 'role', 'is_active', 'is_staff',
+            'phone_number', 'company', 'role', 'authorized_pages', 'is_active', 'is_staff',
             'is_superuser', 'is_primary_admin'
         ]
     
@@ -145,7 +145,7 @@ class AdminUserUpdateSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'email', 'username', 'first_name', 'last_name',
-            'phone_number', 'telegram_chat_id', 'company', 'role', 'is_active', 'is_staff',
+            'phone_number', 'company', 'role', 'authorized_pages', 'is_active', 'is_staff',
             'is_superuser', 'is_primary_admin'
         ]
     

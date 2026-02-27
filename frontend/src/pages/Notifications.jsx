@@ -232,6 +232,7 @@ const Notifications = () => {
   const [notifications,        setNotifications]        = useState([]);
   const [alerts,               setAlerts]               = useState([]);
   const [employeeAlerts,       setEmployeeAlerts]       = useState([]);
+  const [employeeNotifications, setEmployeeNotifications] = useState([]);
   const [activeTab,            setActiveTab]            = useState(0);
   const [selectedNotification, setSelectedNotification] = useState(null);
   const [detailDialogOpen,     setDetailDialogOpen]     = useState(false);
@@ -258,6 +259,11 @@ const Notifications = () => {
   const [alertFilterDate,     setAlertFilterDate]     = useState("all");
   const [alertFilterStatus,   setAlertFilterStatus]   = useState("all");
 
+  /* filter state — employee notifications */
+  const [empNotifFilterAnchorEl, setEmpNotifFilterAnchorEl] = useState(null);
+  const [empNotifFilterDate,     setEmpNotifFilterDate]     = useState("all");
+  const [empNotifFilterStatus,   setEmpNotifFilterStatus]   = useState("all");
+
   /* option lists */
   const dateOptions = [
     { value: "all",        label: "Toutes les dates" },
@@ -278,6 +284,7 @@ const Notifications = () => {
 
   const activeFiltersCount      = (filterDate !== "all" ? 1 : 0) + (filterStatus !== "all" ? 1 : 0);
   const activeAlertFiltersCount = (alertFilterDate !== "all" ? 1 : 0) + (alertFilterStatus !== "all" ? 1 : 0);
+  const activeEmpNotifFiltersCount = (empNotifFilterDate !== "all" ? 1 : 0) + (empNotifFilterStatus !== "all" ? 1 : 0);
 
   /* ── auth helper */
   const authHeaders = () => ({
@@ -304,7 +311,26 @@ const Notifications = () => {
       const res  = await fetch("http://localhost:8000/api/notifications/", { headers: authHeaders() });
       if (!res.ok) throw new Error();
       const data = await res.json();
-      setNotifications(Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : []);
+      const allNotifications = Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : [];
+      
+      if (user?.is_superuser) {
+        // Admin: séparer mes notifications vs notifications des employés
+        const currentUserId = user?.id != null ? String(user.id) : null;
+        const normalizeNotifUserId = (notif) => {
+          const raw = notif?.user?.id ?? notif?.user;
+          return raw != null ? String(raw) : null;
+        };
+        
+        const myNotifications = allNotifications.filter((n) => normalizeNotifUserId(n) === currentUserId);
+        const empNotifications = allNotifications.filter((n) => normalizeNotifUserId(n) !== currentUserId);
+        
+        setNotifications(myNotifications);
+        setEmployeeNotifications(empNotifications);
+      } else {
+        // Utilisateur normal: voir seulement ses propres notifications
+        setNotifications(allNotifications);
+        setEmployeeNotifications([]);
+      }
     } catch { setErrorMessage("Erreur lors du chargement des notifications"); }
     finally  { setLoading(false); }
   };
@@ -404,6 +430,7 @@ const Notifications = () => {
     try {
       const updated = await patchNotification(id, "mark_as_read");
       setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, ...updated } : n));
+      setEmployeeNotifications((prev) => prev.map((n) => n.id === id ? { ...n, ...updated } : n));
       setSuccessMessage("Notification marquée comme lue");
     } catch { setErrorMessage("Erreur lors de la mise à jour"); }
   };
@@ -413,6 +440,7 @@ const Notifications = () => {
     try {
       const updated = await patchNotification(id, "mark_as_unread");
       setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, ...updated } : n));
+      setEmployeeNotifications((prev) => prev.map((n) => n.id === id ? { ...n, ...updated } : n));
       setSuccessMessage("Notification marquée comme non lue");
     } catch { setErrorMessage("Erreur lors de la mise à jour"); }
   };
@@ -656,6 +684,15 @@ const Notifications = () => {
       return !q || [a.name, a.description, a.module, a.user?.username, a.user?.email].some((v) => v?.toLowerCase().includes(q));
     });
 
+  // Filtrer les notifications des employés (pour admin seulement)
+  const filteredEmployeeNotifications = employeeNotifications
+    .filter((n) => passesDateFilter(n.created_at, empNotifFilterDate))
+    .filter((n) => empNotifFilterStatus === "all" || (empNotifFilterStatus === "unread" ? !n.is_read : n.is_read))
+    .filter((n) => {
+      const q = searchTerm.toLowerCase();
+      return !q || [n.title, n.message, n.user?.username, n.user?.email].some((v) => v?.toLowerCase().includes(q));
+    });
+
   const unreadTotal = notifications.filter((n) => !n.is_read).length;
   const readTotal   = notifications.filter((n) =>  n.is_read).length;
 
@@ -808,7 +845,8 @@ const Notifications = () => {
               "& .Mui-selected": { color: C.accentHi },
             }}
           >
-            <Tab label={`Notifications (${notifications.length})`} />
+            <Tab label={`Mes Notifications (${notifications.length})`} />
+            {user?.is_superuser && <Tab label={`Notifications Employés (${employeeNotifications.length})`} />}
             <Tab label={`Mes Alertes (${alerts.length})`} />
             {user?.is_superuser && <Tab label={`Alertes des employés (${employeeAlerts.length})`} />}
             <Tab label="Paramètres" />
@@ -1009,9 +1047,202 @@ const Notifications = () => {
         )}
 
         {/* ══════════════════════════════════════════════════════════
-            TAB 1 — MES ALERTES (Admin ou utilisateur normal)
+            TAB 1 — NOTIFICATIONS DES EMPLOYÉS (Admin uniquement)
         ══════════════════════════════════════════════════════════ */}
-        {activeTab === 1 && (
+        {activeTab === 1 && user?.is_superuser && (
+          <>
+            {/* Toolbar */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: activeEmpNotifFiltersCount > 0 ? 1.5 : 3 }}>
+              <Tooltip title="Filtres avancés">
+                <Badge
+                  badgeContent={activeEmpNotifFiltersCount}
+                  sx={{ "& .MuiBadge-badge": { bgcolor: C.accent, color: "white", fontSize: "0.65rem", minWidth: 16, height: 16 } }}
+                >
+                  <IconButton
+                    onClick={(e) => setEmpNotifFilterAnchorEl(e.currentTarget)}
+                    sx={{
+                      color:  activeEmpNotifFiltersCount > 0 ? C.accent : C.textMuted,
+                      bgcolor: activeEmpNotifFiltersCount > 0 ? C.accentDim : "rgba(59,130,246,0.05)",
+                      border: `1px solid ${activeEmpNotifFiltersCount > 0 ? "rgba(59,130,246,0.4)" : "rgba(59,130,246,0.15)"}`,
+                      borderRadius: "10px", width: 44, height: 44, flexShrink: 0,
+                      "&:hover": { bgcolor: C.accentDim },
+                    }}
+                  >
+                    <CiFilter size={22} />
+                  </IconButton>
+                </Badge>
+              </Tooltip>
+
+              <Box sx={{ flex: 1, position: "relative" }}>
+                <SearchIcon sx={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: C.textMuted, fontSize: 20 }} />
+                <input
+                  type="text"
+                  placeholder="Rechercher par titre, message, utilisateur..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  style={{
+                    width: "100%", padding: "11px 16px 11px 48px",
+                    backgroundColor: "rgba(59,130,246,0.06)",
+                    border: "1px solid rgba(59,130,246,0.18)",
+                    borderRadius: "10px", color: "#94a3b8", fontSize: "0.875rem",
+                    outline: "none", boxSizing: "border-box",
+                  }}
+                  onFocus={(e)  => (e.target.style.borderColor = "rgba(59,130,246,0.5)")}
+                  onBlur={(e)   => (e.target.style.borderColor = "rgba(59,130,246,0.18)")}
+                />
+              </Box>
+            </Box>
+
+            {/* Active chips */}
+            {activeEmpNotifFiltersCount > 0 && (
+              <Box sx={{ display: "flex", gap: 1, mb: 2.5, flexWrap: "wrap", alignItems: "center" }}>
+                {empNotifFilterDate !== "all" && (
+                  <Chip label={dateOptions.find((d) => d.value === empNotifFilterDate)?.label}
+                    onDelete={() => setEmpNotifFilterDate("all")} size="small"
+                    sx={{ bgcolor: C.accentDim, color: C.accent, border: `1px solid rgba(59,130,246,0.3)`, fontWeight: 500 }}
+                  />
+                )}
+                {empNotifFilterStatus !== "all" && (
+                  <Chip label={statusOptions.find((s) => s.value === empNotifFilterStatus)?.label}
+                    onDelete={() => setEmpNotifFilterStatus("all")} size="small"
+                    sx={{ bgcolor: C.accentDim, color: C.accent, border: `1px solid rgba(59,130,246,0.3)`, fontWeight: 500 }}
+                  />
+                )}
+                <Button size="small" onClick={() => { setEmpNotifFilterDate("all"); setEmpNotifFilterStatus("all"); }}
+                  sx={{ color: C.textMuted, fontSize: "0.75rem", textTransform: "none", py: 0, minHeight: 0, "&:hover": { color: C.danger } }}
+                >
+                  Tout effacer
+                </Button>
+              </Box>
+            )}
+
+            {/* Filter dropdown */}
+            <Menu
+              anchorEl={empNotifFilterAnchorEl}
+              open={Boolean(empNotifFilterAnchorEl)}
+              onClose={() => setEmpNotifFilterAnchorEl(null)}
+              PaperProps={{
+                sx: {
+                  bgcolor: "rgba(13,19,33,0.98)", border: `1px solid ${C.borderHi}`,
+                  borderRadius: "12px", backdropFilter: "blur(12px)",
+                  minWidth: 240, boxShadow: "0 8px 32px rgba(0,0,0,0.5)", mt: 0.5,
+                },
+              }}
+            >
+              <SectionLabel icon={<CalendarTodayIcon sx={{ fontSize: 14 }} />} text="Date de réception" />
+              {dateOptions.map((opt) => (
+                <FilterItem key={opt.value} label={opt.label} active={empNotifFilterDate === opt.value} onClick={() => setEmpNotifFilterDate(opt.value)} />
+              ))}
+
+              <Divider sx={{ borderColor: C.border, my: 1 }} />
+
+              <SectionLabel icon={<ReadIcon sx={{ fontSize: 14 }} />} text="Statut de lecture" />
+              {statusOptions.map((opt) => (
+                <FilterItem key={opt.value} label={opt.label} active={empNotifFilterStatus === opt.value} onClick={() => setEmpNotifFilterStatus(opt.value)} />
+              ))}
+
+              {activeEmpNotifFiltersCount > 0 && (
+                <>
+                  <Divider sx={{ borderColor: C.border, mt: 1 }} />
+                  <Box sx={{ p: 1.5 }}>
+                    <Button fullWidth size="small"
+                      onClick={() => { setEmpNotifFilterDate("all"); setEmpNotifFilterStatus("all"); setEmpNotifFilterAnchorEl(null); }}
+                      sx={{ color: C.danger, fontSize: "0.8rem", textTransform: "none", border: `1px solid rgba(239,68,68,0.3)`, borderRadius: "6px", "&:hover": { bgcolor: C.dangerDim } }}
+                    >
+                      Réinitialiser les filtres
+                    </Button>
+                  </Box>
+                </>
+              )}
+            </Menu>
+
+            {/* List */}
+            {filteredEmployeeNotifications.length > 0 ? (
+              <Box sx={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                {filteredEmployeeNotifications.map((notif) => (
+                  <Box
+                    key={notif.id}
+                    onClick={() => { setSelectedNotification(notif); setDetailDialogOpen(true); }}
+                    sx={{
+                      display: "flex", alignItems: "flex-start", gap: 2,
+                      bgcolor: notif.is_read ? C.surface : C.unreadBg,
+                      border: `1px solid ${notif.is_read ? C.border : C.borderHi}`,
+                      borderLeft: `3px solid ${notif.is_read ? "transparent" : C.accent}`,
+                      borderRadius: "10px", p: "14px 18px",
+                      cursor: "pointer", transition: "all 0.18s ease",
+                      "&:hover": { bgcolor: notif.is_read ? C.surfaceHi : "rgba(59,130,246,0.1)", borderColor: C.accent },
+                    }}
+                  >
+                    <Box sx={{ pt: "5px", flexShrink: 0 }}>
+                      <CircleIcon sx={{ fontSize: 8, color: notif.is_read ? C.textMuted : C.accent, opacity: notif.is_read ? 0.35 : 1 }} />
+                    </Box>
+
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1, mb: 0.5 }}>
+                        <Typography sx={{ color: C.text, fontWeight: notif.is_read ? 500 : 700, fontSize: "0.9rem", lineHeight: 1.4 }} noWrap>
+                          {notif.title}
+                        </Typography>
+                        <Typography sx={{ color: C.textMuted, fontSize: "0.75rem", flexShrink: 0, pt: "2px" }}>
+                          {fmt(notif.created_at)}
+                        </Typography>
+                      </Box>
+                      <Typography sx={{ color: C.textSub, fontSize: "0.82rem", lineHeight: 1.5, mb: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "90%" }}>
+                        {notif.message}
+                      </Typography>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                        <Chip
+                          label={notif.notification_type === "alert_triggered" ? "Alerte" : notif.notification_type}
+                          size="small"
+                          sx={{ height: 20, fontSize: "0.68rem", fontWeight: 600, bgcolor: C.accentDim, color: C.accentHi, borderRadius: "4px" }}
+                        />
+                        {notif.user && (
+                          <Typography sx={{ color: C.textMuted, fontSize: "0.75rem" }}>
+                            {notif.user.username || notif.user.email}
+                          </Typography>
+                        )}
+                      </Box>
+                    </Box>
+
+                    <Box sx={{ flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                      {!notif.is_read ? (
+                        <Tooltip title="Marquer comme lue" placement="left">
+                          <IconButton size="small" onClick={(e) => handleMarkAsRead(notif.id, e)}
+                            sx={{ color: C.textMuted, "&:hover": { color: C.success, bgcolor: C.successDim }, borderRadius: "6px", p: "5px" }}
+                          >
+                            <MarkEmailReadIcon sx={{ fontSize: "1rem" }} />
+                          </IconButton>
+                        </Tooltip>
+                      ) : (
+                        <Tooltip title="Marquer comme non lue" placement="left">
+                          <IconButton size="small" onClick={(e) => handleMarkAsUnread(notif.id, e)}
+                            sx={{ color: C.textMuted, "&:hover": { color: C.accent, bgcolor: C.accentDim }, borderRadius: "6px", p: "5px" }}
+                          >
+                            <MarkEmailUnreadIcon sx={{ fontSize: "1rem" }} />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            ) : (
+              <Box sx={{ textAlign: "center", py: 10, bgcolor: C.surface, border: `1px solid ${C.border}`, borderRadius: "12px" }}>
+                <NotificationsNoneIcon sx={{ fontSize: 48, color: C.border, mb: 2 }} />
+                <Typography sx={{ color: C.text, fontWeight: 600, mb: 0.5 }}>Aucune notification des employés</Typography>
+                <Typography sx={{ color: C.textMuted, fontSize: "0.85rem" }}>
+                  {searchTerm || activeEmpNotifFiltersCount > 0
+                    ? "Aucun résultat pour cette recherche ou ces filtres"
+                    : "Aucune notification des employés à afficher"}
+                </Typography>
+              </Box>
+            )}
+          </>
+        )}
+
+        {/* ══════════════════════════════════════════════════════════
+            TAB — MES ALERTES (Admin ou utilisateur normal)
+        ══════════════════════════════════════════════════════════ */}
+        {activeTab === (user?.is_superuser ? 2 : 1) && (
           <>
             {/* Toolbar */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: activeAlertFiltersCount > 0 ? 1.5 : 3 }}>
@@ -1194,9 +1425,9 @@ const Notifications = () => {
         )}
 
         {/* ══════════════════════════════════════════════════════════
-            TAB 2 — ALERTES DES EMPLOYÉS (Admin uniquement)
+            TAB — ALERTES DES EMPLOYÉS (Admin uniquement)
         ══════════════════════════════════════════════════════════ */}
-        {user?.is_superuser && activeTab === 2 && (
+        {user?.is_superuser && activeTab === 3 && (
           <>
             {/* Toolbar */}
             <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: activeAlertFiltersCount > 0 ? 1.5 : 3 }}>
@@ -1330,9 +1561,9 @@ const Notifications = () => {
         )}
 
         {/* ══════════════════════════════════════════════════════════
-            TAB 3 ou 2 — PARAMÈTRES (selon le rôle)
+            TAB — PARAMÈTRES (selon le rôle)
         ══════════════════════════════════════════════════════════ */}
-        {(user?.is_superuser ? activeTab === 3 : activeTab === 2) && (
+        {(user?.is_superuser ? activeTab === 4 : activeTab === 2) && (
           <Box sx={{ maxWidth: 800 }}>
             {/* Canaux de notification */}
             <Box sx={{ mb: 4, p: 3, bgcolor: C.surface, border: `1px solid ${C.border}`, borderRadius: "12px" }}>

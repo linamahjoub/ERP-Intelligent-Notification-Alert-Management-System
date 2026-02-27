@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { useActivityContext } from "../../context/ActivityContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Box,
@@ -92,6 +93,7 @@ const StatCard = ({ label, value, color, onClick }) => {
 
 const Fournisseur = () => {
   const { user } = useAuth();
+  const { triggerActivityRefresh } = useActivityContext();
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -242,6 +244,7 @@ const Fournisseur = () => {
       } else {
         setSuppliers([saved, ...suppliers]);
         setSuccessMessage("Fournisseur ajoute avec succes");
+        triggerActivityRefresh();
       }
       handleCloseAddDialog();
     } catch (error) {

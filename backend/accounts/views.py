@@ -13,6 +13,8 @@ from django.utils.encoding import force_bytes, force_str
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 
+from activity.models import ActivityLog
+
 from .serializers import (
     UserSerializer, RegisterSerializer, LoginSerializer,
     UserUpdateSerializer, AdminUserCreateSerializer,
@@ -443,6 +445,13 @@ class UserListCreateView(generics.ListCreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+
+        ActivityLog.objects.create(
+            actor=request.user,
+            action_type=ActivityLog.ACTION_USER_CREATED,
+            title=f"Nouvel utilisateur: {user.username}",
+            description=f"Email: {user.email}",
+        )
         
         return Response({
             'message': 'Utilisateur créé avec succès',

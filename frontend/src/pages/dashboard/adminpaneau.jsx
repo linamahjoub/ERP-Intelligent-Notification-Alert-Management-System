@@ -329,7 +329,7 @@ const AdminPaneau = () => {
       if (response.ok) {
         setSnackbar({
           open: true,
-          message: isCurrentlyAdmin ? 'Utilisateur rétrogradé avec succès!' : 'Utilisateur promu administrateur avec succès!',
+          message: isCurrentlyAdmin ? 'Utilisateur promovoir avec succès!' : 'Utilisateur promu administrateur avec succès!',
           severity: 'success',
         });
         fetchAdminData();
@@ -1527,7 +1527,7 @@ const AdminPaneau = () => {
           }}
           sx={{ color: '#94a3b8', '&:hover': { bgcolor: 'rgba(59, 130, 246, 0.1)' } }}
         >
-          {menuUser?.is_staff ? 'Rétrograder en Utilisateur' : 'Promouvoir en Admin'}
+          {menuUser?.is_staff ? 'Promovoir en administrateur' : 'Promouvoir en Admin'}
         </MenuItem>
         <MenuItem 
           onClick={() => {

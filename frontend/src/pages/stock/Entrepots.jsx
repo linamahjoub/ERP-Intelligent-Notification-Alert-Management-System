@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { useActivityContext } from "../../context/ActivityContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Box, Typography, Card, CardContent, Avatar, IconButton, Button,
@@ -65,6 +66,7 @@ const StatCard = ({ label, value, color, onClick }) => {
 
 const DashboardEntrepots = () => {
   const { user } = useAuth();
+  const { triggerActivityRefresh } = useActivityContext();
   const location = useLocation();
   const navigate = useNavigate();
   const theme = useTheme();
@@ -196,6 +198,7 @@ const DashboardEntrepots = () => {
       } else {
         setEntrepots([saved, ...entrepots]);
         setSuccessMessage("Entrepôt ajouté avec succès");
+        triggerActivityRefresh();
       }
       handleCloseAddDialog();
     } catch (error) {

@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState } from "react";
+﻿import React, { useEffect, useState, useRef } from "react";
 import { useAuth } from "../../context/AuthContext";
 import {
   Container,
@@ -115,150 +115,287 @@ const Dashboard = () => {
 
   // Composant de graphique simplifié
   const SimpleChart = () => {
-    const data = [];
-    const maxValue = Math.max(...data);
-    const days = [];
+    const canvasRef = useRef(null);
+    const animProgress = useRef(0);
+    const rafRef = useRef(null);
+    const [tooltip, setTooltip] = useState(null);
+
+    const days = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+
+    const datasets = [
+      {
+        label: "envoyées",
+        color: "#3b82f6",
+        fillColor: "rgba(59, 130, 246, 0.15)",
+        data: [45, 52, 60, 44, 72, 24, 18],
+      },
+      {
+        label: "résolues",
+        color: "#22c55e",
+        fillColor: "rgba(34, 197, 94, 0.15)",
+        data: [38, 44, 54, 43, 60, 22, 17],
+      },
+      {
+        label: "critiques",
+        color: "#ef4444",
+        fillColor: "rgba(239, 68, 68, 0.1)",
+        data: [6, 8, 7, 3, 12, 5, 1],
+      },
+    ];
+
+    const maxVal = 80;
+    const yTicks = [0, 20, 40, 60, 80];
+
+    const catmullRomPoints = (pts, tension = 0.4) => {
+      const result = [];
+      for (let i = 0; i < pts.length - 1; i++) {
+        const p0 = pts[Math.max(0, i - 1)];
+        const p1 = pts[i];
+        const p2 = pts[i + 1];
+        const p3 = pts[Math.min(pts.length - 1, i + 2)];
+        result.push({
+          cp1x: p1.x + (p2.x - p0.x) * tension,
+          cp1y: p1.y + (p2.y - p0.y) * tension,
+          cp2x: p2.x - (p3.x - p1.x) * tension,
+          cp2y: p2.y - (p3.y - p1.y) * tension,
+        });
+      }
+      return result;
+    };
+
+    const drawChart = (progress = 1) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext("2d");
+      const dpr = window.devicePixelRatio || 1;
+      const displayW = canvas.offsetWidth;
+      const displayH = canvas.offsetHeight;
+      if (displayW === 0 || displayH === 0) return;
+      canvas.width = displayW * dpr;
+      canvas.height = displayH * dpr;
+      ctx.scale(dpr, dpr);
+
+      const W = displayW;
+      const H = displayH;
+      const padL = 44;
+      const padR = 20;
+      const padT = 16;
+      const padB = 40;
+      const chartH = H - padT - padB;
+      const chartW = W - padL - padR;
+
+      ctx.clearRect(0, 0, W, H);
+
+      // Y grid + labels
+      ctx.font = "11px 'DM Sans', sans-serif";
+      ctx.fillStyle = "#94a3b8";
+      ctx.textAlign = "right";
+      yTicks.forEach((tick) => {
+        const y = padT + chartH - (tick / maxVal) * chartH;
+        ctx.strokeStyle = "rgba(148, 163, 184, 0.15)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(padL, y);
+        ctx.lineTo(W - padR, y);
+        ctx.stroke();
+        ctx.fillText(tick, padL - 8, y + 4);
+      });
+
+      // X labels
+      ctx.textAlign = "center";
+      days.forEach((day, i) => {
+        const x = padL + (i / (days.length - 1)) * chartW;
+        ctx.fillText(day, x, H - padB + 18);
+      });
+
+      // Draw datasets (reversed so "envoyées" is on top)
+      [...datasets].reverse().forEach((ds) => {
+        const points = ds.data.map((val, i) => ({
+          x: padL + (i / (days.length - 1)) * chartW,
+          y: padT + chartH - (val * progress / maxVal) * chartH,
+        }));
+
+        const cps = catmullRomPoints(points);
+        const bottomY = padT + chartH;
+
+        // Filled area
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, bottomY);
+        ctx.lineTo(points[0].x, points[0].y);
+        cps.forEach(({ cp1x, cp1y, cp2x, cp2y }, i) => {
+          ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, points[i + 1].x, points[i + 1].y);
+        });
+        ctx.lineTo(points[points.length - 1].x, bottomY);
+        ctx.closePath();
+        ctx.fillStyle = ds.fillColor;
+        ctx.fill();
+
+        // Line
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        cps.forEach(({ cp1x, cp1y, cp2x, cp2y }, i) => {
+          ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, points[i + 1].x, points[i + 1].y);
+        });
+        ctx.strokeStyle = ds.color;
+        ctx.lineWidth = 2;
+        ctx.lineJoin = "round";
+        ctx.stroke();
+
+        // Dots
+        points.forEach((pt) => {
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 3.5, 0, Math.PI * 2);
+          ctx.fillStyle = ds.color;
+          ctx.fill();
+          ctx.beginPath();
+          ctx.arc(pt.x, pt.y, 1.8, 0, Math.PI * 2);
+          ctx.fillStyle = "#0f172a";
+          ctx.fill();
+        });
+      });
+    };
+
+    useEffect(() => {
+      const startTime = performance.now();
+      const duration = 1000;
+      const animate = (now) => {
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        animProgress.current = eased;
+        drawChart(eased);
+        if (progress < 1) rafRef.current = requestAnimationFrame(animate);
+      };
+      rafRef.current = requestAnimationFrame(animate);
+      return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    }, []);
+
+    useEffect(() => {
+      const handleResize = () => drawChart(animProgress.current);
+      window.addEventListener("resize", handleResize);
+      return () => window.removeEventListener("resize", handleResize);
+    }, []);
+
+    const handleMouseMove = (e) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const W = rect.width;
+      const H = rect.height;
+      const padL = 44;
+      const padR = 20;
+      const padT = 16;
+      const padB = 40;
+      const chartH = H - padT - padB;
+      const chartW = W - padL - padR;
+
+      // Trouver le point le plus proche
+      let closestDay = null;
+      let closestDist = Infinity;
+
+      datasets[0].data.forEach((_, i) => {
+        const x = padL + (i / (days.length - 1)) * chartW;
+        const dist = Math.abs(mouseX - x);
+        if (dist < closestDist && dist < 30) {
+          closestDist = dist;
+          closestDay = i;
+        }
+      });
+
+      if (closestDay !== null) {
+        const dayData = datasets.map(ds => ({
+          label: ds.label,
+          value: ds.data[closestDay],
+          color: ds.color,
+        }));
+        setTooltip({
+          day: days[closestDay],
+          data: dayData,
+          x: e.clientX,
+          y: e.clientY,
+        });
+      } else {
+        setTooltip(null);
+      }
+    };
+
+    const handleMouseLeave = () => {
+      setTooltip(null);
+    };
 
     return (
-      <Box sx={{ width: "100%", height: 300, position: "relative", pt: 4 }}>
-        {/* Axes */}
-        <Box
-          sx={{
-            position: "absolute",
-            left: 40,
-            right: 20,
-            bottom: 30,
-            top: 0,
-            borderLeft: "1px solid rgba(59, 130, 246, 0.3)",
-            borderBottom: "1px solid rgba(59, 130, 246, 0.3)",
-          }}
-        >
-          {/* Lignes horizontales */}
-          {[0, 10, 20, 30, 40].map((y) => (
+      <Box sx={{ width: "100%", height: "100%" }}>
+        <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.82rem", mb: 1.5 }}>
+          Tendance sur les 7 derniers jours
+        </Typography>
+
+        {/* Canvas */}
+        <Box sx={{ width: "100%", height: 220, position: "relative" }}>
+          <canvas 
+            ref={canvasRef} 
+            style={{ width: "100%", height: "100%", display: "block", cursor: "crosshair" }}
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+          />
+          
+          {/* Tooltip */}
+          {tooltip && (
             <Box
-              key={y}
               sx={{
-                position: "absolute",
-                left: 0,
-                right: 0,
-                bottom: `${(y / maxValue) * 100}%`,
-                borderTop: "1px solid rgba(59, 130, 246, 0.1)",
-                height: 0,
+                position: "fixed",
+                left: tooltip.x + 15,
+                top: tooltip.y - 10,
+                bgcolor: "rgba(15, 23, 42, 0.98)",
+                border: "1px solid rgba(59, 130, 246, 0.3)",
+                borderRadius: 2,
+                p: 1.5,
+                minWidth: 140,
+                boxShadow: "0 8px 24px rgba(0, 0, 0, 0.5)",
+                zIndex: 9999,
+                pointerEvents: "none",
               }}
             >
-              <Typography
-                variant="caption"
-                sx={{
-                  position: "absolute",
-                  left: -35,
-                  top: -8,
-                  color: "#64748b",
-                }}
-              >
-                {y}
+              <Typography sx={{ color: "white", fontWeight: 700, fontSize: "0.85rem", mb: 1 }}>
+                {tooltip.day}
+              </Typography>
+              {tooltip.data.map((item) => (
+                <Box key={item.label} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, mb: 0.5 }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: item.color }} />
+                    <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem" }}>
+                      {item.label}
+                    </Typography>
+                  </Box>
+                  <Typography sx={{ color: "white", fontWeight: 700, fontSize: "0.8rem" }}>
+                    {item.value}
+                  </Typography>
+                </Box>
+              ))}
+            </Box>
+          )}
+        </Box>
+
+        {/* Legend */}
+        <Box sx={{ display: "flex", gap: 3, justifyContent: "center", mt: 2 }}>
+          {datasets.map((ds) => (
+            <Box key={ds.label} sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
+              <Box sx={{ position: "relative", width: 24, height: 12, display: "flex", alignItems: "center" }}>
+                <Box sx={{ width: "100%", height: 2, bgcolor: ds.color, borderRadius: 1 }} />
+                <Box sx={{
+                  position: "absolute", left: "50%", top: "50%",
+                  transform: "translate(-50%, -50%)",
+                  width: 7, height: 7, borderRadius: "50%",
+                  bgcolor: ds.color, border: "1.5px solid #0f172a",
+                }} />
+              </Box>
+              <Typography sx={{ fontSize: "0.8rem", color: ds.color, fontWeight: 500 }}>
+                {ds.label}
               </Typography>
             </Box>
           ))}
-
-          {/* Lignes de données */}
-          <Box
-            sx={{
-              display: "flex",
-              height: "100%",
-              alignItems: "flex-end",
-              justifyContent: "space-around",
-              pb: "30px",
-              pl: "20px",
-              pr: "20px",
-            }}
-          >
-            {data.map((value, index) => {
-              const height = `${(value / maxValue) * 100}%`;
-
-              return (
-                <Box
-                  key={index}
-                  sx={{
-                    display: "flex",
-                    flexDirection: "column",
-                    alignItems: "center",
-                    flex: 1,
-                    position: "relative",
-                  }}
-                >
-                  {/* Barre du graphique */}
-                  <Box
-                    sx={{
-                      width: "60%",
-                      height: height,
-                      bgcolor: "rgba(59, 130, 246, 0.1)",
-                      borderTopLeftRadius: 4,
-                      borderTopRightRadius: 4,
-                      position: "relative",
-                      mb: 1,
-                    }}
-                  >
-                    {/* Ligne de tendance */}
-                    <Box
-                      sx={{
-                        position: "absolute",
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        height: "2px",
-                        bgcolor: "#3b82f6",
-                      }}
-                    />
-                    {/* Point de données */}
-                    <Box
-                      sx={{
-                        position: "absolute",
-                        top: 0,
-                        left: "50%",
-                        transform: "translateX(-50%)",
-                        width: 8,
-                        height: 8,
-                        borderRadius: "50%",
-                        bgcolor: "#3b82f6",
-                        border: "2px solid #0a0e27",
-                      }}
-                    />
-                  </Box>
-
-                  {/* Jour */}
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: "#94a3b8",
-                      fontSize: "0.75rem",
-                      position: "absolute",
-                      bottom: -25,
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                    }}
-                  >
-                    {days[index]}
-                  </Typography>
-
-                  {/* Valeur */}
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      position: "absolute",
-                      top: `calc(${height} - 30px)`,
-                      fontSize: "0.75rem",
-                      fontWeight: 600,
-                      color: "#3b82f6",
-                      left: "50%",
-                      transform: "translateX(-50%)",
-                    }}
-                  >
-                    {value}
-                  </Typography>
-                </Box>
-              );
-            })}
-          </Box>
         </Box>
       </Box>
     );

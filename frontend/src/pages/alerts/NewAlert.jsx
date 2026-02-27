@@ -43,6 +43,7 @@ import {
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { useActivityContext } from '../../context/ActivityContext';
 import SharedSidebar from '../../components/SharedSidebar';
 
 /* ─── Design tokens ──────────────────────────────────────────── */
@@ -152,6 +153,7 @@ const SectionHeader = ({ title, subtitle }) => (
 const NewAlert = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { triggerActivityRefresh } = useActivityContext();
   const [activeStep, setActiveStep] = useState(0);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [snackbarMessage, setSnackbarMessage] = useState('');
@@ -361,6 +363,7 @@ const NewAlert = () => {
         throw new Error(message);
       }
       showSnackbar("Règle d'alerte créée avec succès", 'success');
+      triggerActivityRefresh();
       setTimeout(() => navigate('/alerts'), 2000);
     } catch (err) {
       showSnackbar('Erreur : ' + err.message, 'error');

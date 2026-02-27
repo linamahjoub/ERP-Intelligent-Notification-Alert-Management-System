@@ -38,13 +38,7 @@ class CustomUser(AbstractUser):
         null=True
     )
 
-    telegram_chat_id = models.CharField(
-        _('telegram chat id'),
-        max_length=64,
-        blank=True,
-        null=True,
-        help_text=_('Identifiant Telegram pour recevoir des notifications.')
-    )
+ 
 
     role = models.CharField(
         _('role'),
@@ -60,6 +54,12 @@ class CustomUser(AbstractUser):
         null=True
     )
     
+    authorized_pages = models.JSONField(
+        _('authorized pages'),
+        default=list,
+        blank=True,
+        help_text=_('Les pages auxquelles cet utilisateur a accès')
+    )
     profile_picture = models.ImageField(
         _('profile picture'),
         upload_to='profile_pictures/',

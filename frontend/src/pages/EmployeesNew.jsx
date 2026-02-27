@@ -43,6 +43,7 @@ const EmployeesNew = () => {
     email: '',
     username: '',
     password: '',
+    confirm_password: '',
     first_name: '',
     last_name: '',
     phone_number: '',
@@ -76,6 +77,11 @@ const EmployeesNew = () => {
   const handleAddEmployee = async () => {
     if (!employeeData.email || !employeeData.username || !employeeData.password) {
       setErrorMessage('Email, nom d\'utilisateur et mot de passe sont requis');
+      return;
+    }
+
+    if (employeeData.password !== employeeData.confirm_password) {
+      setErrorMessage('Les mots de passe ne correspondent pas');
       return;
     }
 
@@ -149,6 +155,7 @@ const EmployeesNew = () => {
         email: '',
         username: '',
         password: '',
+        confirm_password: '',
         first_name: '',
         last_name: '',
         phone_number: '',
@@ -379,6 +386,34 @@ const EmployeesNew = () => {
                       },
                       '& .MuiInputLabel-root': { color: '#64748b' },
                       '& .MuiInputLabel-root.Mui-focused': { color: '#3b82f6' },
+                    }}
+                  />
+
+                  <TextField
+                    label="Confirmer mot de passe"
+                    type="password"
+                    value={employeeData.confirm_password}
+                    onChange={(e) => setEmployeeData({ ...employeeData, confirm_password: e.target.value })}
+                    fullWidth
+                    required
+                    error={employeeData.password && employeeData.confirm_password && employeeData.password !== employeeData.confirm_password}
+                    helperText={
+                      employeeData.password && employeeData.confirm_password && employeeData.password !== employeeData.confirm_password
+                        ? 'Les mots de passe ne correspondent pas'
+                        : ''
+                    }
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        color: '#94a3b8',
+                        '& fieldset': { borderColor: employeeData.password && employeeData.confirm_password && employeeData.password !== employeeData.confirm_password ? 'rgba(239,68,68,0.5)' : 'rgba(59,130,246,0.2)' },
+                        '&:hover fieldset': { borderColor: 'rgba(59,130,246,0.4)' },
+                        '&.Mui-focused fieldset': { borderColor: '#3b82f6' },
+                        bgcolor: 'rgba(59,130,246,0.05)',
+                        borderRadius: '10px',
+                      },
+                      '& .MuiInputLabel-root': { color: '#64748b' },
+                      '& .MuiInputLabel-root.Mui-focused': { color: '#3b82f6' },
+                      '& .MuiFormHelperText-root': { color: '#ef4444' },
                     }}
                   />
 

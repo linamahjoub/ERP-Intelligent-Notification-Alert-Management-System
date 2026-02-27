@@ -2,6 +2,7 @@
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { ThemeProvider, createTheme, CssBaseline, Container } from '@mui/material';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { ActivityProvider } from './context/ActivityContext';
 import PrivateRoute from './components/PrivateRoute';
 import VerificationPending from './pages/auth/VerificationPending';
 import Login from './pages/auth/Login';
@@ -61,10 +62,12 @@ const App = () => {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
-        <DebugApp />
-        <Router>
-          <InnerRoutes />
-        </Router>
+        <ActivityProvider>
+          <DebugApp />
+          <Router>
+            <InnerRoutes />
+          </Router>
+        </ActivityProvider>
       </AuthProvider>
     </ThemeProvider>
   );

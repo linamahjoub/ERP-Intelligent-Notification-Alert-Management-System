@@ -96,7 +96,7 @@ const ForgotPassword = () => {
                   '&:hover': { color: '#e0e7ff', backgroundColor: 'rgba(255,255,255,0.05)' },
                 }}
               >
-                Retour
+                Retour à la page de connexion
               </Button>
             </Link>
           </Box>
