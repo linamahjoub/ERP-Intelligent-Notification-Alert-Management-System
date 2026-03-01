@@ -47,6 +47,9 @@ import {
   Category as CategoryIcon,
   Search as SearchIcon,
 } from "@mui/icons-material";
+import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
+import { GoPeople } from "react-icons/go";
+
 import SharedSidebar from "../../components/SharedSidebar";
 
 // ─────────────────────────────────────────────
@@ -365,6 +368,8 @@ const AdminDashboard = () => {
   const [notificationsData, setNotificationsData] = useState([]);
   const [unreadNotifications, setUnreadNotifications] = useState([]);
   const [notificationsAnchorEl, setNotificationsAnchorEl] = useState(null);
+  const [onlineUsersOpen, setOnlineUsersOpen] = useState(false);
+  const [onlineUsers, setOnlineUsers] = useState({ count: 0, users: [] });
 
   const [dashboardData, setDashboardData] = useState({
     stats: {
@@ -548,18 +553,123 @@ const AdminDashboard = () => {
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch online users
+  const fetchOnlineUsers = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      const res = await fetch("http://localhost:8000/api/users/online/", {
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        credentials: 'include',
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setOnlineUsers(data);
+      }
+    } catch (err) {
+      console.log("Erreur récupération utilisateurs en ligne:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchOnlineUsers();
+    const interval = setInterval(fetchOnlineUsers, 30000); // Refresh every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
+
   // Handlers
   const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
   const handleMenuClick = (event, user) => { setAnchorEl(event.currentTarget); setSelectedUser(user); };
   const handleMenuClose = () => { setAnchorEl(null); setSelectedUser(null); };
   const handleEditUser = () => { if (selectedUser?.id) { navigate(`/admin/users/${selectedUser.id}/edit`); handleMenuClose(); } };
   const handleDeleteUser = () => { setDeleteDialogOpen(true); handleMenuClose(); };
+  const handleOpenOnlineUsers = () => { fetchOnlineUsers(); setOnlineUsersOpen(true); };
+  const handleCloseOnlineUsers = () => setOnlineUsersOpen(false);
   const confirmDeleteUser = () => {
     if (selectedUser?.name) setSuccessMessage(`Utilisateur "${selectedUser.name}" supprimé avec succès`);
     setDeleteDialogOpen(false);
     setSelectedUser(null);
   };
-  const handleExportData = () => setSuccessMessage("Exportation des données démarrée");
+  const handleExportData = async () => {
+    try {
+      const stats = dashboardData?.stats || {};
+      const recentAlerts = (dashboardData?.alerts || []).slice(0, 10);
+      const recentNotifications = (notificationsData || []).slice(0, 10);
+      const exportDate = new Date().toLocaleString("fr-FR", {
+        dateStyle: "full",
+        timeStyle: "medium",
+      });
+
+      const doc = new Document({
+        sections: [
+          {
+            children: [
+              new Paragraph({
+                heading: HeadingLevel.TITLE,
+                children: [new TextRun({ text: "Rapport Dashboard Administrateur", bold: true })],
+              }),
+              new Paragraph({
+                children: [new TextRun({ text: `Exporté le : ${exportDate}` })],
+              }),
+              new Paragraph({ text: "" }),
+
+              new Paragraph({
+                heading: HeadingLevel.HEADING_1,
+                children: [new TextRun({ text: "Statistiques" })],
+              }),
+              new Paragraph({ text: `• Alertes Actives : ${stats.activeAlerts || 0}` }),
+              new Paragraph({ text: `• Notifications Envoyées : ${stats.sentNotifications || 0}` }),
+              new Paragraph({ text: `• Alertes Résolues : ${stats.resolvedAlerts || 0}` }),
+              new Paragraph({ text: `• Règles Configurées : ${stats.configuredRules || 0}` }),
+              new Paragraph({ text: `• Utilisateurs Totaux : ${stats.totalUsers || 0}` }),
+              new Paragraph({ text: `• Utilisateurs Actifs : ${stats.activeUsers || 0}` }),
+              new Paragraph({ text: "" }),
+
+              new Paragraph({
+                heading: HeadingLevel.HEADING_1,
+                children: [new TextRun({ text: "Alertes Récentes" })],
+              }),
+              ...(recentAlerts.length > 0
+                ? recentAlerts.map((alert, index) =>
+                    new Paragraph({
+                      text: `${index + 1}. [${alert?.module || "Système"}] ${alert?.name || "Alerte"} - ${alert?.is_active ? "Active" : "Inactive"}`,
+                    })
+                  )
+                : [new Paragraph({ text: "Aucune alerte disponible" })]),
+              new Paragraph({ text: "" }),
+
+              new Paragraph({
+                heading: HeadingLevel.HEADING_1,
+                children: [new TextRun({ text: "Notifications Récentes" })],
+              }),
+              ...(recentNotifications.length > 0
+                ? recentNotifications.map((notification, index) =>
+                    new Paragraph({
+                      text: `${index + 1}. ${notification?.title || "Sans titre"} - ${notification?.is_read ? "Lue" : "Non lue"}`,
+                    })
+                  )
+                : [new Paragraph({ text: "Aucune notification disponible" })]),
+            ],
+          },
+        ],
+      });
+
+      const blob = await Packer.toBlob(doc);
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const fileName = `admin_dashboard_rapport_${new Date().toISOString().slice(0, 10)}.docx`;
+      link.href = url;
+      link.download = fileName;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setSuccessMessage(`Rapport Word exporté : ${fileName}`);
+    } catch (error) {
+      console.error("Erreur export Word:", error);
+      setErrorMessage(`Erreur lors de la génération du document Word: ${error?.message || "inconnue"}`);
+    }
+  };
   const handleOpenNotifications = (e) => setNotificationsAnchorEl(e.currentTarget);
   const handleCloseNotifications = () => setNotificationsAnchorEl(null);
   const handleMarkAllNotificationsRead = async () => {
@@ -702,6 +812,17 @@ const AdminDashboard = () => {
 
           {/* Right actions */}
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <Badge badgeContent={onlineUsers.count} color="success">
+              <IconButton 
+                onClick={handleOpenOnlineUsers}
+                sx={{ 
+                  color: "#64748b",
+                  "&:hover": { bgcolor: "rgba(34, 197, 94, 0.1)" }
+                }}
+              >
+                <GoPeople  />
+              </IconButton>
+            </Badge>
             <Badge badgeContent={unreadNotifications.length} color="error">
               <IconButton onClick={handleOpenNotifications} sx={{ color: "#64748b", "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>
                 <NotificationsIcon />
@@ -725,15 +846,13 @@ const AdminDashboard = () => {
 
         {/* Page title */}
         <Box sx={{ p: 3, pb: 0 }}>
-          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1, flexWrap: "wrap", gap: 2 }}>
-            <Box>
-              <Typography variant="h4" sx={{ color: "white", fontWeight: 700, mb: 0.5 }}>
-                Tableau de Bord Administrateur
-              </Typography>
-              <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.95rem" }}>
-                Gestion complète du système et surveillance
-              </Typography>
-            </Box>
+          <Box>
+            <Typography variant="h4" sx={{ color: "white", fontWeight: 700, mb: 0.5 }}>
+              Tableau de Bord Administrateur
+            </Typography>
+            <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.95rem" }}>
+              Gestion complète du système et surveillance
+            </Typography>
           </Box>
         </Box>
 
@@ -1098,6 +1217,119 @@ const AdminDashboard = () => {
         <DialogActions sx={{ p: 3, borderTop: "1px solid rgba(239, 68, 68, 0.1)" }}>
           <Button onClick={() => setDeleteDialogOpen(false)} sx={{ color: "#94a3b8", "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>Annuler</Button>
           <Button onClick={confirmDeleteUser} variant="contained" sx={{ bgcolor: "#ef4444", color: "white", fontWeight: 600, "&:hover": { bgcolor: "#dc2626" } }}>Supprimer</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Online Users Dialog */}
+      <Dialog 
+        open={onlineUsersOpen} 
+        onClose={handleCloseOnlineUsers} 
+        maxWidth="md" 
+        fullWidth 
+        PaperProps={{ sx: { bgcolor: "#1e293b", border: "1px solid rgba(34, 197, 94, 0.2)", borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ color: "white", borderBottom: "1px solid rgba(34, 197, 94, 0.1)", pb: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+            <PeopleIcon sx={{ color: "#64748b" }} />
+            <Typography variant="h6" sx={{ color: "white", fontWeight: 600 }}>
+              Utilisateurs en ligne ({onlineUsers.count})
+            </Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          {onlineUsers.users.length === 0 ? (
+            <Box sx={{ textAlign: "center", py: 4 }}>
+              <Typography sx={{ color: "#64748b" }}>
+                Aucun utilisateur en ligne pour le moment
+              </Typography>
+            </Box>
+          ) : (
+            <Grid container spacing={2}>
+              {onlineUsers.users.map((user) => (
+                <Grid item xs={12} key={user.id}>
+                  <Card sx={{ 
+                    bgcolor: "rgba(30, 41, 59, 0.5)", 
+                    border: "1px solid rgba(59, 130, 246, 0.1)", 
+                    borderRadius: 2,
+                    "&:hover": { bgcolor: "rgba(30, 41, 59, 0.8)", borderColor: "rgba(59, 130, 246, 0.3)" }
+                  }}>
+                    <CardContent sx={{ p: 2 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+                        <Avatar sx={{ 
+                          width: 48, 
+                          height: 48, 
+                          bgcolor: user.is_staff || user.is_superuser ? "#ef4444" : "#3b82f6",
+                          fontWeight: 600
+                        }}>
+                          {user.username?.charAt(0).toUpperCase()}
+                        </Avatar>
+                        <Box sx={{ flex: 1 }}>
+                          <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
+                            <Typography variant="body1" sx={{ color: "white", fontWeight: 600 }}>
+                              {user.first_name && user.last_name 
+                                ? `${user.first_name} ${user.last_name}` 
+                                : user.username}
+                            </Typography>
+                            <Chip 
+                              label={user.role || (user.is_staff || user.is_superuser ? "Admin" : "Utilisateur")}
+                              size="small"
+                              sx={{ 
+                                bgcolor: user.is_staff || user.is_superuser 
+                                  ? "rgba(239, 68, 68, 0.2)" 
+                                  : "rgba(59, 130, 246, 0.2)",
+                                color: user.is_staff || user.is_superuser ? "#ef4444" : "#3b82f6",
+                                fontWeight: 600,
+                                fontSize: "0.7rem"
+                              }}
+                            />
+                            <Box sx={{ 
+                              width: 8, 
+                              height: 8, 
+                              borderRadius: "50%", 
+                              bgcolor: "#64748b",
+                              boxShadow: "0 0 8px #64748b"
+                            }} />
+                          </Box>
+                          <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.85rem" }}>
+                            {user.email}
+                          </Typography>
+                          {user.last_login && (
+                            <Typography variant="caption" sx={{ color: "#475569", fontSize: "0.75rem" }}>
+                              Dernière connexion: {new Date(user.last_login).toLocaleString("fr-FR", {
+                                dateStyle: "short",
+                                timeStyle: "short"
+                              })}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ p: 3, borderTop: "1px solid rgba(34, 197, 94, 0.1)" }}>
+          <Button 
+            onClick={handleCloseOnlineUsers} 
+            sx={{ color: "#94a3b8", "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}
+          >
+            Fermer
+          </Button>
+          <Button 
+            onClick={fetchOnlineUsers} 
+            startIcon={<SyncIcon />}
+            variant="contained"
+            sx={{ 
+              bgcolor: "#64748b", 
+              color: "white", 
+              fontWeight: 600, 
+              "&:hover": { bgcolor: "#64748b" } 
+            }}
+          >
+            Actualiser
+          </Button>
         </DialogActions>
       </Dialog>
 

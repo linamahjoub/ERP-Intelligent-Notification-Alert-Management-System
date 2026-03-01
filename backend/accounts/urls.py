@@ -21,6 +21,7 @@ urlpatterns = [
     path('users/<int:pk>/approve/', views.approve_user_view, name='approve_user'),
     path('users/<int:pk>/reject/', views.reject_user_view, name='reject_user'),
     path('users/stats/', views.user_stats_view, name='user_stats'),
+    path('users/online/', views.online_users, name='online_users'),
     
     # ==================== UTILITAIRES ====================
     path('check-email/', views.check_email_exists, name='check_email'),

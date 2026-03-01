@@ -24,8 +24,8 @@ class Notification(models.Model):
     alert = models.ForeignKey(Alert, on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
     
     # Contenu
-    title = models.CharField(max_length=255)
-    message = models.TextField()
+    title = models.CharField(max_length=255, blank=True, null=True)
+    message = models.TextField(blank=True, null=True)
     notification_type = models.CharField(max_length=50, choices=NOTIFICATION_TYPES, default='alert_triggered')
     
     # Statut de lecture

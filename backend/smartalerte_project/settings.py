@@ -167,6 +167,13 @@ CORS_ALLOW_HEADERS = [
     'x-requested-with',
 ]
 
+# Session Settings (pour le suivi des utilisateurs en ligne)
+SESSION_COOKIE_SAMESITE = 'None'  # Permet les cookies cross-origin
+SESSION_COOKIE_SECURE = False  # False en développement (HTTP), True en production (HTTPS)
+SESSION_COOKIE_HTTPONLY = True  # Sécurité: le cookie n'est pas accessible via JavaScript
+SESSION_COOKIE_AGE = 86400  # 24 heures (en secondes)
+SESSION_SAVE_EVERY_REQUEST = True  # Met à jour l'expiration à chaque requête
+
 # REST Framework settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (

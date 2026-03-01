@@ -46,6 +46,8 @@ class CreateNotificationSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'user': {'required': False, 'allow_null': True},
             'alert': {'required': False, 'allow_null': True},
+            'title': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'message': {'required': False, 'allow_blank': True, 'allow_null': True},
         }
     
     def create(self, validated_data):

@@ -1,6 +1,6 @@
 const API_URL = process.env.REACT_APP_API_URL;
 
-console.log('📍 API_URL configuré à:', API_URL);
+console.log(' API_URL configuré à:', API_URL);
 
 export const categoryService = {
   // Récupérer toutes les catégories
@@ -8,10 +8,10 @@ export const categoryService = {
     try {
       const token = localStorage.getItem('access_token');
       if (!token) {
-        console.warn('⚠️ Aucun token trouvé dans localStorage');
+        console.warn(' Aucun token trouvé dans localStorage');
         return [];
       }
-      console.log('🔄 Fetching categories from:', `${API_URL}/categories/`);
+      console.log(' Fetching categories from:', `${API_URL}/categories/`);
       const response = await fetch(`${API_URL}/categories/`, {
         method: 'GET',
         headers: {
@@ -20,16 +20,16 @@ export const categoryService = {
         },
       });
 
-      console.log('📊 Response status:', response.status);
+      console.log(' Response status:', response.status);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ API Error:', errorText);
+        console.error(' API Error:', errorText);
         throw new Error(`API error: ${response.status}`);
       }
 
       const data = await response.json();
-      console.log('✅ Raw data from API:', data);
+      console.log('Raw data from API:', data);
       
       // L'API retourne un objet avec 'results' (pagination)
       const categoryList = data.results || (Array.isArray(data) ? data : []);
@@ -37,7 +37,7 @@ export const categoryService = {
       
       return categoryList;
     } catch (error) {
-      console.error('❌ Error fetching categories:', error);
+      console.error(' Error fetching categories:', error);
       return [];
     }
   },

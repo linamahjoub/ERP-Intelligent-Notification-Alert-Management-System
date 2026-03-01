@@ -41,6 +41,18 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import SharedSidebar from '../../components/SharedSidebar';
 
+const C = {
+  bg: '#070b14',
+  surface: '#0d1321',
+  surfaceHi: '#111827',
+  border: '#1e2d42',
+  accent: '#3b82f6',
+  accentDim: 'rgba(59,130,246,0.12)',
+  text: '#f1f5f9',
+  textMuted: '#64748b',
+  textSub: '#94a3b8',
+};
+
 const EditAlert = () => {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -59,12 +71,15 @@ const EditAlert = () => {
     module: '',
     severity: 'medium',
     conditionType: 'threshold',
+    conditionField: 'quantity',
+    compareTo: 'value',
     thresholdValue: '',
     comparisonOperator: 'greater_than',
     notificationChannels: ['email'],
     recipients: [],
     schedule: 'immediate',
     customSchedule: '',
+    repeatUntilResolved: false,
     isActive: true,
   });
 
@@ -147,12 +162,15 @@ const EditAlert = () => {
           module: alert.module || '',
           severity: alert.severity || 'medium',
           conditionType: alert.condition_type || 'threshold',
+          conditionField: alert.condition_field || 'quantity',
+          compareTo: alert.compare_to || 'value',
           thresholdValue: alert.threshold_value || '',
           comparisonOperator: alert.comparison_operator || 'greater_than',
           notificationChannels: (alert.notification_channels || ['email']).map(channel => String(channel).toLowerCase()),
           recipients: alert.recipients || [],
           schedule: alert.schedule || 'immediate',
           customSchedule: alert.custom_schedule || '',
+          repeatUntilResolved: alert.repeat_until_resolved || false,
           isActive: alert.is_active !== undefined ? alert.is_active : true,
         });
       } catch (error) {
@@ -233,12 +251,15 @@ const EditAlert = () => {
         module: formData.module,
         severity: formData.severity,
         condition_type: formData.conditionType,
+        condition_field: formData.conditionField,
+        compare_to: formData.compareTo,
         threshold_value: formData.thresholdValue,
         comparison_operator: formData.comparisonOperator,
         notification_channels: formData.notificationChannels,
         recipients: formData.recipients,
         schedule: formData.schedule,
         custom_schedule: formData.customSchedule,
+        repeat_until_resolved: formData.repeatUntilResolved,
         is_active: formData.isActive,
       };
 
@@ -279,7 +300,7 @@ const EditAlert = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#0a0e27' }}>
+      <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: C.bg }}>
         <SharedSidebar mobileOpen={mobileOpen} onMobileClose={handleDrawerToggle} />
         <Box sx={{ flexGrow: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Typography variant="h6" sx={{ color: 'white' }}>Chargement...</Typography>
@@ -289,7 +310,7 @@ const EditAlert = () => {
   }
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#0a0e27' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: C.bg }}>
       <SharedSidebar mobileOpen={mobileOpen} onMobileClose={handleDrawerToggle} />
       
       <Box
@@ -298,7 +319,7 @@ const EditAlert = () => {
           flexGrow: 1,
           width: isMobile ? '100%' : 'calc(100% - 280px)',
           minHeight: '100vh',
-          bgcolor: '#0a0e27',
+          bgcolor: C.bg,
         }}
       >
         <Box sx={{ py: 4 }}>
@@ -312,7 +333,7 @@ const EditAlert = () => {
                 color: 'white',
                 mr: 2,
                 '&:hover': {
-                  bgcolor: 'rgba(255,255,255,0.1)',
+                  bgcolor: C.accentDim,
                 }
               }}
             >
@@ -325,7 +346,7 @@ const EditAlert = () => {
               color: 'white',
               mr: 2,
               '&:hover': {
-                bgcolor: 'rgba(255,255,255,0.1)',
+                bgcolor: C.accentDim,
               }
             }}
           >
@@ -335,7 +356,7 @@ const EditAlert = () => {
             <Typography variant="h4" sx={{ color: 'white', fontWeight: 600, mb: 0.5 }}>
               Modifier la règle d'alerte
             </Typography>
-            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+            <Typography variant="body2" sx={{ color: C.textMuted }}>
               Modifiez les paramètres de votre règle de surveillance ERP
             </Typography>
           </Box>
@@ -345,10 +366,10 @@ const EditAlert = () => {
         <Paper sx={{
           p: 4,
           mb: 4,
-          bgcolor: '#0d1129',
-          border: '1px solid rgba(255,255,255,0.08)',
+          bgcolor: C.surface,
+          border: `1px solid ${C.border}`,
           borderRadius: 2,
-          boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
+          boxShadow: '0 8px 32px rgba(59,130,246,0.12)',
         }}>
           {/* Nom de la règle */}
           <Box sx={{ mb: 2 }}>
@@ -515,7 +536,7 @@ const EditAlert = () => {
             />
           </Box>
 
-          <Divider sx={{ my: 4, bgcolor: 'rgba(255,255,255,0.08)' }} />
+          <Divider sx={{ my: 4, bgcolor: C.border }} />
 
           {/* Condition de déclenchement */}
           <Box sx={{ mb: 4 }}>
@@ -524,6 +545,70 @@ const EditAlert = () => {
             </Typography>
 
             <Grid container spacing={3}>
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth>
+                  <InputLabel sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>
+                    Champ à surveiller
+                  </InputLabel>
+                  <Select
+                    value={formData.conditionField}
+                    onChange={handleInputChange('conditionField')}
+                    label="Champ à surveiller"
+                    sx={{
+                      bgcolor: '#0a0e27',
+                      color: 'white',
+                      fontSize: '0.9rem',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(255,255,255,0.1)',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(255,255,255,0.2)',
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#3b82f6',
+                      },
+                    }}
+                  >
+                    <MenuItem value="quantity">Quantité (quantity)</MenuItem>
+                    <MenuItem value="min_quantity">Stock minimum (min_quantity)</MenuItem>
+                    <MenuItem value="max_quantity">Stock maximum (max_quantity)</MenuItem>
+                    <MenuItem value="price">Prix (price)</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
+              <Grid item xs={12} md={4}>
+                <FormControl fullWidth>
+                  <InputLabel sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>
+                    Comparer à
+                  </InputLabel>
+                  <Select
+                    value={formData.compareTo}
+                    onChange={handleInputChange('compareTo')}
+                    label="Comparer à"
+                    sx={{
+                      bgcolor: '#0a0e27',
+                      color: 'white',
+                      fontSize: '0.9rem',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(255,255,255,0.1)',
+                      },
+                      '&:hover .MuiOutlinedInput-notchedOutline': {
+                        borderColor: 'rgba(255,255,255,0.2)',
+                      },
+                      '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        borderColor: '#3b82f6',
+                      },
+                    }}
+                  >
+                    <MenuItem value="value">Valeur fixe (seuil)</MenuItem>
+                    <MenuItem value="min_stock">Stock minimum (article.min_stock)</MenuItem>
+                    <MenuItem value="min_quantity">Stock minimum (article.min_quantity)</MenuItem>
+                    <MenuItem value="max_quantity">Stock maximum (article.max_quantity)</MenuItem>
+                  </Select>
+                </FormControl>
+              </Grid>
+
               <Grid item xs={12} md={4}>
                 <FormControl fullWidth>
                   <InputLabel sx={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.9rem' }}>
@@ -595,6 +680,7 @@ const EditAlert = () => {
                   type="number"
                   value={formData.thresholdValue}
                   onChange={handleInputChange('thresholdValue')}
+                  disabled={formData.compareTo !== 'value'}
                   sx={{
                     '& .MuiOutlinedInput-root': {
                       bgcolor: '#0a0e27',
@@ -617,7 +703,7 @@ const EditAlert = () => {
             </Grid>
           </Box>
 
-          <Divider sx={{ my: 4, bgcolor: 'rgba(255,255,255,0.08)' }} />
+          <Divider sx={{ my: 4, bgcolor: C.border }} />
 
           {/* Notifications */}
           <Box sx={{ mb: 4 }}>
@@ -724,7 +810,7 @@ const EditAlert = () => {
             </Box>
           </Box>
 
-          <Divider sx={{ my: 4, bgcolor: 'rgba(255,255,255,0.08)' }} />
+          <Divider sx={{ my: 4, bgcolor: C.border }} />
 
           {/* Planification */}
           <Box>
@@ -809,6 +895,30 @@ const EditAlert = () => {
                   label={
                     <Typography sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.9rem' }}>
                       Activer cette règle immédiatement
+                    </Typography>
+                  }
+                />
+              </Grid>
+
+              <Grid item xs={12}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={formData.repeatUntilResolved}
+                      onChange={(e) => setFormData({ ...formData, repeatUntilResolved: e.target.checked })}
+                      sx={{
+                        '& .MuiSwitch-switchBase.Mui-checked': {
+                          color: '#3b82f6',
+                        },
+                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                          bgcolor: '#3b82f6',
+                        },
+                      }}
+                    />
+                  }
+                  label={
+                    <Typography sx={{ color: 'rgba(255,255,255,0.7)', fontSize: '0.9rem' }}>
+                      Répéter selon la fréquence choisie jusqu'à résolution
                     </Typography>
                   }
                 />

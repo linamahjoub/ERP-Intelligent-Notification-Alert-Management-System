@@ -3,7 +3,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated, IsAdminUser
 from rest_framework_simplejwt.tokens import RefreshToken
-from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth import authenticate, get_user_model, login, logout
 from django.db.models import Q
 from django.conf import settings
 from django.core.mail import send_mail
@@ -239,6 +239,10 @@ def login_view(request):
     # L'utilisateur peut se connecter même s'il est inactif
     # Le frontend affichera une page "En attente d'approbation"
     
+    # Créer une session Django pour tracker l'utilisateur en ligne
+    # Spécifier le backend explicitement car nous avons plusieurs backends configurés
+    login(request, user, backend='accounts.authentication.EmailBackend')
+    
     # Générer les tokens JWT
     refresh = RefreshToken.for_user(user)
     
@@ -259,6 +263,9 @@ def logout_view(request):
         if refresh_token:
             token = RefreshToken(refresh_token)
             token.blacklist()
+        
+        # Nettoyer la session Django
+        logout(request)
         
         return Response({
             'message': 'Déconnexion réussie'
@@ -698,3 +705,61 @@ def reject_user_view(request, pk):
         return Response({
             'error': f'Erreur lors du rejet: {str(e)}'
         }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def online_users(request):
+    """
+    Retourne la liste des utilisateurs connectés (avec session active)
+    Accessible uniquement aux admins
+    """
+    from django.contrib.sessions.models import Session
+    from django.utils import timezone
+    from datetime import timedelta
+    
+    try:
+        # Récupérer toutes les sessions actives
+        active_sessions = Session.objects.filter(expire_date__gte=timezone.now())
+        
+        # Extraire les user_id des sessions actives
+        online_user_ids = []
+        for session in active_sessions:
+            try:
+                session_data = session.get_decoded()
+                user_id = session_data.get('_auth_user_id')
+                if user_id:
+                    online_user_ids.append(int(user_id))
+            except:
+                continue
+        
+        # Récupérer les utilisateurs correspondants
+        online_users_list = User.objects.filter(
+            id__in=online_user_ids,
+            is_active=True
+        ).order_by('-last_login')
+        
+        # Sérialiser les données
+        users_data = []
+        for user in online_users_list:
+            users_data.append({
+                'id': user.id,
+                'username': user.username,
+                'email': user.email,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'role': user.role,
+                'is_staff': user.is_staff,
+                'is_superuser': user.is_superuser,
+                'last_login': user.last_login.isoformat() if user.last_login else None,
+            })
+        
+        return Response({
+            'count': len(users_data),
+            'users': users_data
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        return Response({
+            'error': f'Erreur lors de la récupération des utilisateurs en ligne: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

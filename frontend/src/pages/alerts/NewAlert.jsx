@@ -176,6 +176,10 @@ const NewAlert = () => {
     product: '',
     categories: [],
     isActive: true,
+    notificationChannels: ['email'],
+    recipients: '',
+    repeatUntilResolved: false,
+    schedule: 'immediate',
   });
 
   const roleToModule = {
@@ -330,15 +334,22 @@ const NewAlert = () => {
     try {
       const token = localStorage.getItem('access_token');
       const alertData = {
-        name: formData.name, description: formData.description,
-        module: formData.module, severity: formData.severity,
-        condition_type: formData.conditionType, threshold_value: formData.thresholdValue,
+        name: formData.name, 
+        description: formData.description,
+        module: formData.module, 
+        severity: formData.severity,
+        condition_type: formData.conditionType, 
+        threshold_value: formData.thresholdValue,
         comparison_operator: formData.comparisonOperator,
         condition_field: formData.conditionField,
         compare_to: formData.compareTo,
         categories: formData.categories,
         product: formData.product || null,
         is_active: formData.isActive,
+        notification_channels: formData.notificationChannels,
+        recipients: formData.recipients ? formData.recipients.split(',').map(e => e.trim()) : [],
+        repeat_until_resolved: formData.repeatUntilResolved,
+        schedule: formData.schedule,
       };
       const res = await fetch('http://localhost:8000/api/alerts/', {
         method: 'POST',
@@ -569,6 +580,84 @@ const NewAlert = () => {
                 )}
                 {thresholdPanel[formData.conditionType]?.fields}
               </Box>
+            </Box>
+
+            <Divider sx={{ borderColor: T.border }} />
+
+            <Box>
+              <SectionHeader title="Configuration du champ" subtitle="Choisissez le champ de produit à surveiller" />
+              <Grid container spacing={2.5}>
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel sx={{ color: T.textSecondary, fontSize: '0.875rem' }}>Champ de condition</InputLabel>
+                    <Select
+                      value={formData.conditionField}
+                      onChange={handleInputChange('conditionField')}
+                      label="Champ de condition"
+                      sx={selectSx}
+                    >
+                      <MenuItem value="quantity">Quantité</MenuItem>
+                      <MenuItem value="price">Prix</MenuItem>
+                      <MenuItem value="max_quantity">Quantité max</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel sx={{ color: T.textSecondary, fontSize: '0.875rem' }}>Comparé à</InputLabel>
+                    <Select
+                      value={formData.compareTo}
+                      onChange={handleInputChange('compareTo')}
+                      label="Comparé à"
+                      sx={selectSx}
+                    >
+                      <MenuItem value="value">Valeur personnalisée</MenuItem>
+                      <MenuItem value="min_stock">Quantité minimum (min_quantity)</MenuItem>
+                      <MenuItem value="max_quantity">Quantité maximum</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+              </Grid>
+            </Box>
+
+            <Divider sx={{ borderColor: T.border }} />
+
+            <Box>
+              <SectionHeader title="Notification" subtitle="Configurez comment et où envoyer les alertes" />
+              <Grid container spacing={2.5}>
+                <Grid item xs={12} md={6}>
+                  <FormControl fullWidth>
+                    <InputLabel sx={{ color: T.textSecondary, fontSize: '0.875rem' }}>Canal de notification</InputLabel>
+                    <Select
+                      multiple
+                      value={formData.notificationChannels}
+                      onChange={(e) => setFormData({ ...formData, notificationChannels: e.target.value })}
+                      label="Canal de notification"
+                      sx={selectSx}
+                      renderValue={(selected) => (
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                          {selected.map((value) => (
+                            <Chip key={value} label={value === 'email' ? 'Email' : 'In-App'} size="small" sx={{ bgcolor: 'rgba(59,130,246,0.15)', color: T.textPrimary }} />
+                          ))}
+                        </Box>
+                      )}
+                    >
+                      <MenuItem value="email">Email</MenuItem>
+                      <MenuItem value="in-app">In-App</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Destinataires (email)"
+                    placeholder="email@example.com"
+                    value={formData.recipients}
+                    onChange={handleInputChange('recipients')}
+                    sx={fieldSx()}
+                  />
+                </Grid>
+              </Grid>
             </Box>
           </Stack>
         </Fade>

@@ -398,11 +398,13 @@ const DashboardStock = () => {
               >
                 <RefreshIcon />
               </IconButton>
-              <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenAddDialog()}
-                sx={{ bgcolor: "#3b82f6", color: "white", fontWeight: 600, py: 1.2, px: 3, borderRadius: 2, textTransform: "none", fontSize: "0.95rem", boxShadow: "0 4px 12px rgba(59,130,246,0.3)", "&:hover": { bgcolor: "#2563eb" } }}
-              >
-                Ajouter un produit
-              </Button>
+              {(user?.is_staff || user?.is_superuser) && (
+                <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenAddDialog()}
+                  sx={{ bgcolor: "#3b82f6", color: "white", fontWeight: 600, py: 1.2, px: 3, borderRadius: 2, textTransform: "none", fontSize: "0.95rem", boxShadow: "0 4px 12px rgba(59,130,246,0.3)", "&:hover": { bgcolor: "#2563eb" } }}
+                >
+                  Ajouter un produit
+                </Button>
+              )}
             </Box>
           </Box>
 
@@ -620,9 +622,11 @@ const DashboardStock = () => {
         <MenuItem onClick={() => { handleOpenAddDialog(selectedProduct); handleMenuClose(); }} sx={{ color: "#3b82f6", fontSize: "0.875rem", gap: 1, "&:hover": { bgcolor: "rgba(59,130,246,0.08)" } }}>
           <EditIcon fontSize="small" /> Modifier
         </MenuItem>
-        <MenuItem onClick={() => handleDeleteProduct(selectedProduct?.id)} sx={{ color: "#ef4444", fontSize: "0.875rem", gap: 1, "&:hover": { bgcolor: "rgba(239,68,68,0.08)" } }}>
-          <DeleteIcon fontSize="small" /> Supprimer
-        </MenuItem>
+        {(user?.is_staff || user?.is_superuser) && (
+          <MenuItem onClick={() => handleDeleteProduct(selectedProduct?.id)} sx={{ color: "#ef4444", fontSize: "0.875rem", gap: 1, "&:hover": { bgcolor: "rgba(239,68,68,0.08)" } }}>
+            <DeleteIcon fontSize="small" /> Supprimer
+          </MenuItem>
+        )}
       </Menu>
 
       {/* Add/Edit Dialog */}

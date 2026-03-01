@@ -98,6 +98,21 @@ const scheduleOptions = [
 const fmt = (iso) =>
   new Date(iso).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" });
 
+// Mapper les modules backend aux noms d'affichage ERP
+const MODULE_ERP_MAP = {
+  'stock': { name: 'STOCK', color: '#3b82f6' },
+  'crm': { name: 'CRM', color: '#8b5cf6' },
+  'facturation': { name: 'FINANCE', color: '#ec4899' },
+  'rh': { name: 'RH', color: '#06b6d4' },
+  'gmao': { name: 'PRODUCTION', color: '#f59e0b' },
+  'gpao': { name: 'PRODUCTION', color: '#f59e0b' },
+  'fournisseur': { name: 'ACHATS', color: '#14b8a6' },
+};
+
+const getModuleERPLabel = (backendModule) => {
+  return MODULE_ERP_MAP[backendModule] || { name: backendModule, color: '#64748b' };
+};
+
 const fmtFull = (iso) =>
   new Date(iso).toLocaleString("fr-FR", {
     day: "2-digit", month: "long", year: "numeric",
@@ -506,10 +521,6 @@ const Notifications = () => {
   };
 
   const handleCreateNotification = async () => {
-    if (!notificationForm.title.trim() || !notificationForm.message.trim()) {
-      setErrorMessage("Le titre et le message sont obligatoires");
-      return;
-    }
     try {
       const context = buildTemplateContext();
       const resolvedTitle = resolveTemplate(notificationForm.title, context);
@@ -996,7 +1007,21 @@ const Notifications = () => {
                       <Typography sx={{ color: C.textSub, fontSize: "0.82rem", lineHeight: 1.5, mb: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "90%" }}>
                         {notif.message}
                       </Typography>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+                        {notif.alert && notif.alert.module && (
+                          <Chip
+                            label={getModuleERPLabel(notif.alert.module).name}
+                            size="small"
+                            sx={{ 
+                              height: 20, 
+                              fontSize: "0.68rem", 
+                              fontWeight: 600, 
+                              bgcolor: `${getModuleERPLabel(notif.alert.module).color}20`, 
+                              color: getModuleERPLabel(notif.alert.module).color, 
+                              borderRadius: "4px" 
+                            }}
+                          />
+                        )}
                         <Chip
                           label={notif.notification_type === "alert_triggered" ? "Alerte" : notif.notification_type}
                           size="small"
@@ -1189,7 +1214,21 @@ const Notifications = () => {
                       <Typography sx={{ color: C.textSub, fontSize: "0.82rem", lineHeight: 1.5, mb: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "90%" }}>
                         {notif.message}
                       </Typography>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+                        {notif.alert && notif.alert.module && (
+                          <Chip
+                            label={getModuleERPLabel(notif.alert.module).name}
+                            size="small"
+                            sx={{ 
+                              height: 20, 
+                              fontSize: "0.68rem", 
+                              fontWeight: 600, 
+                              bgcolor: `${getModuleERPLabel(notif.alert.module).color}20`, 
+                              color: getModuleERPLabel(notif.alert.module).color, 
+                              borderRadius: "4px" 
+                            }}
+                          />
+                        )}
                         <Chip
                           label={notif.notification_type === "alert_triggered" ? "Alerte" : notif.notification_type}
                           size="small"

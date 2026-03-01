@@ -7,6 +7,7 @@ from django.conf import settings
 import logging
 from .models import Alert
 from .serializers import AlertSerializer
+from .services import evaluate_alert_against_current_stock
 from activity.models import ActivityLog
 
 # Configurer le logger
@@ -134,6 +135,10 @@ class AlertViewSet(viewsets.ModelViewSet):
         
         alert = serializer.save(user=self.request.user)
         channels = normalize_channels(alert.notification_channels)
+
+        # Évaluer immédiatement les conditions existantes pour les alertes stock
+        if alert.module == 'stock' and alert.is_active:
+            evaluate_alert_against_current_stock(alert)
         
         # Logger l'activité
         ActivityLog.objects.create(
@@ -235,6 +240,10 @@ L'équipe SmartNotify
         # Sauvegarder les modifications
         alert_updated = serializer.save()
         print(f"\n[ALERT UPDATE] Alerte mise à jour: {alert_updated.name}")
+
+        # Réévaluer immédiatement les alertes stock actives après modification
+        if alert_updated.module == 'stock' and alert_updated.is_active:
+            evaluate_alert_against_current_stock(alert_updated)
         
         # Envoyer une notification de modification
         user_email = self.request.user.email
@@ -412,3 +421,23 @@ L'équipe SmartNotify
         queryset = self.get_queryset().filter(is_active=True)
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=['post'])
+    def evaluate_conditions(self, request):
+        """Forcer l'évaluation des conditions pour les alertes actives"""
+        queryset = self.get_queryset().filter(is_active=True)
+
+        total_evaluated = 0
+        total_triggered = 0
+
+        for alert in queryset:
+            result = evaluate_alert_against_current_stock(alert)
+            total_evaluated += result.get('evaluated', 0)
+            total_triggered += result.get('triggered', 0)
+
+        return Response({
+            'message': 'Évaluation des conditions terminée',
+            'alerts_count': queryset.count(),
+            'products_evaluated': total_evaluated,
+            'notifications_created': total_triggered,
+        })

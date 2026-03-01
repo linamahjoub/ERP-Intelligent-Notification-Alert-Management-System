@@ -66,6 +66,8 @@ export const AuthProvider = ({ children }) => {
       const response = await axios.post('http://localhost:8000/api/auth/login/', {
         email,
         password
+      }, {
+        withCredentials: true
       });
       
       const { access, refresh, user: apiUserData } = response.data;
@@ -123,12 +125,30 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    localStorage.removeItem('user');
-    setUser(null);
-    setToken(null);
+  const logout = async () => {
+    try {
+      const refresh_token = localStorage.getItem('refresh_token');
+      // Appeler l'API de déconnexion pour nettoyer la session
+      await axios.post('http://localhost:8000/api/auth/logout/', 
+        { refresh_token },
+        { 
+          withCredentials: true,
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Nettoyer le localStorage dans tous les cas
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+      setUser(null);
+      setToken(null);
+    }
   };
 
   const register = async (userData) => {
