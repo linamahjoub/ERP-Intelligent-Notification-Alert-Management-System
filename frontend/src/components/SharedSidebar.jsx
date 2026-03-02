@@ -41,6 +41,7 @@ import {
   Menu as MenuIcon,
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
+  Receipt as ReceiptIcon,
 } from '@mui/icons-material';
 import notif from '../assets/notif.png';
 
@@ -60,7 +61,7 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
   const drawerWidth = isMobile ? mobileWidth : (sidebarCollapsed ? collapsedWidth : desktopWidth);
 
   const isAdmin = user?.is_superuser || user?.is_staff;
-  const [openMenus, setOpenMenus] = useState({ stock: true, fournisseurs: false, categories: false });
+  const [openMenus, setOpenMenus] = useState({ stock: true, fournisseurs: false, categories: false, facturation: false });
 
   const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed);
 
@@ -130,6 +131,15 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
       children: [
         { id: 'entrepot-new', label: 'Nouvel entrepôt', icon: <AddWarehouseIcon />, path: '/entrepots/new' },
         { id: 'entrepot-list',label: 'Liste',           icon: <ListIcon />,         path: '/entrepots' },
+      ],
+    },
+    {
+      id: 'facturation',
+      label: 'Facturation',
+      icon: <ReceiptIcon />,
+      children: [
+        { id: 'facturation-new', label: 'Nouvelle facture', icon: <AddBoxIcon />, path: '/facturation/new' },
+        { id: 'facturation-list', label: 'Liste', icon: <ListIcon />, path: '/facturation' },
       ],
     },
     {
@@ -304,7 +314,7 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
                             px: isMobile ? 1 : 1.5, py: isMobile ? 0.5 : 0.7, mb: 0.2, borderRadius: '8px', cursor: 'pointer',
                             transition: 'all 0.2s ease',
                             bgcolor: childActive ? 'rgba(59,130,246,0.12)' : 'transparent',
-                            '&:hover': { bgcolor: childActive ? 'rgba(59,130,246,0.18)' : 'rgba(59,130,246,0.05)' },
+                            '&:hover': { bgcolor: childActive ? '#3B82F62E' : 'rgba(59,130,246,0.05)' },
                           }}
                         >
                           <Box sx={{ color: childActive ? '#3b82f6' : '#64748b', display: 'flex', '& svg': { fontSize: isMobile ? 13 : 15 } }}>

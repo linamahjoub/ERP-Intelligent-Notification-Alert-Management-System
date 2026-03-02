@@ -44,6 +44,7 @@ INSTALLED_APPS = [
     'fournisseur',
     'categories',
     'entrepots',
+    'facturation',
 ]
 
 MIDDLEWARE = [

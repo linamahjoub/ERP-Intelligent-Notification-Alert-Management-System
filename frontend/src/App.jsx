@@ -1,6 +1,6 @@
 ﻿import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { ThemeProvider, createTheme, CssBaseline, Container } from '@mui/material';
+import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ActivityProvider } from './context/ActivityContext';
 import PrivateRoute from './components/PrivateRoute';
@@ -20,6 +20,7 @@ import NewAlert from './pages/alerts/NewAlert';
 import Fournisseur from './pages/stock/fournisseur';
 import Categories from './pages/stock/categories';
 import Entrepots from './pages/stock/Entrepots';
+import Facturation from './pages/stock/Facturation';
 
 //import History from './pages/History';
 import AlertRules from './pages/alerts/AlertRules';
@@ -122,11 +123,7 @@ const InnerRoutes = () => {
   const isAuthPage = authPaths.includes(location.pathname);
 
   return (
-    <Container
-      maxWidth={isAuthPage ? false : 'xl'}
-      disableGutters={isAuthPage}
-      sx={isAuthPage ? { p: 0, mt: 0, mb: 0 } : { mt: 4, mb: 4 }}
-    >
+ 
       <Routes>
         {/* Routes publiques */}
         <Route path="/login" element={<Login />} />
@@ -230,6 +227,17 @@ const InnerRoutes = () => {
             <Entrepots />
           </PrivateRoute>
         } />
+        {/* Route pour la facturation */}
+        <Route path="/facturation" element={
+          <PrivateRoute>
+            <Facturation />
+          </PrivateRoute>
+        } />
+        <Route path="/facturation/new" element={
+          <PrivateRoute>
+            <Facturation />
+          </PrivateRoute>
+        } />
         {/* Route pour créer une nouvelle alerte */}
         <Route path="/new-alert" element={
           <PrivateRoute>
@@ -296,7 +304,7 @@ const InnerRoutes = () => {
         {/* Route de fallback */}
         <Route path="*" element={<RoleBasedRedirect />} />
       </Routes>
-    </Container>
+    
   );
 };
 

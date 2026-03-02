@@ -333,7 +333,7 @@ const Categories = () => {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", width: "100vw", bgcolor: "black", position: "fixed", top: 0, left: 0, right: 0, bottom: 0, overflow: "hidden" }}>
+    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "black", overflow: "hidden" }}>
       <SharedSidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(!mobileOpen)} />
 
       <Box component="main" sx={{ flexGrow: 1, minWidth: 0, height: "100vh", bgcolor: "black", overflowY: "auto", overflowX: "hidden" }}>

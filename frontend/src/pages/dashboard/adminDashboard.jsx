@@ -772,6 +772,8 @@ const AdminDashboard = () => {
         sx={{
           flexGrow: 1,
           width: "100%",
+          maxWidth: "100%",
+          minWidth: 0,
           minHeight: "100vh",
           bgcolor: "black",
           overflowY: "auto",
@@ -786,7 +788,7 @@ const AdminDashboard = () => {
         }}
       >
         {/* Header */}
-        <Box sx={{ p: 1.2, borderBottom: "1px solid rgba(59, 130, 246, 0.1)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 2 }}>
+        <Box sx={{ px: 3, py: 1.2, borderBottom: "1px solid rgba(59, 130, 246, 0.1)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 2 }}>
           {isMobile && (
             <IconButton onClick={handleDrawerToggle} sx={{ color: "white", mr: 1, "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>
               <MenuIcon />
@@ -845,7 +847,7 @@ const AdminDashboard = () => {
         </Box>
 
         {/* Page title */}
-        <Box sx={{ p: 3, pb: 0 }}>
+        <Box sx={{ px: 3, py: 2, pb: 0 }}>
           <Box>
             <Typography variant="h4" sx={{ color: "white", fontWeight: 700, mb: 0.5 }}>
               Tableau de Bord Administrateur
@@ -857,10 +859,10 @@ const AdminDashboard = () => {
         </Box>
 
         {/* Dashboard content */}
-        <Box sx={{ p: 3, pt: 2, pb: 6 }}>
+        <Box sx={{ width: "100%", maxWidth: "100%", px: 3, pt: 2, pb: 6 }}>
 
           {/* Stats cards */}
-          <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid container spacing={3} sx={{ mb: 4, width: "100%", maxWidth: "100%" }}>
             {/* Alertes Actives */}
             <Grid item xs={12} sm={6} md={3}>
               <Card sx={{ bgcolor: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: 3, transition: "all 0.3s ease", "&:hover": { transform: "translateY(-4px)", boxShadow: "0 8px 24px rgba(239, 68, 68, 0.2)" } }}>
@@ -943,7 +945,7 @@ const AdminDashboard = () => {
           </Grid>
 
           {/* Charts row */}
-          <Grid container spacing={3} sx={{ mb: 4 }}>
+          <Grid container spacing={3} sx={{ mb: 4, width: "100%", maxWidth: "100%" }}>
             {/* ✅ Activité des notifications - Area Chart */}
             <Grid item xs={12} lg={8}>
               <Card sx={{ bgcolor: "rgba(30, 41, 59, 0.5)", border: "1px solid rgba(59, 130, 246, 0.1)", borderRadius: 3, height: "100%" }}>
@@ -993,7 +995,7 @@ const AdminDashboard = () => {
           </Grid>
 
           {/* Bottom row */}
-          <Grid container spacing={3}>
+          <Grid container spacing={3} sx={{ width: "100%", maxWidth: "100%" }}>
             {/* Activités récentes - Timeline */}
             <Grid item xs={12} lg={6}>
               <Card sx={{ bgcolor: "rgba(30, 41, 59, 0.5)", border: "1px solid rgba(59, 130, 246, 0.1)", borderRadius: 3 }}>
