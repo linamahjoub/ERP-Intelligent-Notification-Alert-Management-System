@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { openGoogleLoginPopup } from '../../services/googleOAuthConfig';
 import {
   TextField,
   Button,
@@ -131,6 +132,42 @@ const Login = () => {
     
     if (value && !value.includes('@')) {
       setEmailError('Format d\'email invalide');
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    setError('');
+    
+    try {
+      // Ouvrir la popup Google OAuth
+      const popup = openGoogleLoginPopup();
+      
+      if (!popup) {
+        setError('Impossible d\'ouvrir la fenêtre de connexion. Vérifiez les popup blockers.');
+        setLoading(false);
+        return;
+      }
+      
+      // Attendre la fermeture de la popup
+      const checkPopupInterval = setInterval(() => {
+        try {
+          if (popup.closed) {
+            clearInterval(checkPopupInterval);
+            setLoading(false);
+            // Le callback s'occupera de la redirection
+          }
+        } catch (e) {
+          // Popup fermée par l'utilisateur
+          clearInterval(checkPopupInterval);
+          setLoading(false);
+        }
+      }, 500);
+      
+    } catch (error) {
+      console.error('Erreur Google Sign-In:', error);
+      setError('Erreur lors de la connexion avec Google.');
+      setLoading(false);
     }
   };
 
@@ -854,7 +891,8 @@ const Login = () => {
                 fullWidth
                 variant="outlined"
                 startIcon={<GoogleIcon />}
-                onClick={() => alert('Sign in with Google - Placeholder')}
+                onClick={handleGoogleSignIn}
+                disabled={loading}
                 sx={{ 
                   py: 1.5,
                   borderRadius: 2,
@@ -875,10 +913,22 @@ const Login = () => {
                   },
                   '&:active': {
                     transform: 'translateY(0)',
+                  },
+                  '&:disabled': {
+                    bgcolor: '#e2e8f0',
+                    borderColor: '#cbd5e1',
+                    color: '#94a3b8',
                   }
                 }}
               >
-                Continuer avec Google
+                {loading ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CircularProgress size={18} sx={{ color: '#0a0e27' }} />
+                    <span>Connexion en cours...</span>
+                  </Box>
+                ) : (
+                  'Continuer avec Google'
+                )}
               </Button>
             </Box>
           </Paper>

@@ -19,23 +19,26 @@ class PaymentInline(admin.TabularInline):
 @admin.register(Invoice)
 class InvoiceAdmin(admin.ModelAdmin):
     list_display = [
-        'invoice_number', 'customer_name', 'invoice_type', 'invoice_date',
+        'invoice_number', 'purchase_order_number', 'customer_name', 'invoice_type', 'invoice_date',
         'due_date', 'total_amount', 'amount_paid', 'status', 'created_at'
     ]
-    list_filter = ['status', 'invoice_type', 'invoice_date', 'created_at']
-    search_fields = ['invoice_number', 'customer_name', 'customer_email']
+    list_filter = ['status', 'invoice_type', 'invoice_date', 'created_at', 'currency']
+    search_fields = ['invoice_number', 'purchase_order_number', 'customer_name', 'customer_email']
     readonly_fields = ['tax_amount', 'total_amount', 'balance_due', 'is_overdue', 'created_at', 'updated_at']
     inlines = [InvoiceItemInline, PaymentInline]
     
     fieldsets = (
         ('Informations de base', {
-            'fields': ('invoice_number', 'invoice_type', 'status')
+            'fields': ('invoice_number', 'purchase_order_number', 'invoice_type', 'status')
         }),
         ('Client', {
             'fields': ('customer_name', 'customer_email', 'customer_phone', 'customer_address', 'supplier')
         }),
+        ('Catégorie et devise', {
+            'fields': ('category', 'currency')
+        }),
         ('Dates', {
-            'fields': ('invoice_date', 'due_date')
+            'fields': ('invoice_date', 'due_date', 'supplier_departure_date')
         }),
         ('Montants', {
             'fields': ('subtotal', 'tax_rate', 'tax_amount', 'discount', 'total_amount', 'amount_paid', 'balance_due')
@@ -44,7 +47,7 @@ class InvoiceAdmin(admin.ModelAdmin):
             'fields': ('notes', 'terms', 'is_overdue')
         }),
         ('Métadonnées', {
-            'fields': ('created_by', 'created_at', 'updated_at'),
+            'fields': ('created_by', 'updated_by', 'created_at', 'updated_at'),
             'classes': ('collapse',)
         }),
     )

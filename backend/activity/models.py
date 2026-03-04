@@ -4,12 +4,16 @@ from django.db import models
 
 class ActivityLog(models.Model):
     ACTION_PRODUCT_CREATED = "product_created"
+    ACTION_PRODUCT_UPDATED = "product_updated"
+    ACTION_PRODUCT_DELETED = "product_deleted"
     ACTION_USER_CREATED = "user_created"
     ACTION_CATEGORY_CREATED = "category_created"
     ACTION_ALERT_CREATED = "alert_created"
 
     ACTION_CHOICES = [
         (ACTION_PRODUCT_CREATED, "Product created"),
+        (ACTION_PRODUCT_UPDATED, "Product updated"),
+        (ACTION_PRODUCT_DELETED, "Product deleted"),
         (ACTION_USER_CREATED, "User created"),
         (ACTION_CATEGORY_CREATED, "Category created"),
         (ACTION_ALERT_CREATED, "Alert created"),

@@ -221,3 +221,8 @@ EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')  # À configurer dans
 DEFAULT_FROM_EMAIL = f'SmartNotify <{EMAIL_HOST_USER}>'
 FRONTEND_URL = 'http://localhost:3004'
 
+# ==================== GOOGLE OAUTH 2.0 CONFIGURATION ====================
+GOOGLE_OAUTH_CLIENT_ID = os.getenv('GOOGLE_OAUTH_CLIENT_ID', '')
+GOOGLE_OAUTH_CLIENT_SECRET = os.getenv('GOOGLE_OAUTH_CLIENT_SECRET', '')
+GOOGLE_OAUTH_REDIRECT_URI = os.getenv('GOOGLE_OAUTH_REDIRECT_URI', 'http://localhost:3000/auth/google/callback')
+

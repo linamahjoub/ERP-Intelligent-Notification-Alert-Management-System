@@ -106,33 +106,35 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
         { id: 'stock-list',  label: 'Liste',                icon: <ListIcon />,      path: '/stock' },
      ],
     },
-    {
-      id: 'categories',
-      label: 'Categories',
-      icon: <CategoryIcon />,
-      children: [
-        { id: 'categories-new',   label: 'Nouvelle categorie', icon: <AddBoxIcon />, path: '/categories/new' },
-        { id: 'categories-list',  label: 'Liste',              icon: <ListIcon />,   path: '/categories' },
-      ],
-    },
-    {
-      id: 'fournisseurs',
-      label: 'fournisseurs',
-      icon: <PeopleIcon />,
-     children: [
-        { id: 'fournisseur-new',   label: 'Nouveau fournisseur',      icon: <AddBoxIcon />,    path: '/fournisseur/new' },
-        { id: 'fournisseur-list',  label: 'Liste',                icon: <ListIcon />,      path: '/fournisseur' },
-      ],
-    },
-    {
-      id: 'entrepots',
-      label: 'Entrepôts',
-      icon: <WarehouseIcon />,
-      children: [
-        { id: 'entrepot-new', label: 'Nouvel entrepôt', icon: <AddWarehouseIcon />, path: '/entrepots/new' },
-        { id: 'entrepot-list',label: 'Liste',           icon: <ListIcon />,         path: '/entrepots' },
-      ],
-    },
+    ...(isAdmin ? [
+      {
+        id: 'categories',
+        label: 'Categories',
+        icon: <CategoryIcon />,
+        children: [
+          { id: 'categories-new',   label: 'Nouvelle categorie', icon: <AddBoxIcon />, path: '/categories/new' },
+          { id: 'categories-list',  label: 'Liste',              icon: <ListIcon />,   path: '/categories' },
+        ],
+      },
+      {
+        id: 'fournisseurs',
+        label: 'fournisseurs',
+        icon: <PeopleIcon />,
+       children: [
+          { id: 'fournisseur-new',   label: 'Nouveau fournisseur',      icon: <AddBoxIcon />,    path: '/fournisseur/new' },
+          { id: 'fournisseur-list',  label: 'Liste',                icon: <ListIcon />,      path: '/fournisseur' },
+        ],
+      },
+      {
+        id: 'entrepots',
+        label: 'Entrepôts',
+        icon: <WarehouseIcon />,
+        children: [
+          { id: 'entrepot-new', label: 'Nouvel entrepôt', icon: <AddWarehouseIcon />, path: '/entrepots/new' },
+          { id: 'entrepot-list',label: 'Liste',           icon: <ListIcon />,         path: '/entrepots' },
+        ],
+      },
+    ] : []),
     {
       id: 'facturation',
       label: 'Facturation',

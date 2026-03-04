@@ -12,6 +12,10 @@ from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
+from django.utils import timezone
+import requests
+import json
+import base64
 
 from activity.models import ActivityLog
 
@@ -762,4 +766,239 @@ def online_users(request):
     except Exception as e:
         return Response({
             'error': f'Erreur lors de la récupération des utilisateurs en ligne: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+# ==================== AUTHENTIFICATION GOOGLE OAUTH 2.0 ====================
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def google_oauth_callback_view(request):
+    """
+    Callback Google OAuth 2.0
+    Reçoit le code d'authentification et l'échange contre un token
+    """
+    try:
+        code = request.data.get('code')
+        redirect_uri = request.data.get('redirect_uri')
+        
+        if not code:
+            return Response({
+                'error': 'Code d\'authentification manquant'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Vérifier si c'est un code de développement
+        if code == 'dev-auth-code':
+            # Mode développement - utiliser l'email fourni
+            email = request.data.get('email')
+            if not email:
+                return Response({
+                    'error': 'Email manquant en mode développement'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            return _handle_google_user_auth(
+                email=email,
+                first_name=request.data.get('first_name', ''),
+                last_name=request.data.get('last_name', ''),
+                is_dev_mode=True
+            )
+        
+        # Mode production - Échanger le code contre un token Google
+        import requests
+        from django.conf import settings
+        
+        google_client_id = getattr(settings, 'GOOGLE_OAUTH_CLIENT_ID', '')
+        google_client_secret = getattr(settings, 'GOOGLE_OAUTH_CLIENT_SECRET', '')
+        
+        if not google_client_id or not google_client_secret:
+            return Response({
+                'error': 'Google OAuth n\'est pas configuré'
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+        # Échanger le code contre un token
+        token_response = requests.post(
+            'https://oauth2.googleapis.com/token',
+            data={
+                'code': code,
+                'client_id': google_client_id,
+                'client_secret': google_client_secret,
+                'redirect_uri': redirect_uri,
+                'grant_type': 'authorization_code',
+            },
+            timeout=10
+        )
+        
+        if token_response.status_code != 200:
+            print(f"Erreur échange code Google: {token_response.text}")
+            return Response({
+                'error': 'Erreur lors de l\'échange du code'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        token_data = token_response.json()
+        access_token = token_data.get('access_token')
+        id_token = token_data.get('id_token')
+        
+        # Récupérer les infos utilisateur depuis l'ID token
+        if id_token:
+            import json
+            import base64
+            
+            try:
+                # Décoder le JWT (ignorer la signature pour dev)
+                parts = id_token.split('.')
+                if len(parts) == 3:
+                    payload = parts[1]
+                    padding = 4 - (len(payload) % 4)
+                    if padding != 4:
+                        payload += '=' * padding
+                    
+                    userinfo = json.loads(base64.urlsafe_b64decode(payload))
+                else:
+                    raise ValueError("Format JWT invalide")
+            except Exception as e:
+                print(f"Erreur décodage JWT: {e}")
+                # Fallback: récupérer les infos via l'API userinfo
+                userinfo_response = requests.get(
+                    'https://www.googleapis.com/oauth2/v2/userinfo',
+                    headers={'Authorization': f'Bearer {access_token}'},
+                    timeout=10
+                )
+                userinfo = userinfo_response.json()
+        else:
+            # Récupérer les infos via l'API userinfo
+            userinfo_response = requests.get(
+                'https://www.googleapis.com/oauth2/v2/userinfo',
+                headers={'Authorization': f'Bearer {access_token}'},
+                timeout=10
+            )
+            userinfo = userinfo_response.json()
+        
+        email = userinfo.get('email')
+        first_name = userinfo.get('given_name', '')
+        last_name = userinfo.get('family_name', '')
+        
+        return _handle_google_user_auth(
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            is_dev_mode=False
+        )
+        
+    except Exception as e:
+        print(f"❌ Erreur callback Google OAuth: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return Response({
+            'error': f'Erreur lors de l\'authentification: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _handle_google_user_auth(email, first_name='', last_name='', is_dev_mode=False):
+    """
+    Utilitaire pour gérer l'authentification/création d'utilisateur Google
+    """
+    if not email:
+        return Response({
+            'error': 'Email manquant'
+        }, status=status.HTTP_400_BAD_REQUEST)
+    
+    try:
+        # Créer ou récupérer l'utilisateur
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={
+                'username': email.split('@')[0],
+                'first_name': first_name,
+                'last_name': last_name,
+                'is_active': True,
+            }
+        )
+        
+        if created:
+            user.first_name = first_name
+            user.last_name = last_name
+            user.save()
+            
+            ActivityLog.objects.create(
+                user=user,
+                action='auth_register',
+                description=f'Inscription via Google OAuth: {email}'
+            )
+            print(f"✓ Nouvel utilisateur Google créé: {email}")
+        else:
+            if first_name:
+                user.first_name = first_name
+            if last_name:
+                user.last_name = last_name
+            user.save()
+            
+            ActivityLog.objects.create(
+                user=user,
+                action='auth_login',
+                description=f'Connexion via Google OAuth {f"(Dev)" if is_dev_mode else ""}'
+            )
+            print(f"✓ Connexion utilisateur Google: {email}")
+        
+        # Générer les tokens JWT
+        refresh = RefreshToken.for_user(user)
+        
+        # Mettre à jour last_login
+        user.last_login = timezone.now()
+        user.save()
+        
+        return Response({
+            'message': 'Authentification réussie',
+            'user': UserSerializer(user).data,
+            'token': str(refresh.access_token),
+            'refresh_token': str(refresh),
+        }, status=status.HTTP_200_OK)
+        
+    except Exception as e:
+        print(f"❌ Erreur création/auth utilisateur: {str(e)}")
+        return Response({
+            'error': f'Erreur lors de l\'authentification: {str(e)}'
+        }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def google_auth_view(request):
+    """
+    DEPRECATED - Utiliser google_oauth_callback_view à la place
+    Conservé pour compatibilité avec mode développement
+    """
+    try:
+        token = request.data.get('token')
+        email = request.data.get('email')
+        first_name = request.data.get('first_name', '')
+        last_name = request.data.get('last_name', '')
+        
+        if not token:
+            return Response({
+                'error': 'Token manquant'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        if not email:
+            return Response({
+                'error': 'Email manquant'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Mode développement uniquement
+        if token.startswith('dev-mock-token-'):
+            is_dev_mode = True
+            print(f"⚠️  Mode développement - Authentification simple")
+        else:
+            is_dev_mode = False
+        
+        return _handle_google_user_auth(
+            email=email,
+            first_name=first_name,
+            last_name=last_name,
+            is_dev_mode=is_dev_mode
+        )
+        
+    except Exception as e:
+        print(f"❌ Erreur authentification (mode compat): {str(e)}")
+        return Response({
+            'error': f'Erreur lors de l\'authentification: {str(e)}'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

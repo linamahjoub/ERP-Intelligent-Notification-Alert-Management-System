@@ -174,7 +174,7 @@ class Notification(models.Model):
                                 Pour toute question, veuillez vous connecter à votre espace.
                             </p>
                             <p style="margin:10px 0 0 0;">
-                                © 2026 SmartAlerte. Tous droits réservés.
+                                © 2026 SmartNotify. Tous droits réservés.
                             </p>
                             <p style="margin:5px 0 0 0;">
                                 Cet email a été envoyé automatiquement. Veuillez ne pas y répondre.

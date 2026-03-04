@@ -2,6 +2,7 @@ from django.db import models
 from django.conf import settings
 from stock.models import Product
 from fournisseur.models import Supplier
+from categories.models import category
 
 
 class Invoice(models.Model):
@@ -20,6 +21,7 @@ class Invoice(models.Model):
     ]
 
     invoice_number = models.CharField(max_length=50, unique=True, verbose_name="Numéro de facture")
+    purchase_order_number = models.CharField(max_length=100, blank=True, null=True, verbose_name="Numéro commande achat")
     invoice_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='sales', verbose_name="Type")
     customer_name = models.CharField(max_length=200, verbose_name="Nom du client")
     customer_email = models.EmailField(blank=True, null=True, verbose_name="Email du client")
@@ -27,6 +29,9 @@ class Invoice(models.Model):
     customer_address = models.TextField(blank=True, null=True, verbose_name="Adresse du client")
     
     supplier = models.ForeignKey(Supplier, on_delete=models.SET_NULL, null=True, blank=True, related_name='invoices', verbose_name="Fournisseur")
+    category = models.ForeignKey(category, on_delete=models.SET_NULL, null=True, blank=True, related_name='invoices', verbose_name="Catégorie")
+    currency = models.CharField(max_length=10, default='EUR', verbose_name="Devise")
+    supplier_departure_date = models.DateField(blank=True, null=True, verbose_name="Départ fournisseur")
     
     invoice_date = models.DateField(verbose_name="Date de facturation")
     due_date = models.DateField(verbose_name="Date d'échéance")
@@ -45,6 +50,7 @@ class Invoice(models.Model):
     terms = models.TextField(blank=True, null=True, verbose_name="Conditions")
     
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='invoices_created', verbose_name="Créé par")
+    updated_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='invoices_updated', verbose_name="Modifié par")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Créé le")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Modifié le")
 

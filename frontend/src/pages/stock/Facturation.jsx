@@ -7,7 +7,7 @@ import {
   useTheme, useMediaQuery, Table, TableBody, TableCell, TableContainer,
   TableHead, TableRow, Chip, Menu, MenuItem, TextField, Dialog, DialogTitle,
   DialogContent, DialogActions, Alert, Snackbar, FormControl, InputLabel,
-  Select, Divider, Tooltip, Badge, InputAdornment,
+  Select, Divider, Tooltip, Badge, InputAdornment, Avatar, Checkbox,
 } from "@mui/material";
 import {
   Receipt as ReceiptIcon,
@@ -23,12 +23,18 @@ import {
   TrendingUp as TrendingUpIcon,
   AttachMoney as AttachMoneyIcon,
   Warning as WarningIcon,
+  Menu as MenuIcon,
+  PictureAsPdf as PdfIcon,
 } from "@mui/icons-material";
 import SharedSidebar from "../../components/SharedSidebar";
 import { facturationService } from "../../services/facturationService";
+import { categoryService } from "../../services/categoryService";
+import { fournisseurService } from "../../services/fournisseurService";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 /* ─── StatCard Component ─────────────────────────────────────────────────── */
-const StatCard = ({ label, value, color, icon: Icon, onClick }) => {
+const StatCard = ({ label, value, color, onClick }) => {
   const hexToRgba = (hex, alpha) => {
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
@@ -56,7 +62,6 @@ const StatCard = ({ label, value, color, icon: Icon, onClick }) => {
       }}
     >
       <CardContent sx={{ py: 2, px: 2.5, flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center" }}>
-        {Icon && <Icon sx={{ color: color, fontSize: 32, mb: 1 }} />}
         <Typography variant="body2" sx={{ color: "#94a3b8", mb: 0.5, fontSize: "0.85rem" }}>
           {label}
         </Typography>
@@ -87,16 +92,24 @@ const Facturation = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [loading, setLoading] = useState(false);
   const [invoices, setInvoices] = useState([]);
+  const [selectedInvoiceIds, setSelectedInvoiceIds] = useState([]);
   const [statistics, setStatistics] = useState(null);
+  const [categories, setCategories] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
 
   const [formData, setFormData] = useState({
     id: null,
     invoice_number: "",
+    purchase_order_number: "",
     invoice_type: "sales",
     customer_name: "",
     customer_email: "",
     customer_phone: "",
     customer_address: "",
+    supplier: "",
+    category: "",
+    currency: "EUR",
+    supplier_departure_date: "",
     invoice_date: new Date().toISOString().split('T')[0],
     due_date: "",
     subtotal: 0,
@@ -139,11 +152,18 @@ const Facturation = () => {
     { value: "other", label: "Autre" },
   ];
 
+  const taxRateOptions = [0, 7, 13, 19, 20];
+
   // Fetch invoices and statistics
   useEffect(() => {
     fetchInvoices();
     fetchStatistics();
   }, [filterStatus, filterType, searchQuery]);
+
+  useEffect(() => {
+    fetchCategories();
+    fetchSuppliers();
+  }, []);
 
   const fetchInvoices = async () => {
     setLoading(true);
@@ -172,15 +192,38 @@ const Facturation = () => {
     }
   };
 
+  const fetchCategories = async () => {
+    try {
+      const data = await categoryService.getAllCategories();
+      setCategories(data);
+    } catch (error) {
+      console.error("Error fetching categories:", error);
+    }
+  };
+
+  const fetchSuppliers = async () => {
+    try {
+      const data = await fournisseurService.getAllSuppliers();
+      setSuppliers(data);
+    } catch (error) {
+      console.error("Error fetching suppliers:", error);
+    }
+  };
+
   const handleAddNew = () => {
     setFormData({
       id: null,
       invoice_number: `INV-${Date.now()}`,
+      purchase_order_number: "",
       invoice_type: "sales",
       customer_name: "",
       customer_email: "",
       customer_phone: "",
       customer_address: "",
+      supplier: "",
+      category: "",
+      currency: "EUR",
+      supplier_departure_date: "",
       invoice_date: new Date().toISOString().split('T')[0],
       due_date: "",
       subtotal: 0,
@@ -198,11 +241,16 @@ const Facturation = () => {
     setFormData({
       id: invoice.id,
       invoice_number: invoice.invoice_number,
+      purchase_order_number: invoice.purchase_order_number || "",
       invoice_type: invoice.invoice_type,
       customer_name: invoice.customer_name,
       customer_email: invoice.customer_email || "",
       customer_phone: invoice.customer_phone || "",
       customer_address: invoice.customer_address || "",
+      supplier: invoice.supplier || "",
+      category: invoice.category || "",
+      currency: invoice.currency || "EUR",
+      supplier_departure_date: invoice.supplier_departure_date || "",
       invoice_date: invoice.invoice_date,
       due_date: invoice.due_date,
       subtotal: invoice.subtotal,
@@ -233,6 +281,11 @@ const Facturation = () => {
   };
 
   const handleSaveInvoice = async () => {
+    if (!formData.supplier) {
+      setErrorMessage("Veuillez sélectionner un fournisseur depuis la base");
+      return;
+    }
+
     try {
       if (formData.id) {
         await facturationService.updateInvoice(formData.id, formData);
@@ -276,6 +329,161 @@ const Facturation = () => {
     }
   };
 
+  const handleExportPDF = (invoice) => {
+    try {
+      if (!invoice) {
+        setErrorMessage("Aucune facture sélectionnée");
+        return;
+      }
+
+      const doc = new jsPDF();
+      
+      // En-tête de la facture
+      doc.setFontSize(20);
+      doc.setTextColor(59, 130, 246);
+      doc.text("FACTURE", 105, 20, { align: "center" });
+      
+      // Ligne de séparation
+      doc.setDrawColor(59, 130, 246);
+      doc.setLineWidth(0.5);
+      doc.line(20, 25, 190, 25);
+      
+      // Informations de la facture
+      doc.setFontSize(10);
+      doc.setTextColor(0, 0, 0);
+      
+      let y = 35;
+      doc.setFont("helvetica", "bold");
+      doc.text(`N° Facture: ${invoice.invoice_number || 'N/A'}`, 20, y);
+      doc.text(`Date: ${formatDate(invoice.invoice_date)}`, 140, y);
+      
+      y += 7;
+      if (invoice.purchase_order_number) {
+        doc.setFont("helvetica", "normal");
+        doc.text(`N° Commande Achat: ${invoice.purchase_order_number}`, 20, y);
+        y += 7;
+      }
+      
+      doc.setFont("helvetica", "normal");
+      doc.text(`Échéance: ${formatDate(invoice.due_date)}`, 140, y - 7);
+      
+      y += 3;
+      
+      // Informations fournisseur
+      doc.setFont("helvetica", "bold");
+      doc.text("FOURNISSEUR", 20, y);
+      y += 7;
+      doc.setFont("helvetica", "normal");
+      doc.text(invoice.supplier_name || invoice.customer_name || "-", 20, y);
+      y += 5;
+      if (invoice.customer_email) {
+        doc.text(`Email: ${invoice.customer_email}`, 20, y);
+        y += 5;
+      }
+      if (invoice.customer_phone) {
+        doc.text(`Tél: ${invoice.customer_phone}`, 20, y);
+        y += 5;
+      }
+      if (invoice.customer_address) {
+        const addressLines = doc.splitTextToSize(invoice.customer_address, 80);
+        doc.text(addressLines, 20, y);
+        y += addressLines.length * 5;
+      }
+      
+      y += 5;
+      
+      // Détails supplémentaires
+      if (invoice.category_name) {
+        doc.setFont("helvetica", "bold");
+        doc.text("Catégorie: ", 20, y);
+        doc.setFont("helvetica", "normal");
+        doc.text(invoice.category_name, 45, y);
+        y += 7;
+      }
+      
+      if (invoice.supplier_departure_date) {
+        doc.setFont("helvetica", "bold");
+        doc.text("Départ Fournisseur: ", 20, y);
+        doc.setFont("helvetica", "normal");
+        doc.text(formatDate(invoice.supplier_departure_date), 60, y);
+        y += 7;
+      }
+      
+      doc.setFont("helvetica", "bold");
+      doc.text("Statut: ", 20, y);
+      doc.setFont("helvetica", "normal");
+      doc.text(getStatusLabel(invoice.status), 40, y);
+      
+      y += 10;
+      
+      // Tableau des montants
+      const tableData = [
+        ["Sous-total HT", formatCurrency(invoice.subtotal || 0, invoice.currency)],
+        ["TVA", formatCurrency(invoice.tax_amount || 0, invoice.currency)],
+        ["Total TTC", formatCurrency(invoice.total_amount || 0, invoice.currency)],
+      ];
+      
+      // Utiliser autoTable (plugin jspdf-autotable)
+      if (typeof doc.autoTable === 'function') {
+        doc.autoTable({
+          startY: y,
+          head: [["Description", "Montant"]],
+          body: tableData,
+          theme: "striped",
+          headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+          styles: { fontSize: 10 },
+          columnStyles: {
+            0: { cellWidth: 100 },
+            1: { cellWidth: 70, halign: "right", fontStyle: "bold" },
+          },
+        });
+        y = doc.lastAutoTable.finalY + 10;
+      } else {
+        // Fallback si autoTable n'est pas disponible
+        console.warn("autoTable non disponible, affichage simple");
+        tableData.forEach(([label, value]) => {
+          doc.text(label, 20, y);
+          doc.text(value, 140, y);
+          y += 7;
+        });
+        y += 3;
+      }
+      
+      // Notes
+      if (invoice.notes) {
+        doc.setFont("helvetica", "bold");
+        doc.text("Observations:", 20, y);
+        y += 7;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        const notesLines = doc.splitTextToSize(invoice.notes, 170);
+        doc.text(notesLines, 20, y);
+        y += notesLines.length * 5;
+      }
+      
+      // Pied de page
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+      const footerY = 280;
+      doc.text(`Créé par: ${invoice.created_by_name || "-"}`, 20, footerY);
+      doc.text(`Date de création: ${formatDateTime(invoice.created_at)}`, 20, footerY + 5);
+      if (invoice.updated_by_name) {
+        doc.text(`Modifié par: ${invoice.updated_by_name}`, 20, footerY + 10);
+        doc.text(`Date de modification: ${formatDateTime(invoice.updated_at)}`, 20, footerY + 15);
+      }
+      
+      // Sauvegarde du PDF
+      const filename = `Facture_${invoice.invoice_number || 'sans_numero'}.pdf`;
+      doc.save(filename);
+      setSuccessMessage("PDF exporté avec succès");
+      handleCloseMenu();
+    } catch (error) {
+      console.error("Erreur détaillée lors de l'export PDF:", error);
+      setErrorMessage(`Erreur lors de l'export du PDF: ${error.message || 'Erreur inconnue'}`);
+      handleCloseMenu();
+    }
+  };
+
   const handleMenuClick = (event, invoice) => {
     event.stopPropagation();
     setAnchorEl(event.currentTarget);
@@ -285,6 +493,25 @@ const Facturation = () => {
   const handleCloseMenu = () => {
     setAnchorEl(null);
   };
+
+  const handleToggleRowSelection = (invoiceId) => {
+    setSelectedInvoiceIds((prev) =>
+      prev.includes(invoiceId)
+        ? prev.filter((id) => id !== invoiceId)
+        : [...prev, invoiceId]
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedInvoiceIds.length === invoices.length) {
+      setSelectedInvoiceIds([]);
+      return;
+    }
+    setSelectedInvoiceIds(invoices.map((invoice) => invoice.id));
+  };
+
+  const allRowsSelected = invoices.length > 0 && selectedInvoiceIds.length === invoices.length;
+  const someRowsSelected = selectedInvoiceIds.length > 0 && selectedInvoiceIds.length < invoices.length;
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -306,86 +533,114 @@ const Facturation = () => {
     return type === "sales" ? "Vente" : "Achat";
   };
 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: 'EUR' }).format(amount);
+  const normalizeCurrencyCode = (currency) => {
+    const raw = String(currency || "").trim().toUpperCase();
+    const aliases = {
+      DT: "TND",
+      "D.T": "TND",
+      DINAR: "TND",
+      DINARS: "TND",
+    };
+    if (aliases[raw]) return aliases[raw];
+    return raw || "EUR";
+  };
+
+  const formatCurrency = (amount, currency = "EUR") => {
+    const safeAmount = Number(amount) || 0;
+    const normalizedCurrency = normalizeCurrencyCode(currency);
+
+    try {
+      return new Intl.NumberFormat("fr-FR", {
+        style: "currency",
+        currency: normalizedCurrency,
+      }).format(safeAmount);
+    } catch (error) {
+      return new Intl.NumberFormat("fr-FR", {
+        style: "currency",
+        currency: "EUR",
+      }).format(safeAmount);
+    }
+  };
+
+  const formatDate = (dateValue) => {
+    if (!dateValue) return "-";
+    const date = new Date(dateValue);
+    return Number.isNaN(date.getTime()) ? "-" : date.toLocaleDateString("fr-FR");
+  };
+
+  const formatDateTime = (dateValue) => {
+    if (!dateValue) return "-";
+    const date = new Date(dateValue);
+    return Number.isNaN(date.getTime())
+      ? "-"
+      : date.toLocaleString("fr-FR", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
   };
 
   return (
-    <Box sx={{ display: "flex", bgcolor: "#0f172a", minHeight: "100vh", overflow: "hidden" }}>
-      <SharedSidebar mobileOpen={mobileOpen} setMobileOpen={setMobileOpen} />
-      
-      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: 3, height: "100vh", overflowY: "auto", overflowX: "hidden" }}>
-        {/* Header */}
-        <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <ReceiptIcon sx={{ fontSize: 40, color: "#3b82f6" }} />
-            <Typography variant="h4" sx={{ color: "white", fontWeight: 700 }}>
-              Facturation
-            </Typography>
-          </Box>
-          <Box sx={{ display: "flex", gap: 2 }}>
-            <Tooltip title="Rafraîchir">
-              <IconButton onClick={fetchInvoices} sx={{ color: "white", bgcolor: "#1e293b" }}>
-                <RefreshIcon />
-              </IconButton>
-            </Tooltip>
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={handleAddNew}
-              sx={{
-                bgcolor: "#3b82f6",
-                "&:hover": { bgcolor: "#2563eb" },
-                textTransform: "none",
-                fontWeight: 600,
-              }}
-            >
-              Nouvelle Facture
-            </Button>
+    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "black", overflow: "hidden" }}>
+      <SharedSidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(!mobileOpen)} selectedMenu="facturation" />
+
+      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, height: "100vh", bgcolor: "black", overflowY: "auto", overflowX: "hidden" }}>
+
+        {/* Header bar */}
+        <Box sx={{ p: 1.2, borderBottom: "1px solid rgba(59,130,246,0.1)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>
+          {isMobile && (
+            <IconButton onClick={() => setMobileOpen(!mobileOpen)} sx={{ color: "white" }}>
+              <MenuIcon />
+            </IconButton>
+          )}
+          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, ml: "auto" }}>
+            <Box sx={{ textAlign: "right", display: { xs: "none", sm: "block" } }}>
+              <Typography variant="body2" sx={{ color: "white", fontWeight: 600 }}>{user?.first_name || user?.username}</Typography>
+              <Typography variant="caption" sx={{ color: "#64748b" }}>{user?.is_superuser ? "Administrateur" : "Utilisateur"}</Typography>
+            </Box>
+            <Avatar sx={{ width: 40, height: 40, bgcolor: user?.is_superuser ? "#ef4444" : "#3b82f6" }}>
+              {user?.first_name?.charAt(0) || user?.username?.charAt(0) || "U"}
+            </Avatar>
           </Box>
         </Box>
 
-        {/* Statistics Cards */}
-        {statistics && (
-          <Grid container spacing={2} sx={{ mb: 3 }}>
-            <Grid item xs={12} sm={6} md={3}>
-              <StatCard
-                label="Total Factures"
-                value={statistics.total_invoices}
-                color="#3b82f6"
-                icon={ReceiptIcon}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <StatCard
-                label="Chiffre d'affaires"
-                value={formatCurrency(statistics.total_revenue)}
-                color="#10b981"
-                icon={TrendingUpIcon}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <StatCard
-                label="En attente"
-                value={formatCurrency(statistics.outstanding)}
-                color="#f59e0b"
-                icon={AttachMoneyIcon}
-              />
-            </Grid>
-            <Grid item xs={12} sm={6} md={3}>
-              <StatCard
-                label="En retard"
-                value={statistics.overdue_count}
-                color="#ef4444"
-                icon={WarningIcon}
-              />
-            </Grid>
-          </Grid>
-        )}
+        <Box sx={{ p: 3 }}>
+          {/* Title + actions */}
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3, flexWrap: "wrap", gap: 2 }}>
+            <Box>
+              <Typography variant="h4" sx={{ color: "white", fontWeight: 700, mb: 0.5 }}>Facturation</Typography>
+              <Typography variant="body2" sx={{ color: "#64748b" }}>Gérez vos factures et paiements</Typography>
+            </Box>
+            <Box sx={{ display: "flex", gap: 1.5 }}>
+              <IconButton onClick={fetchInvoices} disabled={loading}
+                sx={{ color: "#64748b", border: "1px solid rgba(59,130,246,0.15)", borderRadius: "10px", width: 44, height: 44, "&:hover": { color: "#3b82f6", borderColor: "rgba(59,130,246,0.4)" } }}
+              >
+                <RefreshIcon />
+              </IconButton>
+              <Button
+                variant="contained"
+                startIcon={<AddIcon />}
+                onClick={handleAddNew}
+                sx={{
+                  bgcolor: "#3b82f6",
+                  "&:hover": { bgcolor: "#2563eb" },
+                  textTransform: "none",
+                  fontWeight: 600,
+                  borderRadius: "10px",
+                  px: 2.5,
+                }}
+              >
+                Nouvelle Facture
+              </Button>
+            </Box>
+          </Box>
 
+     
         {/* Filters */}
-        <Card sx={{ bgcolor: "#1e293b", mb: 3, borderRadius: 2 }}>
-          <CardContent>
+        <Card sx={{ bgcolor: "rgba(30,41,59,0.5)", border: "1px solid rgba(59,130,246,0.1)", borderRadius: 3, mb: 3 }}>
+          <CardContent sx={{ p: 2.5 }}>
             <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} md={4}>
                 <TextField
@@ -394,28 +649,34 @@ const Facturation = () => {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   InputProps={{
-                    startAdornment: <SearchIcon sx={{ color: "#94a3b8", mr: 1 }} />,
+                    startAdornment: <SearchIcon sx={{ color: "#64748b", mr: 1 }} />,
                   }}
                   sx={{
                     "& .MuiOutlinedInput-root": {
-                      color: "white",
-                      "& fieldset": { borderColor: "#334155" },
-                      "&:hover fieldset": { borderColor: "#475569" },
+                      color: "#94a3b8",
+                      "& fieldset": { borderColor: "rgba(59,130,246,0.2)" },
+                      "&:hover fieldset": { borderColor: "rgba(59,130,246,0.4)" },
+                      "&.Mui-focused fieldset": { borderColor: "#3b82f6" },
+                      bgcolor: "rgba(59,130,246,0.05)",
+                      borderRadius: "10px",
                     },
                   }}
                 />
               </Grid>
               <Grid item xs={12} sm={6} md={4}>
                 <FormControl fullWidth>
-                  <InputLabel sx={{ color: "#94a3b8" }}>Statut</InputLabel>
+                  <InputLabel sx={{ color: "#64748b", "&.Mui-focused": { color: "#3b82f6" } }}>Statut</InputLabel>
                   <Select
                     value={filterStatus}
                     onChange={(e) => setFilterStatus(e.target.value)}
                     label="Statut"
                     sx={{
-                      color: "white",
-                      "& .MuiOutlinedInput-notchedOutline": { borderColor: "#334155" },
-                      "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#475569" },
+                      color: "#94a3b8",
+                      "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(59,130,246,0.2)" },
+                      "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(59,130,246,0.4)" },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#3b82f6" },
+                      bgcolor: "rgba(59,130,246,0.05)",
+                      borderRadius: "10px",
                     }}
                   >
                     {statusOptions.map(opt => (
@@ -426,15 +687,18 @@ const Facturation = () => {
               </Grid>
               <Grid item xs={12} sm={6} md={4}>
                 <FormControl fullWidth>
-                  <InputLabel sx={{ color: "#94a3b8" }}>Type</InputLabel>
+                  <InputLabel sx={{ color: "#64748b", "&.Mui-focused": { color: "#3b82f6" } }}>Type</InputLabel>
                   <Select
                     value={filterType}
                     onChange={(e) => setFilterType(e.target.value)}
                     label="Type"
                     sx={{
-                      color: "white",
-                      "& .MuiOutlinedInput-notchedOutline": { borderColor: "#334155" },
-                      "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "#475569" },
+                      color: "#94a3b8",
+                      "& .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(59,130,246,0.2)" },
+                      "&:hover .MuiOutlinedInput-notchedOutline": { borderColor: "rgba(59,130,246,0.4)" },
+                      "&.Mui-focused .MuiOutlinedInput-notchedOutline": { borderColor: "#3b82f6" },
+                      bgcolor: "rgba(59,130,246,0.05)",
+                      borderRadius: "10px",
                     }}
                   >
                     {typeOptions.map(opt => (
@@ -448,20 +712,35 @@ const Facturation = () => {
         </Card>
 
         {/* Invoices Table */}
-        <Card sx={{ bgcolor: "#1e293b", borderRadius: 2 }}>
+        <Card sx={{ bgcolor: "rgba(30,41,59,0.5)", border: "1px solid rgba(59,130,246,0.1)", borderRadius: 3 }}>
           <TableContainer>
             <Table>
               <TableHead>
-                <TableRow sx={{ bgcolor: "#0f172a" }}>
-                  <TableCell sx={{ color: "#94a3b8", fontWeight: 600 }}>N° Facture</TableCell>
-                  <TableCell sx={{ color: "#94a3b8", fontWeight: 600 }}>Client</TableCell>
-                  <TableCell sx={{ color: "#94a3b8", fontWeight: 600 }}>Type</TableCell>
-                  <TableCell sx={{ color: "#94a3b8", fontWeight: 600 }}>Date</TableCell>
-                  <TableCell sx={{ color: "#94a3b8", fontWeight: 600 }}>Échéance</TableCell>
-                  <TableCell sx={{ color: "#94a3b8", fontWeight: 600 }}>Montant</TableCell>
-                  <TableCell sx={{ color: "#94a3b8", fontWeight: 600 }}>Solde dû</TableCell>
-                  <TableCell sx={{ color: "#94a3b8", fontWeight: 600 }}>Statut</TableCell>
-                  <TableCell sx={{ color: "#94a3b8", fontWeight: 600 }}>Actions</TableCell>
+                <TableRow sx={{ backgroundColor: "rgba(59,130,246,0.05)", borderBottom: "1px solid rgba(59,130,246,0.1)" }}>
+                  <TableCell sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none", width: 56 }}>
+                    <Checkbox
+                      checked={allRowsSelected}
+                      indeterminate={someRowsSelected}
+                      onChange={handleToggleSelectAll}
+                      sx={{ color: "#94a3b8", '&.Mui-checked': { color: '#3b82f6' } }}
+                    />
+                  </TableCell>
+                  <TableCell sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>N° Facture</TableCell>
+                  <TableCell sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>N° Commande Achat</TableCell>
+                  <TableCell sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>Fournisseur</TableCell>
+                  <TableCell sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>Etat </TableCell>
+                  <TableCell sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>Total HT</TableCell>
+                  <TableCell sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>Total TVA</TableCell>
+                  <TableCell sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>Total TTC</TableCell>
+                  <TableCell sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>Saisi par</TableCell>
+                  <TableCell sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>Départ Fournisseur</TableCell>
+                  <TableCell sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>Saisi le</TableCell>
+                  <TableCell sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>Observations</TableCell>
+                 <TableCell sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>Modifier le </TableCell>
+                 <TableCell sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>Modifier Par</TableCell>
+                 <TableCell sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>Catégories</TableCell>
+                 <TableCell sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>Devise</TableCell>
+                
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -469,35 +748,25 @@ const Facturation = () => {
                   <TableRow
                     key={invoice.id}
                     sx={{
-                      "&:hover": { bgcolor: "#334155" },
-                      transition: "background-color 0.2s",
+                      borderBottom: "1px solid rgba(59,130,246,0.1)",
+                      "&:hover": { bgcolor: "rgba(59,130,246,0.05)" },
                     }}
                   >
+                    <TableCell sx={{ color: "white", width: 56 }}>
+                      <Checkbox
+                        checked={selectedInvoiceIds.includes(invoice.id)}
+                        onChange={() => handleToggleRowSelection(invoice.id)}
+                        sx={{ color: "#94a3b8", '&.Mui-checked': { color: '#3b82f6' } }}
+                      />
+                    </TableCell>
                     <TableCell sx={{ color: "white", fontWeight: 500 }}>
                       {invoice.invoice_number}
                     </TableCell>
-                    <TableCell sx={{ color: "white" }}>{invoice.customer_name}</TableCell>
                     <TableCell sx={{ color: "white" }}>
-                      <Chip
-                        label={getTypeLabel(invoice.invoice_type)}
-                        size="small"
-                        sx={{
-                          bgcolor: invoice.invoice_type === "sales" ? "#10b98120" : "#f59e0b20",
-                          color: invoice.invoice_type === "sales" ? "#10b981" : "#f59e0b",
-                        }}
-                      />
+                      {invoice.purchase_order_number || invoice.order_number || "-"}
                     </TableCell>
                     <TableCell sx={{ color: "white" }}>
-                      {new Date(invoice.invoice_date).toLocaleDateString('fr-FR')}
-                    </TableCell>
-                    <TableCell sx={{ color: "white" }}>
-                      {new Date(invoice.due_date).toLocaleDateString('fr-FR')}
-                    </TableCell>
-                    <TableCell sx={{ color: "white", fontWeight: 600 }}>
-                      {formatCurrency(invoice.total_amount)}
-                    </TableCell>
-                    <TableCell sx={{ color: invoice.balance_due > 0 ? "#f59e0b" : "#10b981", fontWeight: 600 }}>
-                      {formatCurrency(invoice.balance_due)}
+                      {invoice.supplier_name || invoice.customer_name || "-"}
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -510,14 +779,44 @@ const Facturation = () => {
                         }}
                       />
                     </TableCell>
-                    <TableCell>
-                      <IconButton
-                        onClick={(e) => handleMenuClick(e, invoice)}
-                        sx={{ color: "#94a3b8" }}
-                      >
-                        <MoreVertIcon />
-                      </IconButton>
+                    <TableCell sx={{ color: "white", fontWeight: 600 }}>
+                      {formatCurrency(invoice.subtotal || 0, invoice.currency || "EUR")}
                     </TableCell>
+                    <TableCell sx={{ color: "white", fontWeight: 600 }}>
+                      {formatCurrency(invoice.tax_amount || 0, invoice.currency || "EUR")}
+                    </TableCell>
+                    <TableCell sx={{ color: "white", fontWeight: 700 }}>
+                      {formatCurrency(invoice.total_amount || 0, invoice.currency || "EUR")}
+                    </TableCell>
+                    <TableCell sx={{ color: "white" }}>{invoice.created_by_name || "-"}</TableCell>
+                    <TableCell sx={{ color: "white" }}>{formatDate(invoice.supplier_departure_date)}</TableCell>
+                    <TableCell sx={{ color: "white" }}>{formatDateTime(invoice.created_at)}</TableCell>
+                    <TableCell sx={{ color: "white" }}>{invoice.notes || "-"}</TableCell>
+                    <TableCell sx={{ color: "white" }}>{formatDateTime(invoice.updated_at)}</TableCell>
+                    <TableCell sx={{ color: "white" }}>
+                      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 1 }}>
+                        <Typography variant="body2" sx={{ color: "white" }}>
+                          {invoice.updated_by_name || invoice.created_by_name || "-"}
+                        </Typography>
+                        <IconButton
+                          onClick={(e) => handleMenuClick(e, invoice)}
+                          sx={{ color: "#94a3b8" }}
+                        >
+                          <MoreVertIcon />
+                        </IconButton>
+                      </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Chip
+                        label={invoice.category_name || getTypeLabel(invoice.invoice_type)}
+                        size="small"
+                        sx={{
+                          bgcolor: invoice.invoice_type === "sales" ? "#10b98120" : "#f59e0b20",
+                          color: invoice.invoice_type === "sales" ? "#10b981" : "#f59e0b",
+                        }}
+                      />
+                    </TableCell>
+                    <TableCell sx={{ color: "white" }}>{invoice.currency || "EUR"}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -525,8 +824,12 @@ const Facturation = () => {
           </TableContainer>
           {invoices.length === 0 && !loading && (
             <Box sx={{ p: 4, textAlign: "center" }}>
-              <Typography sx={{ color: "#94a3b8" }}>
-                Aucune facture trouvée
+              <ReceiptIcon sx={{ fontSize: 64, color: "rgba(255,255,255,0.1)", mb: 2 }} />
+              <Typography variant="h6" sx={{ color: "white", mb: 1 }}>Aucune facture trouvée</Typography>
+              <Typography sx={{ color: "#64748b" }}>
+                {searchQuery || filterStatus !== "all" || filterType !== "all" 
+                  ? "Aucune facture ne correspond à vos filtres." 
+                  : "Commencez par créer une facture."}
               </Typography>
             </Box>
           )}
@@ -538,17 +841,26 @@ const Facturation = () => {
           open={Boolean(anchorEl)}
           onClose={handleCloseMenu}
           PaperProps={{
-            sx: { bgcolor: "#1e293b", color: "white" },
+            sx: { 
+              bgcolor: "rgba(15,23,42,0.97)", 
+              border: "1px solid rgba(59,130,246,0.2)", 
+              borderRadius: "12px", 
+              backdropFilter: "blur(12px)", 
+              boxShadow: "0 8px 32px rgba(0,0,0,0.4)" 
+            },
           }}
         >
-          <MenuItem onClick={() => handleEdit(selectedInvoice)}>
-            <EditIcon sx={{ mr: 1, fontSize: 20 }} /> Modifier
+          <MenuItem onClick={() => handleEdit(selectedInvoice)} sx={{ color: "#3b82f6", fontSize: "0.875rem", gap: 1, "&:hover": { bgcolor: "rgba(59,130,246,0.08)" } }}>
+            <EditIcon fontSize="small" /> Modifier
           </MenuItem>
-          <MenuItem onClick={() => handleOpenPaymentDialog(selectedInvoice)}>
-            <PaymentIcon sx={{ mr: 1, fontSize: 20 }} /> Ajouter un paiement
+          <MenuItem onClick={() => handleExportPDF(selectedInvoice)} sx={{ color: "#10b981", fontSize: "0.875rem", gap: 1, "&:hover": { bgcolor: "rgba(16,185,129,0.08)" } }}>
+            <PdfIcon fontSize="small" /> Exporter en PDF
           </MenuItem>
-          <MenuItem onClick={() => handleDelete(selectedInvoice?.id)}>
-            <DeleteIcon sx={{ mr: 1, fontSize: 20, color: "#ef4444" }} /> Supprimer
+          <MenuItem onClick={() => handleOpenPaymentDialog(selectedInvoice)} sx={{ color: "#f59e0b", fontSize: "0.875rem", gap: 1, "&:hover": { bgcolor: "rgba(245,158,11,0.08)" } }}>
+            <PaymentIcon fontSize="small" /> Ajouter un paiement
+          </MenuItem>
+          <MenuItem onClick={() => handleDelete(selectedInvoice?.id)} sx={{ color: "#ef4444", fontSize: "0.875rem", gap: 1, "&:hover": { bgcolor: "rgba(239,68,68,0.08)" } }}>
+            <DeleteIcon fontSize="small" /> Supprimer
           </MenuItem>
         </Menu>
 
@@ -558,22 +870,13 @@ const Facturation = () => {
           onClose={() => setOpenAddDialog(false)}
           maxWidth="md"
           fullWidth
-          PaperProps={{ sx: { bgcolor: "#1e293b", color: "white" } }}
+          PaperProps={{ sx: { bgcolor: "#1e293b", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 3, color: "white" } }}
         >
-          <DialogTitle sx={{ borderBottom: "1px solid #334155" }}>
+          <DialogTitle sx={{ color: "white", fontWeight: 700, borderBottom: "1px solid rgba(59,130,246,0.1)" }}>
             {formData.id ? "Modifier la facture" : "Nouvelle facture"}
           </DialogTitle>
           <DialogContent sx={{ mt: 2 }}>
             <Grid container spacing={2}>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="N° de facture"
-                  value={formData.invoice_number}
-                  onChange={(e) => setFormData({ ...formData, invoice_number: e.target.value })}
-                  sx={{ "& .MuiInputLabel-root": { color: "#94a3b8" }, "& .MuiOutlinedInput-root": { color: "white" } }}
-                />
-              </Grid>
               <Grid item xs={12} sm={6}>
                 <FormControl fullWidth>
                   <InputLabel sx={{ color: "#94a3b8" }}>Type</InputLabel>
@@ -588,12 +891,83 @@ const Facturation = () => {
                   </Select>
                 </FormControl>
               </Grid>
-              <Grid item xs={12}>
+              <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Nom du client"
-                  value={formData.customer_name}
-                  onChange={(e) => setFormData({ ...formData, customer_name: e.target.value })}
+                  label="N° Facture"
+                  value={formData.invoice_number}
+                  onChange={(e) => setFormData({ ...formData, invoice_number: e.target.value })}
+                  sx={{ "& .MuiInputLabel-root": { color: "#94a3b8" }, "& .MuiOutlinedInput-root": { color: "white" } }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="N° Commande Achat"
+                  value={formData.purchase_order_number}
+                  onChange={(e) => setFormData({ ...formData, purchase_order_number: e.target.value })}
+                  sx={{ "& .MuiInputLabel-root": { color: "#94a3b8" }, "& .MuiOutlinedInput-root": { color: "white" } }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel sx={{ color: "#94a3b8" }}>Fournisseur</InputLabel>
+                  <Select
+                    value={formData.supplier}
+                    onChange={(e) => {
+                      const selectedSupplier = suppliers.find((s) => s.id === e.target.value);
+                      setFormData({
+                        ...formData,
+                        supplier: e.target.value,
+                        customer_name: selectedSupplier?.name || "",
+                        customer_email: selectedSupplier?.email || formData.customer_email,
+                        customer_phone: selectedSupplier?.phone || formData.customer_phone,
+                        customer_address: selectedSupplier?.address || formData.customer_address,
+                      });
+                    }}
+                    label="Fournisseur"
+                    sx={{ color: "white" }}
+                  >
+                    <MenuItem value="">Sélectionner un fournisseur</MenuItem>
+                    {suppliers.map((supplier) => (
+                      <MenuItem key={supplier.id} value={supplier.id}>{supplier.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <FormControl fullWidth>
+                  <InputLabel sx={{ color: "#94a3b8" }}>Catégorie</InputLabel>
+                  <Select
+                    value={formData.category}
+                    onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                    label="Catégorie"
+                    sx={{ color: "white" }}
+                  >
+                    <MenuItem value="">Aucune</MenuItem>
+                    {categories.map((cat) => (
+                      <MenuItem key={cat.id} value={cat.id}>{cat.name}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Devise"
+                  value={formData.currency}
+                  onChange={(e) => setFormData({ ...formData, currency: e.target.value.toUpperCase() })}
+                  sx={{ "& .MuiInputLabel-root": { color: "#94a3b8" }, "& .MuiOutlinedInput-root": { color: "white" } }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Départ Fournisseur"
+                  type="date"
+                  value={formData.supplier_departure_date}
+                  onChange={(e) => setFormData({ ...formData, supplier_departure_date: e.target.value })}
+                  InputLabelProps={{ shrink: true }}
                   sx={{ "& .MuiInputLabel-root": { color: "#94a3b8" }, "& .MuiOutlinedInput-root": { color: "white" } }}
                 />
               </Grid>
@@ -660,14 +1034,19 @@ const Facturation = () => {
                 />
               </Grid>
               <Grid item xs={12} sm={4}>
-                <TextField
-                  fullWidth
-                  label="TVA (%)"
-                  type="number"
-                  value={formData.tax_rate}
-                  onChange={(e) => setFormData({ ...formData, tax_rate: parseFloat(e.target.value) || 0 })}
-                  sx={{ "& .MuiInputLabel-root": { color: "#94a3b8" }, "& .MuiOutlinedInput-root": { color: "white" } }}
-                />
+                <FormControl fullWidth>
+                  <InputLabel sx={{ color: "#94a3b8" }}>TVA (%)</InputLabel>
+                  <Select
+                    value={formData.tax_rate}
+                    onChange={(e) => setFormData({ ...formData, tax_rate: Number(e.target.value) || 0 })}
+                    label="TVA (%)"
+                    sx={{ color: "white" }}
+                  >
+                    {taxRateOptions.map((rate) => (
+                      <MenuItem key={rate} value={rate}>{rate}%</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
               </Grid>
               <Grid item xs={12} sm={4}>
                 <TextField
@@ -727,9 +1106,9 @@ const Facturation = () => {
           onClose={() => setOpenPaymentDialog(false)}
           maxWidth="sm"
           fullWidth
-          PaperProps={{ sx: { bgcolor: "#1e293b", color: "white" } }}
+          PaperProps={{ sx: { bgcolor: "#1e293b", border: "1px solid rgba(59,130,246,0.2)", borderRadius: 3, color: "white" } }}
         >
-          <DialogTitle sx={{ borderBottom: "1px solid #334155" }}>
+          <DialogTitle sx={{ color: "white", fontWeight: 700, borderBottom: "1px solid rgba(59,130,246,0.1)" }}>
             Ajouter un paiement
           </DialogTitle>
           <DialogContent sx={{ mt: 2 }}>
@@ -828,6 +1207,7 @@ const Facturation = () => {
           </Alert>
         </Snackbar>
       </Box>
+    </Box>
     </Box>
   );
 };

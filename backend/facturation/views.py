@@ -3,6 +3,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.db.models import Sum, Q, Count
+from django.conf import settings
+from django.core.mail import send_mail
 from django.utils import timezone
 from datetime import timedelta
 from .models import Invoice, InvoiceItem, Payment
@@ -23,9 +25,46 @@ class InvoiceViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update']:
             return InvoiceCreateSerializer
         return InvoiceSerializer
+
+    def _send_invoice_created_email(self, invoice):
+        supplier_email = None
+        if invoice.supplier and invoice.supplier.email and "@" in str(invoice.supplier.email):
+            supplier_email = str(invoice.supplier.email).strip()
+
+        if not supplier_email:
+            return
+
+        subject = f"Nouvelle facture créée : {invoice.invoice_number}"
+        message = (
+            f"Bonjour,\n\n"
+            f"Une nouvelle facture a été créée avec succès.\n\n"
+            f"Numéro : {invoice.invoice_number}\n"
+            f"Commande achat : {invoice.purchase_order_number or '-'}\n"
+            f"Fournisseur : {invoice.supplier.name if invoice.supplier else '-'}\n"
+            f"Date facture : {invoice.invoice_date}\n"
+            f"Montant total : {invoice.total_amount} {invoice.currency or 'EUR'}\n"
+            f"Statut : {invoice.get_status_display()}\n\n"
+            f"Cordialement,\n"
+            f"SmartNotify"
+        )
+
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=getattr(settings, "DEFAULT_FROM_EMAIL", None),
+            recipient_list=[supplier_email],
+            fail_silently=False,
+        )
     
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        invoice = serializer.save(created_by=self.request.user)
+        try:
+            self._send_invoice_created_email(invoice)
+        except Exception as error:
+            print(f"[FACTURATION] Erreur envoi email création facture: {error}")
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)
     
     def get_queryset(self):
         queryset = Invoice.objects.all()
@@ -54,7 +93,7 @@ class InvoiceViewSet(viewsets.ModelViewSet):
                 Q(invoice_number__icontains=search)
             )
         
-        return queryset.select_related('supplier', 'created_by').prefetch_related('items', 'payments')
+        return queryset.select_related('supplier', 'category', 'created_by', 'updated_by').prefetch_related('items', 'payments')
     
     @action(detail=False, methods=['get'])
     def statistics(self, request):

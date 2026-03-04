@@ -28,19 +28,22 @@ class InvoiceSerializer(serializers.ModelSerializer):
     balance_due = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
     is_overdue = serializers.BooleanField(read_only=True)
     created_by_name = serializers.CharField(source='created_by.get_full_name', read_only=True)
+    updated_by_name = serializers.CharField(source='updated_by.get_full_name', read_only=True)
     supplier_name = serializers.CharField(source='supplier.name', read_only=True)
+    category_name = serializers.CharField(source='category.name', read_only=True)
     
     class Meta:
         model = Invoice
         fields = [
-            'id', 'invoice_number', 'invoice_type', 'customer_name', 'customer_email',
-            'customer_phone', 'customer_address', 'supplier', 'supplier_name',
+            'id', 'invoice_number', 'purchase_order_number', 'invoice_type', 'customer_name', 'customer_email',
+            'customer_phone', 'customer_address', 'supplier', 'supplier_name', 'category', 'category_name',
+            'currency', 'supplier_departure_date',
             'invoice_date', 'due_date', 'subtotal', 'tax_rate', 'tax_amount',
             'discount', 'total_amount', 'amount_paid', 'balance_due', 'status',
             'is_overdue', 'notes', 'terms', 'items', 'payments',
-            'created_by', 'created_by_name', 'created_at', 'updated_at'
+            'created_by', 'created_by_name', 'updated_by', 'updated_by_name', 'created_at', 'updated_at'
         ]
-        read_only_fields = ['tax_amount', 'total_amount', 'created_by', 'created_at', 'updated_at']
+        read_only_fields = ['tax_amount', 'total_amount', 'created_by', 'updated_by', 'created_at', 'updated_at']
 
 
 class InvoiceCreateSerializer(serializers.ModelSerializer):
@@ -49,8 +52,8 @@ class InvoiceCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Invoice
         fields = [
-            'invoice_number', 'invoice_type', 'customer_name', 'customer_email',
-            'customer_phone', 'customer_address', 'supplier', 'invoice_date',
+            'invoice_number', 'purchase_order_number', 'invoice_type', 'customer_name', 'customer_email',
+            'customer_phone', 'customer_address', 'supplier', 'category', 'currency', 'supplier_departure_date', 'invoice_date',
             'due_date', 'subtotal', 'tax_rate', 'discount', 'status',
             'notes', 'terms', 'items'
         ]

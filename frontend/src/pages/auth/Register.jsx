@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { openGoogleLoginPopup } from '../../services/googleOAuthConfig';
 import {
   TextField,
   Button,
@@ -89,6 +90,7 @@ const Register = () => {
   const [roleError, setRoleError] = useState('');
   const [numberError, setNumberError] = useState('');
   const [numberValidating, setNumberValidating] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
 
   // Fonction locale pour générer un mot de passe
   const generateSecurePassword = () => {
@@ -254,6 +256,26 @@ const Register = () => {
         password2: newPassword
       });
       checkPasswordStrengthLocal(newPassword);
+    }
+  };
+
+  // Gestion de la connexion Google
+  const handleGoogleSignIn = async () => {
+    try {
+      setGoogleLoading(true);
+      const popup = openGoogleLoginPopup();
+      
+      // Monitor popup closure
+      const checkPopup = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(checkPopup);
+          setGoogleLoading(false);
+        }
+      }, 500);
+    } catch (error) {
+      console.error('Erreur lors de l\'ouverture de la popup Google:', error);
+      setError('Impossible d\'ouvrir la fenêtre Google');
+      setGoogleLoading(false);
     }
   };
 
@@ -1143,8 +1165,9 @@ const Register = () => {
               <Button
                 fullWidth
                 variant="outlined"
-                startIcon={<GoogleIcon />}
-                onClick={() => alert('Sign in with Google - Placeholder')}
+                startIcon={googleLoading ? null : <GoogleIcon />}
+                onClick={handleGoogleSignIn}
+                disabled={googleLoading}
                 sx={{ 
                   py: 1.5,
                   borderRadius: 2,
@@ -1168,7 +1191,12 @@ const Register = () => {
                   }
                 }}
               >
-                Continuer avec Google
+                {googleLoading ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CircularProgress size={18} />
+                    <span>Connexion...</span>
+                  </Box>
+                ) : 'Continuer avec Google'}
               </Button>
             </Box>
           </Paper>

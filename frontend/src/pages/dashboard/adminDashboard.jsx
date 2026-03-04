@@ -788,78 +788,79 @@ const AdminDashboard = () => {
         }}
       >
         {/* Header */}
-        <Box sx={{ px: 3, py: 1.2, borderBottom: "1px solid rgba(59, 130, 246, 0.1)", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 2 }}>
-          {isMobile && (
-            <IconButton onClick={handleDrawerToggle} sx={{ color: "white", mr: 1, "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>
-              <MenuIcon />
-            </IconButton>
-          )}
-
-          {/* Search */}
-          <Box sx={{ flex: 1, maxWidth: 500, position: "relative" }}>
-          <SearchIcon sx={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "#64748b", fontSize: 20 }} />
-            <input
-              type="text"
-              placeholder="Rechercher dans le dashboard..."
-              style={{
-                width: "100%", padding: "12px 16px 12px 48px",
-                backgroundColor: "rgba(59, 130, 246, 0.1)",
-                border: "1px solid rgba(59, 130, 246, 0.2)",
-                borderRadius: "12px", color: "#94a3b8", fontSize: "0.9rem", outline: "none",
-              }}
-              onFocus={(e) => { e.target.style.borderColor = "#3b82f6"; e.target.style.backgroundColor = "rgba(59, 130, 246, 0.2)"; }}
-              onBlur={(e) => { e.target.style.borderColor = "rgba(59, 130, 246, 0.2)"; e.target.style.backgroundColor = "rgba(59, 130, 246, 0.1)"; }}
-            />
-          </Box>
-
-          {/* Right actions */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-            <Badge badgeContent={onlineUsers.count} color="success">
-              <IconButton 
-                onClick={handleOpenOnlineUsers}
-                sx={{ 
-                  color: "#64748b",
-                  "&:hover": { bgcolor: "rgba(34, 197, 94, 0.1)" }
+        <Box sx={{ width: "100%", display: "flex", justifyContent: "center", px: 3, py: 1.2, borderBottom: "1px solid rgba(59, 130, 246, 0.1)" }}>
+          <Box sx={{ width: "100%", maxWidth: { xs: "100%", sm: "100%", md: "1200px", lg: "1400px" }, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 2 }}>
+            {isMobile && (
+              <IconButton onClick={handleDrawerToggle} sx={{ color: "white", mr: 1, "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>
+                <MenuIcon />
+              </IconButton>
+            )}
+            {/* Search */}
+            <Box sx={{ flex: 1, maxWidth: 500, position: "relative" }}>
+              <SearchIcon sx={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "#64748b", fontSize: 20 }} />
+              <input
+                type="text"
+                placeholder="Rechercher dans le dashboard..."
+                style={{
+                  width: "100%", padding: "12px 16px 12px 48px",
+                  backgroundColor: "rgba(59, 130, 246, 0.1)",
+                  border: "1px solid rgba(59, 130, 246, 0.2)",
+                  borderRadius: "12px", color: "#94a3b8", fontSize: "0.9rem", outline: "none",
                 }}
-              >
-                <GoPeople  />
-              </IconButton>
-            </Badge>
-            <Badge badgeContent={unreadNotifications.length} color="error">
-              <IconButton onClick={handleOpenNotifications} sx={{ color: "#64748b", "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>
-                <NotificationsIcon />
-              </IconButton>
-            </Badge>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-              <Box sx={{ textAlign: "right", display: { xs: "none", sm: "block" } }}>
-                <Typography variant="body2" sx={{ color: "white", fontWeight: 600, fontSize: "0.9rem" }}>
-                  {user?.first_name || user?.username}
-                </Typography>
-                <Typography variant="caption" sx={{ color: "#64748b", fontSize: "0.75rem" }}>
-                  {isAdmin ? "Administrateur" : "Utilisateur"}
-                </Typography>
+                onFocus={(e) => { e.target.style.borderColor = "#3b82f6"; e.target.style.backgroundColor = "rgba(59, 130, 246, 0.2)"; }}
+                onBlur={(e) => { e.target.style.borderColor = "rgba(59, 130, 246, 0.2)"; e.target.style.backgroundColor = "rgba(59, 130, 246, 0.1)"; }}
+              />
+            </Box>
+            {/* Right actions */}
+            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+              <Badge badgeContent={onlineUsers.count} color="success">
+                <IconButton 
+                  onClick={handleOpenOnlineUsers}
+                  sx={{ 
+                    color: "#64748b",
+                    "&:hover": { bgcolor: "rgba(34, 197, 94, 0.1)" }
+                  }}
+                >
+                  <GoPeople  />
+                </IconButton>
+              </Badge>
+              <Badge badgeContent={unreadNotifications.length} color="error">
+                <IconButton onClick={handleOpenNotifications} sx={{ color: "#64748b", "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>
+                  <NotificationsIcon />
+                </IconButton>
+              </Badge>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                <Box sx={{ textAlign: "right", display: { xs: "none", sm: "block" } }}>
+                  <Typography variant="body2" sx={{ color: "white", fontWeight: 600, fontSize: "0.9rem" }}>
+                    {user?.first_name || user?.username}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: "#64748b", fontSize: "0.75rem" }}>
+                    {isAdmin ? "Administrateur" : "Utilisateur"}
+                  </Typography>
+                </Box>
+                <Avatar sx={{ width: 40, height: 40, bgcolor: isAdmin ? "#ef4444" : "#3b82f6", fontWeight: 600, fontSize: "1rem" }}>
+                  {user?.first_name?.charAt(0) || user?.username?.charAt(0) || "U"}
+                </Avatar>
               </Box>
-              <Avatar sx={{ width: 40, height: 40, bgcolor: isAdmin ? "#ef4444" : "#3b82f6", fontWeight: 600, fontSize: "1rem" }}>
-                {user?.first_name?.charAt(0) || user?.username?.charAt(0) || "U"}
-              </Avatar>
             </Box>
           </Box>
         </Box>
 
         {/* Page title */}
-        <Box sx={{ px: 3, py: 2, pb: 0 }}>
-          <Box>
+        <Box sx={{ width: "100%", display: "flex", justifyContent: "center", px: 3, pt: 3, pb: 0 }}>
+          <Box sx={{ width: "100%", maxWidth: { xs: "100%", sm: "100%", md: "1200px", lg: "1400px" } }}>
             <Typography variant="h4" sx={{ color: "white", fontWeight: 700, mb: 0.5 }}>
               Tableau de Bord Administrateur
             </Typography>
-            <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.95rem" }}>
+            <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.95rem", mb: 2.5 }}>
               Gestion complète du système et surveillance
             </Typography>
           </Box>
         </Box>
 
         {/* Dashboard content */}
-        <Box sx={{ width: "100%", maxWidth: "100%", px: 3, pt: 2, pb: 6 }}>
+        <Box sx={{ width: "100%", display: "flex", justifyContent: "center", px: 3, pt: 0, pb: 6 }}>
+          <Box sx={{ width: "100%", maxWidth: { xs: "100%", sm: "100%", md: "1200px", lg: "1400px" } }}>
 
           {/* Stats cards */}
           <Grid container spacing={3} sx={{ mb: 4, width: "100%", maxWidth: "100%" }}>
@@ -1085,6 +1086,7 @@ const AdminDashboard = () => {
               </Card>
             </Grid>
           </Grid>
+          </Box>
         </Box>
       </Box>
 

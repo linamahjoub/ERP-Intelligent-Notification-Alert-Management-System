@@ -35,13 +35,20 @@ class ProductViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         product = serializer.save()
         user = self.request.user
+
+        ActivityLog.objects.create(
+            actor=user,
+            action_type=ActivityLog.ACTION_PRODUCT_UPDATED,
+            title=f"Produit mis à jour: {product.name}",
+            description=f"SKU: {product.sku} | Quantite: {product.quantity}",
+        )
         
         # Vérifier si la quantité est inférieure au minimum
         if product.quantity < product.min_quantity:
             # Créer une notification pour l'utilisateur qui a modifié le produit
             message = (
                 f"Bonjour,\n\n"
-                f"⚠️ ALERTE STOCK FAIBLE\n\n"
+                f" ALERTE STOCK FAIBLE\n\n"
                 f"Produit : {product.name} ({product.sku})\n"
                 f"Quantité actuelle : {product.quantity}\n"
                 f"Quantité minimum requise : {product.min_quantity}\n\n"
@@ -56,7 +63,7 @@ class ProductViewSet(viewsets.ModelViewSet):
             Notification.objects.create(
                 user=user,
                 alert=None,
-                title=f"⚠️ Stock faible - {product.name}",
+                title=f" Stock faible - {product.name}",
                 message=message,
                 notification_type="alert_triggered",
             )
@@ -65,7 +72,7 @@ class ProductViewSet(viewsets.ModelViewSet):
             if user.email:
                 try:
                     send_mail(
-                        subject=f"⚠️ Alerte Stock Faible - {product.name}",
+                        subject=f" Alerte Stock Faible - {product.name}",
                         message=message,
                         from_email=settings.DEFAULT_FROM_EMAIL,
                         recipient_list=[user.email],
@@ -83,5 +90,12 @@ class ProductViewSet(viewsets.ModelViewSet):
         if not self.request.user.is_staff and not self.request.user.is_superuser:
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Seuls les administrateurs peuvent supprimer des produits")
-        
+
+        ActivityLog.objects.create(
+            actor=self.request.user,
+            action_type=ActivityLog.ACTION_PRODUCT_DELETED,
+            title=f"Produit supprimé: {instance.name}",
+            description=f"SKU: {instance.sku} | Quantite: {instance.quantity}",
+        )
+
         instance.delete()

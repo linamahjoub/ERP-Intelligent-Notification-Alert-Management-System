@@ -1,12 +1,13 @@
 ﻿import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { ThemeProvider, createTheme, CssBaseline } from '@mui/material';
+import { ThemeProvider, createTheme, CssBaseline, Container } from '@mui/material';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ActivityProvider } from './context/ActivityContext';
 import PrivateRoute from './components/PrivateRoute';
 import VerificationPending from './pages/auth/VerificationPending';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
+import GoogleCallback from './pages/auth/GoogleCallback';
 import ForgotPassword from './pages/profile/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 import ChangePassword from './pages/profile/ChangePassword';
@@ -21,8 +22,7 @@ import Fournisseur from './pages/stock/fournisseur';
 import Categories from './pages/stock/categories';
 import Entrepots from './pages/stock/Entrepots';
 import Facturation from './pages/stock/Facturation';
-
-//import History from './pages/History';
+import History from './pages/History';
 import AlertRules from './pages/alerts/AlertRules';
 import EditAlert from './pages/alerts/EditAlert';
 import Settings from './pages/Settings';
@@ -32,6 +32,7 @@ import AdminPanel from './pages/dashboard/adminpaneau';
 import AdminDashboard from './pages/dashboard/adminDashboard';
 import ClientsRequests from './pages/employes_requests';
 import EmployeesNew from './pages/EmployeesNew';
+
 const theme = createTheme({
   palette: {
     primary: {
@@ -123,11 +124,24 @@ const InnerRoutes = () => {
   const isAuthPage = authPaths.includes(location.pathname);
 
   return (
- 
+    <Container
+      maxWidth={false}
+      disableGutters={true}
+      sx={{
+        mt: 0,
+        mb: 0,
+        p: 0,
+        pl: 0,
+        ml: 0,
+        width: '100%',
+        maxWidth: '100%',
+      }}
+    >
       <Routes>
         {/* Routes publiques */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/auth/google/callback" element={<GoogleCallback />} />
         <Route path="/verification-pending" element={<VerificationPending />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:uid/:token" element={<ResetPassword />} />
@@ -301,10 +315,16 @@ const InnerRoutes = () => {
           </PrivateRoute>
         } />
 
+        <Route path="/history" element={
+          <PrivateRoute>
+            <History />
+          </PrivateRoute>
+        } />
+
         {/* Route de fallback */}
         <Route path="*" element={<RoleBasedRedirect />} />
       </Routes>
-    
+    </Container>
   );
 };
 
