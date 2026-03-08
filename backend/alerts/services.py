@@ -7,6 +7,7 @@ from django.contrib.auth import get_user_model
 from alerts.models import Alert
 from notifications.models import Notification
 from stock.models import Product
+from facturation.models import Invoice
 
 User = get_user_model()
 
@@ -16,6 +17,10 @@ RESOLUTION_MARKER = "[RESOLVED]"
 
 def _get_product_token(product):
     return f"[PRODUCT:{product.id}]"
+
+
+def _get_invoice_token(invoice):
+    return f"[INVOICE:{invoice.id}]"
 
 
 def _to_decimal(value):
@@ -85,6 +90,28 @@ def _build_resolved_message(alert, product):
     )
 
 
+def _build_facturation_trigger_message(alert, invoice, current_value):
+    return (
+        f"Bonjour,\n\n"
+        f"⚠️ ALERTE FACTURATION\n\n"
+        f"Facture : {invoice.invoice_number}\n"
+        f"Client : {invoice.customer_name}\n"
+        f"Montant actuel : {current_value} {invoice.currency or 'EUR'}\n"
+        f"Seuil configuré : {alert.threshold_value if alert.threshold_value is not None else 'N/A'} {invoice.currency or 'EUR'}\n"
+        f"Type : {invoice.get_invoice_type_display()}\n"
+        f"Date facture : {invoice.invoice_date}\n\n"
+        f"Cordialement,\nSmartAlerte"
+    )
+
+
+def _build_facturation_resolved_message(alert, invoice):
+    return (
+        f"{RESOLUTION_MARKER} {_get_invoice_token(invoice)} "
+        f"Condition résolue pour la facture {invoice.invoice_number} "
+        f"sur l'alerte {alert.name}."
+    )
+
+
 def _get_compare_target_value(alert, product):
     compare_to_raw = (alert.compare_to or "value").strip().lower()
     compare_to_field = {
@@ -112,7 +139,7 @@ def ensure_auto_stock_alert():
         admin_email = admin_user.email or ""
         
         alert, created = Alert.objects.get_or_create(
-            name="Stock faible - AUTO",
+            name="Stock faible ",
             user=admin_user,
             module="stock",
             defaults={
@@ -176,33 +203,33 @@ def evaluate_stock_alert_for_product(alert, product):
     return False, ""
 
 
-def _get_last_trigger_notification(alert, product):
+def _get_last_trigger_notification_by_token(alert, token):
     return Notification.objects.filter(
         alert=alert,
         notification_type="alert_triggered",
-        message__contains=_get_product_token(product),
+        message__contains=token,
     ).order_by("-created_at").first()
 
 
-def _get_last_resolved_notification(alert, product):
+def _get_last_resolved_notification_by_token(alert, token):
     return (
         Notification.objects.filter(
             alert=alert,
             notification_type="system",
             message__contains=RESOLUTION_MARKER,
         )
-        .filter(message__contains=_get_product_token(product))
+        .filter(message__contains=token)
         .order_by("-created_at")
         .first()
     )
 
 
-def _condition_is_currently_unresolved(alert, product):
-    last_trigger = _get_last_trigger_notification(alert, product)
+def _condition_is_currently_unresolved(alert, token):
+    last_trigger = _get_last_trigger_notification_by_token(alert, token)
     if not last_trigger:
         return False
 
-    last_resolved = _get_last_resolved_notification(alert, product)
+    last_resolved = _get_last_resolved_notification_by_token(alert, token)
     if not last_resolved:
         return True
 
@@ -228,12 +255,12 @@ def _can_repeat_now(alert, last_trigger):
     return timezone.now() >= next_allowed_at
 
 
-def _should_create_trigger(alert, product):
-    last_trigger = _get_last_trigger_notification(alert, product)
+def _should_create_trigger(alert, token):
+    last_trigger = _get_last_trigger_notification_by_token(alert, token)
     if not last_trigger:
         return True
 
-    if not _condition_is_currently_unresolved(alert, product):
+    if not _condition_is_currently_unresolved(alert, token):
         return True
 
     if not alert.repeat_until_resolved:
@@ -261,7 +288,11 @@ def _send_alert_email_to_recipients(alert, message):
 
 
 def create_trigger_notification(alert, product, message):
-    if not _should_create_trigger(alert, product):
+    token = _get_product_token(product)
+    if token not in message:
+        message = f"{token} {message}"
+
+    if not _should_create_trigger(alert, token):
         return False
 
     Notification.objects.create(
@@ -279,8 +310,32 @@ def create_trigger_notification(alert, product, message):
     return True
 
 
+def create_trigger_notification_for_invoice(alert, invoice, message):
+    token = _get_invoice_token(invoice)
+    if token not in message:
+        message = f"{token} {message}"
+
+    if not _should_create_trigger(alert, token):
+        return False
+
+    Notification.objects.create(
+        user=alert.user,
+        alert=alert,
+        title=f"Alerte: {alert.name} (Facture #{invoice.id})",
+        message=message,
+        notification_type="alert_triggered",
+    )
+
+    channels = [str(channel).strip().lower() for channel in (alert.notification_channels or [])]
+    if "email" in channels:
+        _send_alert_email_to_recipients(alert, message)
+
+    return True
+
+
 def create_resolved_notification(alert, product):
-    if not _condition_is_currently_unresolved(alert, product):
+    token = _get_product_token(product)
+    if not _condition_is_currently_unresolved(alert, token):
         return False
 
     Notification.objects.create(
@@ -291,6 +346,104 @@ def create_resolved_notification(alert, product):
         notification_type="system",
     )
     return True
+
+
+def create_resolved_notification_for_invoice(alert, invoice):
+    token = _get_invoice_token(invoice)
+    if not _condition_is_currently_unresolved(alert, token):
+        return False
+
+    Notification.objects.create(
+        user=alert.user,
+        alert=alert,
+        title=f"Alerte résolue: {alert.name} (Facture #{invoice.id})",
+        message=_build_facturation_resolved_message(alert, invoice),
+        notification_type="system",
+    )
+    return True
+
+
+def _get_invoice_field_value(invoice, condition_field):
+    raw_field = (condition_field or "").strip().lower()
+    field_mapping = {
+        "": "total_amount",
+        "quantity": "total_amount",
+        "amount": "total_amount",
+        "montant": "total_amount",
+    }
+    mapped_field = field_mapping.get(raw_field, raw_field)
+
+    if not hasattr(invoice, mapped_field):
+        return None
+
+    return _to_decimal(getattr(invoice, mapped_field))
+
+
+def _is_due_date_upcoming(invoice, days_threshold):
+    """
+    Vérifie si la date d'échéance est dans les N prochains jours.
+    
+    Args:
+        invoice: Instance de facture
+        days_threshold: Nombre de jours (ex: 3 = dans les 3 prochains jours)
+    
+    Returns:
+        bool: True si due_date < today + N jours
+    """
+    if not invoice.due_date:
+        return False
+    
+    try:
+        days_int = int(days_threshold)
+    except (ValueError, TypeError):
+        return False
+    
+    from django.utils import timezone
+    today = timezone.now().date()
+    cutoff_date = today + timezone.timedelta(days=days_int)
+    
+    return invoice.due_date < cutoff_date
+
+
+def _build_upcoming_due_message(alert, invoice, days_threshold):
+    return (
+        f"Bonjour,\n\n"
+        f"⚠️ ALERTE FACTURATION - ÉCHÉANCE IMMINENTE\n\n"
+        f"Facture : {invoice.invoice_number}\n"
+        f"Client : {invoice.customer_name}\n"
+        f"Date d'échéance : {invoice.due_date}\n"
+        f"Jours restants : < {days_threshold}\n"
+        f"Montant total : {invoice.total_amount} {invoice.currency or 'EUR'}\n"
+        f"Statut : {invoice.get_status_display()}\n\n"
+        f"Cordialement,\nSmartAlerte"
+    )
+
+
+def evaluate_facturation_alert_for_invoice(alert, invoice):
+    if not alert.is_active or alert.module != "facturation":
+        return False, ""
+
+    condition_field = (alert.condition_field or "").strip().lower()
+    
+    # Gestion des conditions de date d'échéance
+    if condition_field in ("due_date", "échéance", "date_echéance"):
+        days_threshold = alert.threshold_value
+        if _is_due_date_upcoming(invoice, days_threshold):
+            return True, _build_upcoming_due_message(alert, invoice, days_threshold)
+        return False, ""
+    
+    # Gestion des conditions de montant (seuil)
+    current_value = _get_invoice_field_value(invoice, alert.condition_field)
+    compare_target = _to_decimal(alert.threshold_value)
+
+    if current_value is None or compare_target is None:
+        return False, ""
+
+    is_triggered = _compare_values(current_value, compare_target, alert.comparison_operator)
+    if not is_triggered:
+        return False, ""
+
+    return True, _build_facturation_trigger_message(alert, invoice, current_value)
 
 
 def evaluate_alert_against_current_stock(alert):
@@ -336,5 +489,46 @@ def evaluate_stock_alerts_for_product(product):
                 triggered += 1
         else:
             create_resolved_notification(alert, product)
+
+    return {"evaluated": evaluated, "triggered": triggered}
+
+
+def evaluate_facturation_alerts_for_invoice(invoice):
+    """Évalue toutes les alertes facturation actives pour une facture créée/mise à jour."""
+    alerts = Alert.objects.filter(module="facturation", is_active=True)
+
+    evaluated = 0
+    triggered = 0
+
+    for alert in alerts:
+        evaluated += 1
+        is_triggered, message = evaluate_facturation_alert_for_invoice(alert, invoice)
+        if is_triggered:
+            if create_trigger_notification_for_invoice(alert, invoice, message):
+                triggered += 1
+        else:
+            create_resolved_notification_for_invoice(alert, invoice)
+
+    return {"evaluated": evaluated, "triggered": triggered}
+
+
+def evaluate_alert_against_current_invoices(alert):
+    """Évalue une alerte facturation contre les factures existantes."""
+    if alert.module != "facturation" or not alert.is_active:
+        return {"evaluated": 0, "triggered": 0}
+
+    invoices = Invoice.objects.all()
+
+    evaluated = 0
+    triggered = 0
+
+    for invoice in invoices:
+        evaluated += 1
+        is_triggered, message = evaluate_facturation_alert_for_invoice(alert, invoice)
+        if is_triggered:
+            if create_trigger_notification_for_invoice(alert, invoice, message):
+                triggered += 1
+        else:
+            create_resolved_notification_for_invoice(alert, invoice)
 
     return {"evaluated": evaluated, "triggered": triggered}

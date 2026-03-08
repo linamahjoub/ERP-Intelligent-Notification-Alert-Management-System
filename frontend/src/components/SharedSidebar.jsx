@@ -42,6 +42,8 @@ import {
   ChevronLeft as ChevronLeftIcon,
   ChevronRight as ChevronRightIcon,
   Receipt as ReceiptIcon,
+  PrecisionManufacturing as ProductionIcon,
+  ShoppingCart as ShoppingCartIcon,
 } from '@mui/icons-material';
 import notif from '../assets/notif.png';
 
@@ -61,7 +63,7 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
   const drawerWidth = isMobile ? mobileWidth : (sidebarCollapsed ? collapsedWidth : desktopWidth);
 
   const isAdmin = user?.is_superuser || user?.is_staff;
-  const [openMenus, setOpenMenus] = useState({ stock: true, fournisseurs: false, categories: false, facturation: false });
+  const [openMenus, setOpenMenus] = useState({ stock: true, orders: false, fournisseurs: false, categories: false, facturation: false, production: false });
 
   const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed);
 
@@ -104,7 +106,17 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
       children: [
         { id: 'stock-new',   label: 'Nouveau produit',      icon: <AddBoxIcon />,    path: '/stock/new' },
         { id: 'stock-list',  label: 'Liste',                icon: <ListIcon />,      path: '/stock' },
-     ],
+        { id: 'stock-movements',  label: 'Mouvements',      icon: <ListIcon />,      path: '/stock-movements' },
+      ],
+    },
+    {
+      id: 'orders',
+      label: 'Commandes',
+      icon: <ShoppingCartIcon />,
+      children: [
+        { id: 'orders-new',  label: 'Nouvelle commande',    icon: <AddBoxIcon />,    path: '/orders/new' },
+        { id: 'orders-list', label: 'Liste',                icon: <ListIcon />,      path: '/orders' },
+      ],
     },
     ...(isAdmin ? [
       {
@@ -144,6 +156,16 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
         { id: 'facturation-list', label: 'Liste', icon: <ListIcon />, path: '/facturation' },
       ],
     },
+    {
+      id: 'production',
+      label: 'Production',
+      icon: <ProductionIcon />,
+      children: [
+        { id: 'production-new', label: 'Nouvel ordre', icon: <AddBoxIcon />, path: '/production/new' },
+        { id: 'production-list', label: 'Liste', icon: <ListIcon />, path: '/production' },
+      ],
+    },
+   
     {
       id: 'modules',
       label: 'ERP Modules',
@@ -208,10 +230,9 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
   };
 
   const drawerContent = (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'black', borderRight: '1px solid rgba(59,130,246,0.1)' }}>
-
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'black', borderRight: '1px solid rgba(59,130,246,0.1)', position: 'relative' }}>
       {/* Logo */}
-      <Box sx={{ p: isMobile ? 1.5 : 2.5, borderBottom: '1px solid rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: sidebarCollapsed && !isMobile ? 'center' : 'flex-start', gap: isMobile ? 1 : 1.5 }}>
+      <Box sx={{ p: isMobile ? 1.5 : 2.5, borderBottom: '1px solid rgba(59,130,246,0.1)', display: 'flex', alignItems: 'center', justifyContent: sidebarCollapsed && !isMobile ? 'center' : 'flex-start', gap: isMobile ? 1 : 1.5, position: 'relative', zIndex: 1 }}>
         <Box sx={{ width: isMobile ? 40 : (sidebarCollapsed ? 40 : 50), height: isMobile ? 40 : (sidebarCollapsed ? 40 : 50), borderRadius: '50%', bgcolor: 'black', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden', flexShrink: 0 }}>
           <img src={notif} alt="Logo" width={isMobile ? "60" : (sidebarCollapsed ? "60" : "80")} height={isMobile ? "60" : (sidebarCollapsed ? "60" : "80")} />
         </Box>
@@ -228,7 +249,7 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
       </Box>
 
       {/* Menu */}
-      <Box sx={{ flex: 1, overflowY: 'auto', py: isMobile ? 1 : 2, px: isMobile ? 1.5 : 2, scrollbarWidth: 'none', msOverflowStyle: 'none', '&::-webkit-scrollbar': { display: 'none' } }}>
+      <Box sx={{ flex: 1, overflowY: 'auto', py: isMobile ? 1 : 2, px: isMobile ? 1.5 : 2, scrollbarWidth: 'none', msOverflowStyle: 'none', '&::-webkit-scrollbar': { display: 'none' }, position: 'relative', zIndex: 1 }}>
         {menuGroups.map((group) => {
           const active = isGroupActive(group);
           const isOpen = openMenus[group.id];
@@ -344,7 +365,7 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
 
       {/* Footer */}
       {(!sidebarCollapsed || isMobile) && (
-        <Box sx={{ p: isMobile ? 1.5 : 2, m: isMobile ? 1 : 2, bgcolor: 'rgba(16,185,129,0.1)', borderRadius: 2, border: '1px solid rgba(16,185,129,0.2)' }}>
+        <Box sx={{ p: isMobile ? 1.5 : 2, m: isMobile ? 1 : 2, bgcolor: 'rgba(16,185,129,0.1)', borderRadius: 2, border: '1px solid rgba(16,185,129,0.2)', position: 'relative', zIndex: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: isMobile ? 0.75 : 1 }}>
             <Box sx={{ width: isMobile ? 6 : 8, height: isMobile ? 6 : 8, borderRadius: '50%', bgcolor: '#10b981', boxShadow: '0 0 8px rgba(16,185,129,0.5)', flexShrink: 0 }} />
             <Box>
@@ -359,7 +380,7 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
         </Box>
       )}
       {sidebarCollapsed && !isMobile && (
-        <Box sx={{ p: 2, m: 2, display: 'flex', justifyContent: 'center' }}>
+        <Box sx={{ p: 2, m: 2, display: 'flex', justifyContent: 'center', position: 'relative', zIndex: 1 }}>
           <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#10b981', boxShadow: '0 0 8px rgba(16,185,129,0.5)' }} />
         </Box>
       )}

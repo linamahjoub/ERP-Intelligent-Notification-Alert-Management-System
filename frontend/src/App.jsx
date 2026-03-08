@@ -1,6 +1,6 @@
 ﻿import React, { useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import { ThemeProvider, createTheme, CssBaseline, Container } from '@mui/material';
+import { ThemeProvider, createTheme, CssBaseline, Container, Box } from '@mui/material';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ActivityProvider } from './context/ActivityContext';
 import PrivateRoute from './components/PrivateRoute';
@@ -17,16 +17,21 @@ import EditProfile from './pages/profile/editProfile';
 import ModulesERP from './pages/ModulesERP';
 import Notifications from './pages/Notifications';
 import DashboardStock from './pages/stock/Stock';
+import StockMovements from './pages/stock/StockMovements';
+import Orders from './pages/orders/Orders';
+import NewOrder from './pages/orders/NewOrder';
 import NewAlert from './pages/alerts/NewAlert';
 import Fournisseur from './pages/stock/fournisseur';
 import Categories from './pages/stock/categories';
 import Entrepots from './pages/stock/Entrepots';
 import Facturation from './pages/stock/Facturation';
+import Production from './pages/production/Production';
 import History from './pages/History';
 import AlertRules from './pages/alerts/AlertRules';
 import EditAlert from './pages/alerts/EditAlert';
 import Settings from './pages/Settings';
 import SharedSidebar from './components/SharedSidebar';
+import Aurora from './components/Aurora/Aurora';
 // IMPORTANT: Utilisez AdminPanel (qui vient de adminpaneau.jsx)
 import AdminPanel from './pages/dashboard/adminpaneau';
 import AdminDashboard from './pages/dashboard/adminDashboard';
@@ -124,20 +129,40 @@ const InnerRoutes = () => {
   const isAuthPage = authPaths.includes(location.pathname);
 
   return (
-    <Container
-      maxWidth={false}
-      disableGutters={true}
-      sx={{
-        mt: 0,
-        mb: 0,
-        p: 0,
-        pl: 0,
-        ml: 0,
-        width: '100%',
-        maxWidth: '100%',
-      }}
-    >
-      <Routes>
+    <Box sx={{ position: 'relative', minHeight: '100vh', bgcolor: 'black' }}>
+      <Box
+        sx={{
+          position: 'fixed',
+          inset: 0,
+          zIndex: 0,
+          pointerEvents: 'none',
+          opacity: 0.28,
+        }}
+      >
+        <Aurora
+          colorStops={['#66a1ff', '#B19EEF', '#5227FF']}
+          blend={0.5}
+          amplitude={1.0}
+          speed={1}
+        />
+      </Box>
+
+      <Container
+        maxWidth={false}
+        disableGutters={true}
+        sx={{
+          mt: 0,
+          mb: 0,
+          p: 0,
+          pl: 0,
+          ml: 0,
+          width: '100%',
+          maxWidth: '100%',
+          position: 'relative',
+          zIndex: 1,
+        }}
+      >
+        <Routes>
         {/* Routes publiques */}
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
@@ -210,6 +235,29 @@ const InnerRoutes = () => {
             <DashboardStock />
           </PrivateRoute>
         } />
+        {/* Route pour l'historique des mouvements de stock */}
+        <Route path="/stock-movements" element={
+          <PrivateRoute>
+            <StockMovements />
+          </PrivateRoute>
+        } />
+        <Route path="/stock-movements/new" element={
+          <PrivateRoute>
+            <StockMovements />
+          </PrivateRoute>
+        } />
+        
+        {/* Route pour les commandes */}
+        <Route path="/orders" element={
+          <PrivateRoute>
+            <Orders />
+          </PrivateRoute>
+        } />
+        <Route path="/orders/new" element={
+          <PrivateRoute>
+            <NewOrder />
+          </PrivateRoute>
+        } />
         {/* Route pour le dashboard stock */}
         <Route path="/fournisseur" element={
           <PrivateRoute>
@@ -250,6 +298,16 @@ const InnerRoutes = () => {
         <Route path="/facturation/new" element={
           <PrivateRoute>
             <Facturation />
+          </PrivateRoute>
+        } />
+        <Route path="/production" element={
+          <PrivateRoute>
+            <Production />
+          </PrivateRoute>
+        } />
+        <Route path="/production/new" element={
+          <PrivateRoute>
+            <Production />
           </PrivateRoute>
         } />
         {/* Route pour créer une nouvelle alerte */}
@@ -323,8 +381,9 @@ const InnerRoutes = () => {
 
         {/* Route de fallback */}
         <Route path="*" element={<RoleBasedRedirect />} />
-      </Routes>
-    </Container>
+        </Routes>
+      </Container>
+    </Box>
   );
 };
 

@@ -1,6 +1,7 @@
+//appel du backend
 const API_URL = process.env.REACT_APP_API_URL;
 
-console.log('📦 Facturation API_URL configuré à:', API_URL);
+console.log(' Facturation API_URL configuré à:', API_URL);
 
 export const facturationService = {
   // Get all invoices
@@ -8,7 +9,7 @@ export const facturationService = {
     try {
       const token = localStorage.getItem('access_token');
       if (!token) {
-        console.warn('⚠️ Aucun token trouvé dans localStorage');
+        console.warn(' Aucun token trouvé dans localStorage');
         return [];
       }
 
@@ -30,11 +31,11 @@ export const facturationService = {
         },
       });
 
-      console.log('📊 Response status:', response.status);
+      console.log(' Response status:', response.status);
       
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ API Error:', errorText);
+        console.error(' API Error:', errorText);
         throw new Error(`API error: ${response.status}`);
       }
 
@@ -42,7 +43,7 @@ export const facturationService = {
       console.log('Raw data from API:', data);
       
       const invoiceList = data.results || (Array.isArray(data) ? data : []);
-      console.log('✅ Invoices processed:', invoiceList);
+      console.log(' Invoices processed:', invoiceList);
       
       return invoiceList;
     } catch (error) {

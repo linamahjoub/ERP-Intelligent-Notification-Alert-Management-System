@@ -1,3 +1,4 @@
+import Aurora from '../../components/Aurora/Aurora';
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -84,7 +85,28 @@ const Profile = () => {
   }
 
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'black' }}>
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'black', position: 'relative' }}>
+      {/* Aurora Background */}
+      <Box
+        sx={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 0,
+          pointerEvents: "none",
+          opacity: 0.4,
+        }}
+      >
+        <Aurora
+          colorStops={["#66a1ff", "#B19EEF", "#5227FF"]}
+          blend={0.5}
+          amplitude={1.0}
+          speed={1}
+        />
+      </Box>
+
       {/* Sidebar partagé */}
       <SharedSidebar 
         mobileOpen={mobileOpen} 
@@ -101,6 +123,8 @@ const Profile = () => {
           bgcolor: 'black',
           overflowY: 'auto',
           overflowX: 'hidden',
+          position: 'relative',
+          zIndex: 1,
           '&::-webkit-scrollbar': {
             width: '8px',
           },

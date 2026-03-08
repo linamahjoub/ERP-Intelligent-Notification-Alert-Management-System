@@ -279,6 +279,13 @@ const Notifications = () => {
   const [empNotifFilterDate,     setEmpNotifFilterDate]     = useState("all");
   const [empNotifFilterStatus,   setEmpNotifFilterStatus]   = useState("all");
 
+  /* pagination state */
+  const [notifPage, setNotifPage] = useState(0);
+  const [alertPage, setAlertPage] = useState(0);
+  const [empNotifPage, setEmpNotifPage] = useState(0);
+  const [empAlertPage, setEmpAlertPage] = useState(0);
+  const ITEMS_PER_PAGE = 6;
+
   /* option lists */
   const dateOptions = [
     { value: "all",        label: "Toutes les dates" },
@@ -430,6 +437,14 @@ const Notifications = () => {
       fetchEmailRecipients();
     } 
   }, [user]);
+
+  /* Reset pagination when filters/search changes */
+  useEffect(() => {
+    setNotifPage(0);
+    setAlertPage(0);
+    setEmpNotifPage(0);
+    setEmpAlertPage(0);
+  }, [searchTerm, filterDate, filterStatus, alertFilterDate, alertFilterStatus, empNotifFilterDate, empNotifFilterStatus]);
 
   /* ─── Actions ────────────────────────────────────────────────────────── */
   const patchNotification = async (id, action) => {
@@ -677,6 +692,9 @@ const Notifications = () => {
       return !q || [n.title, n.message, n.user?.username, n.user?.email].some((v) => v?.toLowerCase().includes(q));
     });
 
+  const paginatedNotifications = filteredNotifications.slice(notifPage * ITEMS_PER_PAGE, (notifPage + 1) * ITEMS_PER_PAGE);
+  const notifTotalPages = Math.ceil(filteredNotifications.length / ITEMS_PER_PAGE);
+
   // Filtrer les alertes de l'utilisateur connecté (admin ou user normal)
   const filteredAlerts = alerts
     .filter((a) => passesDateFilter(a.created_at, alertFilterDate))
@@ -685,6 +703,9 @@ const Notifications = () => {
       const q = searchTerm.toLowerCase();
       return !q || [a.name, a.description, a.module, a.user?.username, a.user?.email].some((v) => v?.toLowerCase().includes(q));
     });
+
+  const paginatedAlerts = filteredAlerts.slice(alertPage * ITEMS_PER_PAGE, (alertPage + 1) * ITEMS_PER_PAGE);
+  const alertTotalPages = Math.ceil(filteredAlerts.length / ITEMS_PER_PAGE);
 
   // Filtrer les alertes des employés (pour admin seulement)
   const filteredEmployeeAlerts = employeeAlerts
@@ -695,6 +716,9 @@ const Notifications = () => {
       return !q || [a.name, a.description, a.module, a.user?.username, a.user?.email].some((v) => v?.toLowerCase().includes(q));
     });
 
+  const paginatedEmployeeAlerts = filteredEmployeeAlerts.slice(empAlertPage * ITEMS_PER_PAGE, (empAlertPage + 1) * ITEMS_PER_PAGE);
+  const empAlertTotalPages = Math.ceil(filteredEmployeeAlerts.length / ITEMS_PER_PAGE);
+
   // Filtrer les notifications des employés (pour admin seulement)
   const filteredEmployeeNotifications = employeeNotifications
     .filter((n) => passesDateFilter(n.created_at, empNotifFilterDate))
@@ -703,6 +727,9 @@ const Notifications = () => {
       const q = searchTerm.toLowerCase();
       return !q || [n.title, n.message, n.user?.username, n.user?.email].some((v) => v?.toLowerCase().includes(q));
     });
+
+  const paginatedEmployeeNotifications = filteredEmployeeNotifications.slice(empNotifPage * ITEMS_PER_PAGE, (empNotifPage + 1) * ITEMS_PER_PAGE);
+  const empNotifTotalPages = Math.ceil(filteredEmployeeNotifications.length / ITEMS_PER_PAGE);
 
   const unreadTotal = notifications.filter((n) => !n.is_read).length;
   const readTotal   = notifications.filter((n) =>  n.is_read).length;
@@ -724,10 +751,10 @@ const Notifications = () => {
      RENDER
   ════════════════════════════════════════════════════════════════════════ */
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "black" }}>
+    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "black", position: "relative" }}>
       <SharedSidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(!mobileOpen)} />
 
-      <Box component="main" sx={{ flexGrow: 1, minHeight: "100vh", overflowY: "auto", p: isMobile ? "20px 16px" : "32px 40px" }}>
+      <Box component="main" sx={{ flexGrow: 1, minHeight: "100vh", overflowY: "auto", p: isMobile ? "20px 16px" : "32px 40px", position: "relative", zIndex: 1 }}>
 
         {isMobile && (
           <IconButton onClick={() => setMobileOpen(!mobileOpen)} sx={{ color: C.accentHi, mb: 2, p: 0 }}>
@@ -976,87 +1003,104 @@ const Notifications = () => {
 
             {/* List */}
             {filteredNotifications.length > 0 ? (
-              <Box sx={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                {filteredNotifications.map((notif) => (
-                  <Box
-                    key={notif.id}
-                    onClick={() => { setSelectedNotification(notif); setDetailDialogOpen(true); }}
-                    sx={{
-                      display: "flex", alignItems: "flex-start", gap: 2,
-                      bgcolor: notif.is_read ? C.surface : C.unreadBg,
-                      border: `1px solid ${notif.is_read ? C.border : C.borderHi}`,
-                      borderLeft: `3px solid ${notif.is_read ? "transparent" : C.accent}`,
-                      borderRadius: "10px", p: "14px 18px",
-                      cursor: "pointer", transition: "all 0.18s ease",
-                      "&:hover": { bgcolor: notif.is_read ? C.surfaceHi : "rgba(59,130,246,0.1)", borderColor: C.accent },
-                    }}
-                  >
-                    <Box sx={{ pt: "5px", flexShrink: 0 }}>
-                      <CircleIcon sx={{ fontSize: 8, color: notif.is_read ? C.textMuted : C.accent, opacity: notif.is_read ? 0.35 : 1 }} />
-                    </Box>
-
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1, mb: 0.5 }}>
-                        <Typography sx={{ color: C.text, fontWeight: notif.is_read ? 500 : 700, fontSize: "0.9rem", lineHeight: 1.4 }} noWrap>
-                          {notif.title}
-                        </Typography>
-                        <Typography sx={{ color: C.textMuted, fontSize: "0.75rem", flexShrink: 0, pt: "2px" }}>
-                          {fmt(notif.created_at)}
-                        </Typography>
+              <>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {paginatedNotifications.map((notif) => (
+                    <Box
+                      key={notif.id}
+                      onClick={() => { setSelectedNotification(notif); setDetailDialogOpen(true); }}
+                      sx={{
+                        display: "flex", alignItems: "flex-start", gap: 2,
+                        bgcolor: notif.is_read ? C.surface : C.unreadBg,
+                        border: `1px solid ${notif.is_read ? C.border : C.borderHi}`,
+                        borderLeft: `3px solid ${notif.is_read ? "transparent" : C.accent}`,
+                        borderRadius: "10px", p: "14px 18px",
+                        cursor: "pointer", transition: "all 0.18s ease",
+                        "&:hover": { bgcolor: notif.is_read ? C.surfaceHi : "rgba(59,130,246,0.1)", borderColor: C.accent },
+                      }}
+                    >
+                      <Box sx={{ pt: "5px", flexShrink: 0 }}>
+                        <CircleIcon sx={{ fontSize: 8, color: notif.is_read ? C.textMuted : C.accent, opacity: notif.is_read ? 0.35 : 1 }} />
                       </Box>
-                      <Typography sx={{ color: C.textSub, fontSize: "0.82rem", lineHeight: 1.5, mb: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "90%" }}>
-                        {notif.message}
-                      </Typography>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
-                        {notif.alert && notif.alert.module && (
-                          <Chip
-                            label={getModuleERPLabel(notif.alert.module).name}
-                            size="small"
-                            sx={{ 
-                              height: 20, 
-                              fontSize: "0.68rem", 
-                              fontWeight: 600, 
-                              bgcolor: `${getModuleERPLabel(notif.alert.module).color}20`, 
-                              color: getModuleERPLabel(notif.alert.module).color, 
-                              borderRadius: "4px" 
-                            }}
-                          />
-                        )}
-                        <Chip
-                          label={notif.notification_type === "alert_triggered" ? "Alerte" : notif.notification_type}
-                          size="small"
-                          sx={{ height: 20, fontSize: "0.68rem", fontWeight: 600, bgcolor: C.accentDim, color: C.accentHi, borderRadius: "4px" }}
-                        />
-                        {notif.user && (
-                          <Typography sx={{ color: C.textMuted, fontSize: "0.75rem" }}>
-                            {notif.user.username || notif.user.email}
+
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1, mb: 0.5 }}>
+                          <Typography sx={{ color: C.text, fontWeight: notif.is_read ? 500 : 700, fontSize: "0.9rem", lineHeight: 1.4 }} noWrap>
+                            {notif.title}
                           </Typography>
+                          <Typography sx={{ color: C.textMuted, fontSize: "0.75rem", flexShrink: 0, pt: "2px" }}>
+                            {fmt(notif.created_at)}
+                          </Typography>
+                        </Box>
+                        <Typography sx={{ color: C.textSub, fontSize: "0.82rem", lineHeight: 1.5, mb: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "90%" }}>
+                          {notif.message}
+                        </Typography>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+                          {notif.alert && notif.alert.module && (
+                            <Chip
+                              label={getModuleERPLabel(notif.alert.module).name}
+                              size="small"
+                              sx={{ 
+                                height: 20, 
+                                fontSize: "0.68rem", 
+                                fontWeight: 600, 
+                                bgcolor: `${getModuleERPLabel(notif.alert.module).color}20`, 
+                                color: getModuleERPLabel(notif.alert.module).color, 
+                                borderRadius: "4px" 
+                              }}
+                            />
+                          )}
+                          <Chip
+                            label={notif.notification_type === "alert_triggered" ? "Alerte" : notif.notification_type}
+                            size="small"
+                            sx={{ height: 20, fontSize: "0.68rem", fontWeight: 600, bgcolor: C.accentDim, color: C.accentHi, borderRadius: "4px" }}
+                          />
+                          {notif.user && (
+                            <Typography sx={{ color: C.textMuted, fontSize: "0.75rem" }}>
+                              {notif.user.username || notif.user.email}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+
+                      <Box sx={{ flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                        {!notif.is_read ? (
+                          <Tooltip title="Marquer comme lue" placement="left">
+                            <IconButton size="small" onClick={(e) => handleMarkAsRead(notif.id, e)}
+                              sx={{ color: C.textMuted, "&:hover": { color: C.success, bgcolor: C.successDim }, borderRadius: "6px", p: "5px" }}
+                            >
+                              <MarkEmailReadIcon sx={{ fontSize: "1rem" }} />
+                            </IconButton>
+                          </Tooltip>
+                        ) : (
+                          <Tooltip title="Marquer comme non lue" placement="left">
+                            <IconButton size="small" onClick={(e) => handleMarkAsUnread(notif.id, e)}
+                              sx={{ color: C.textMuted, "&:hover": { color: C.accent, bgcolor: C.accentDim }, borderRadius: "6px", p: "5px" }}
+                            >
+                              <MarkEmailUnreadIcon sx={{ fontSize: "1rem" }} />
+                            </IconButton>
+                          </Tooltip>
                         )}
                       </Box>
                     </Box>
-
-                    <Box sx={{ flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
-                      {!notif.is_read ? (
-                        <Tooltip title="Marquer comme lue" placement="left">
-                          <IconButton size="small" onClick={(e) => handleMarkAsRead(notif.id, e)}
-                            sx={{ color: C.textMuted, "&:hover": { color: C.success, bgcolor: C.successDim }, borderRadius: "6px", p: "5px" }}
-                          >
-                            <MarkEmailReadIcon sx={{ fontSize: "1rem" }} />
-                          </IconButton>
-                        </Tooltip>
-                      ) : (
-                        <Tooltip title="Marquer comme non lue" placement="left">
-                          <IconButton size="small" onClick={(e) => handleMarkAsUnread(notif.id, e)}
-                            sx={{ color: C.textMuted, "&:hover": { color: C.accent, bgcolor: C.accentDim }, borderRadius: "6px", p: "5px" }}
-                          >
-                            <MarkEmailUnreadIcon sx={{ fontSize: "1rem" }} />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </Box>
+                  ))}
+                </Box>
+                {notifTotalPages > 1 && (
+                  <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 1.5, mt: 3, pt: 2, borderTop: `1px solid ${C.border}` }}>
+                    <Button size="small" disabled={notifPage === 0} onClick={() => setNotifPage(notifPage - 1)}
+                      sx={{ textTransform: "none", color: C.accent, fontSize: "0.8rem" }}>
+                      ← Précédent
+                    </Button>
+                    <Typography sx={{ color: C.textMuted, fontSize: "0.8rem" }}>
+                      Page <strong style={{ color: C.text }}>{notifPage + 1}</strong> / {notifTotalPages}
+                    </Typography>
+                    <Button size="small" disabled={notifPage >= notifTotalPages - 1} onClick={() => setNotifPage(notifPage + 1)}
+                      sx={{ textTransform: "none", color: C.accent, fontSize: "0.8rem" }}>
+                      Suivant →
+                    </Button>
                   </Box>
-                ))}
-              </Box>
+                )}
+              </>
             ) : (
               <Box sx={{ textAlign: "center", py: 10, bgcolor: C.surface, border: `1px solid ${C.border}`, borderRadius: "12px" }}>
                 <NotificationsNoneIcon sx={{ fontSize: 48, color: C.border, mb: 2 }} />
@@ -1183,8 +1227,9 @@ const Notifications = () => {
 
             {/* List */}
             {filteredEmployeeNotifications.length > 0 ? (
-              <Box sx={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                {filteredEmployeeNotifications.map((notif) => (
+              <>
+                <Box sx={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                  {paginatedEmployeeNotifications.map((notif) => (
                   <Box
                     key={notif.id}
                     onClick={() => { setSelectedNotification(notif); setDetailDialogOpen(true); }}
@@ -1264,6 +1309,22 @@ const Notifications = () => {
                   </Box>
                 ))}
               </Box>
+              {empNotifTotalPages > 1 && (
+                <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 1.5, mt: 3, pt: 2, borderTop: `1px solid ${C.border}` }}>
+                  <Button size="small" disabled={empNotifPage === 0} onClick={() => setEmpNotifPage(empNotifPage - 1)}
+                    sx={{ textTransform: "none", color: C.accent, fontSize: "0.8rem" }}>
+                    ← Précédent
+                  </Button>
+                  <Typography sx={{ color: C.textMuted, fontSize: "0.8rem" }}>
+                    Page <strong style={{ color: C.text }}>{empNotifPage + 1}</strong> / {empNotifTotalPages}
+                  </Typography>
+                  <Button size="small" disabled={empNotifPage >= empNotifTotalPages - 1} onClick={() => setEmpNotifPage(empNotifPage + 1)}
+                    sx={{ textTransform: "none", color: C.accent, fontSize: "0.8rem" }}>
+                    Suivant →
+                  </Button>
+                </Box>
+              )}
+              </>
             ) : (
               <Box sx={{ textAlign: "center", py: 10, bgcolor: C.surface, border: `1px solid ${C.border}`, borderRadius: "12px" }}>
                 <NotificationsNoneIcon sx={{ fontSize: 48, color: C.border, mb: 2 }} />
@@ -1390,56 +1451,73 @@ const Notifications = () => {
 
             {/* Alerts table */}
             {filteredAlerts.length > 0 ? (
-              <TableContainer component={Box} sx={{ bgcolor: C.surface, border: `1px solid ${C.border}`, borderRadius: "10px", overflow: "hidden" }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow sx={{ bgcolor: C.surfaceHi }}>
-                      {["Alerte", "Utilisateur", "Module", "Statut", "Date"].map((h) => (
-                        <TableCell key={h} sx={{ color: C.textMuted, fontWeight: 700, fontSize: "0.7rem", letterSpacing: "0.08em", textTransform: "uppercase", borderColor: C.border, py: "10px", px: 2 }}>
-                          {h}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {filteredAlerts.map((alert, i) => (
-                      <TableRow 
-                        key={alert.id} 
-                        onClick={() => handleOpenNotificationForm(alert)} 
-                        sx={{ 
-                          bgcolor: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.012)", 
-                          "&:hover": { bgcolor: C.surfaceHi, cursor: "pointer" }, 
-                          "& td": { borderColor: C.border, py: "12px", px: 2 } 
-                        }}
-                      >
-                        <TableCell>
-                          <Typography sx={{ color: C.text, fontWeight: 600, fontSize: "0.85rem" }}>{alert.name}</Typography>
-                          {alert.description && <Typography sx={{ color: C.textMuted, fontSize: "0.75rem", mt: 0.25 }}>{alert.description}</Typography>}
-                        </TableCell>
-                        <TableCell>
-                          <Typography sx={{ color: C.textSub, fontSize: "0.82rem", fontWeight: 500 }}>{alert.user_name || "—"}</Typography>
-                          {alert.user_email && <Typography sx={{ color: C.textMuted, fontSize: "0.72rem" }}>{alert.user_email}</Typography>}
-                        </TableCell>
-                        <TableCell>
-                          <Chip label={alert.module} size="small" sx={{ height: 22, fontSize: "0.7rem", fontWeight: 600, bgcolor: C.accentDim, color: C.accentHi, borderRadius: "5px" }} />
-                        </TableCell>
-                        <TableCell>
-                          <Chip 
-                            label={alert.is_active ? "Actif" : "Inactif"} 
-                            size="small"
-                            sx={{ 
-                              height: 22, fontSize: "0.7rem", fontWeight: 700, borderRadius: "5px", 
-                              bgcolor: alert.is_active ? C.successDim : C.dangerDim, 
-                              color: alert.is_active ? C.success : C.danger 
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell sx={{ color: C.textMuted, fontSize: "0.78rem" }}>{fmt(alert.created_at)}</TableCell>
+              <>
+                <TableContainer component={Box} sx={{ bgcolor: C.surface, border: `1px solid ${C.border}`, borderRadius: "10px", overflow: "hidden" }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: C.surfaceHi }}>
+                        {["Alerte", "Utilisateur", "Module", "Statut", "Date"].map((h) => (
+                          <TableCell key={h} sx={{ color: C.textMuted, fontWeight: 700, fontSize: "0.7rem", letterSpacing: "0.08em", textTransform: "uppercase", borderColor: C.border, py: "10px", px: 2 }}>
+                            {h}
+                          </TableCell>
+                        ))}
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                    </TableHead>
+                    <TableBody>
+                      {paginatedAlerts.map((alert, i) => (
+                        <TableRow 
+                          key={alert.id} 
+                          onClick={() => handleOpenNotificationForm(alert)} 
+                          sx={{ 
+                            bgcolor: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.012)", 
+                            "&:hover": { bgcolor: C.surfaceHi, cursor: "pointer" }, 
+                            "& td": { borderColor: C.border, py: "12px", px: 2 } 
+                          }}
+                        >
+                          <TableCell>
+                            <Typography sx={{ color: C.text, fontWeight: 600, fontSize: "0.85rem" }}>{alert.name}</Typography>
+                            {alert.description && <Typography sx={{ color: C.textMuted, fontSize: "0.75rem", mt: 0.25 }}>{alert.description}</Typography>}
+                          </TableCell>
+                          <TableCell>
+                            <Typography sx={{ color: C.textSub, fontSize: "0.82rem", fontWeight: 500 }}>{alert.user_name || "—"}</Typography>
+                            {alert.user_email && <Typography sx={{ color: C.textMuted, fontSize: "0.72rem" }}>{alert.user_email}</Typography>}
+                          </TableCell>
+                          <TableCell>
+                            <Chip label={alert.module} size="small" sx={{ height: 22, fontSize: "0.7rem", fontWeight: 600, bgcolor: C.accentDim, color: C.accentHi, borderRadius: "5px" }} />
+                          </TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={alert.is_active ? "Actif" : "Inactif"} 
+                              size="small"
+                              sx={{ 
+                                height: 22, fontSize: "0.7rem", fontWeight: 700, borderRadius: "5px", 
+                                bgcolor: alert.is_active ? C.successDim : C.dangerDim, 
+                                color: alert.is_active ? C.success : C.danger 
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell sx={{ color: C.textMuted, fontSize: "0.78rem" }}>{fmt(alert.created_at)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+                {alertTotalPages > 1 && (
+                  <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 1.5, mt: 2, pt: 2, borderTop: `1px solid ${C.border}` }}>
+                    <Button size="small" disabled={alertPage === 0} onClick={() => setAlertPage(alertPage - 1)}
+                      sx={{ textTransform: "none", color: C.accent, fontSize: "0.8rem" }}>
+                      ← Précédent
+                    </Button>
+                    <Typography sx={{ color: C.textMuted, fontSize: "0.8rem" }}>
+                      Page <strong style={{ color: C.text }}>{alertPage + 1}</strong> / {alertTotalPages}
+                    </Typography>
+                    <Button size="small" disabled={alertPage >= alertTotalPages - 1} onClick={() => setAlertPage(alertPage + 1)}
+                      sx={{ textTransform: "none", color: C.accent, fontSize: "0.8rem" }}>
+                      Suivant →
+                    </Button>
+                  </Box>
+                )}
+              </>
             ) : (
               <Box sx={{ textAlign: "center", py: 10, bgcolor: C.surface, border: `1px solid ${C.border}`, borderRadius: "12px" }}>
                 <NotificationsNoneIcon sx={{ fontSize: 48, color: C.border, mb: 2 }} />
@@ -1535,56 +1613,73 @@ const Notifications = () => {
 
             {/* Alertes des employés table */}
             {filteredEmployeeAlerts.length > 0 ? (
-              <TableContainer component={Box} sx={{ bgcolor: C.surface, border: `1px solid ${C.border}`, borderRadius: "10px", overflow: "hidden" }}>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow sx={{ bgcolor: C.surfaceHi }}>
-                      {["Alerte", "Utilisateur", "Module", "Statut", "Date"].map((h) => (
-                        <TableCell key={h} sx={{ color: C.textMuted, fontWeight: 700, fontSize: "0.7rem", letterSpacing: "0.08em", textTransform: "uppercase", borderColor: C.border, py: "10px", px: 2 }}>
-                          {h}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {filteredEmployeeAlerts.map((alert, i) => (
-                      <TableRow 
-                        key={alert.id} 
-                        onClick={() => handleOpenNotificationForm(alert)} 
-                        sx={{ 
-                          bgcolor: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.012)", 
-                          "&:hover": { bgcolor: C.surfaceHi, cursor: "pointer" }, 
-                          "& td": { borderColor: C.border, py: "12px", px: 2 } 
-                        }}
-                      >
-                        <TableCell>
-                          <Typography sx={{ color: C.text, fontWeight: 600, fontSize: "0.85rem" }}>{alert.name}</Typography>
-                          {alert.description && <Typography sx={{ color: C.textMuted, fontSize: "0.75rem", mt: 0.25 }}>{alert.description}</Typography>}
-                        </TableCell>
-                        <TableCell>
-                          <Typography sx={{ color: C.textSub, fontSize: "0.82rem", fontWeight: 500 }}>{alert.user_name || "—"}</Typography>
-                          {alert.user_email && <Typography sx={{ color: C.textMuted, fontSize: "0.72rem" }}>{alert.user_email}</Typography>}
-                        </TableCell>
-                        <TableCell>
-                          <Chip label={alert.module} size="small" sx={{ height: 22, fontSize: "0.7rem", fontWeight: 600, bgcolor: C.accentDim, color: C.accentHi, borderRadius: "5px" }} />
-                        </TableCell>
-                        <TableCell>
-                          <Chip 
-                            label={alert.is_active ? "Actif" : "Inactif"} 
-                            size="small"
-                            sx={{ 
-                              height: 22, fontSize: "0.7rem", fontWeight: 700, borderRadius: "5px", 
-                              bgcolor: alert.is_active ? C.successDim : C.dangerDim, 
-                              color: alert.is_active ? C.success : C.danger 
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell sx={{ color: C.textMuted, fontSize: "0.78rem" }}>{fmt(alert.created_at)}</TableCell>
+              <>
+                <TableContainer component={Box} sx={{ bgcolor: C.surface, border: `1px solid ${C.border}`, borderRadius: "10px", overflow: "hidden" }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: C.surfaceHi }}>
+                        {["Alerte", "Utilisateur", "Module", "Statut", "Date"].map((h) => (
+                          <TableCell key={h} sx={{ color: C.textMuted, fontWeight: 700, fontSize: "0.7rem", letterSpacing: "0.08em", textTransform: "uppercase", borderColor: C.border, py: "10px", px: 2 }}>
+                            {h}
+                          </TableCell>
+                        ))}
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                    </TableHead>
+                    <TableBody>
+                      {paginatedEmployeeAlerts.map((alert, i) => (
+                        <TableRow 
+                          key={alert.id} 
+                          onClick={() => handleOpenNotificationForm(alert)} 
+                          sx={{ 
+                            bgcolor: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.012)", 
+                            "&:hover": { bgcolor: C.surfaceHi, cursor: "pointer" }, 
+                            "& td": { borderColor: C.border, py: "12px", px: 2 } 
+                          }}
+                        >
+                          <TableCell>
+                            <Typography sx={{ color: C.text, fontWeight: 600, fontSize: "0.85rem" }}>{alert.name}</Typography>
+                            {alert.description && <Typography sx={{ color: C.textMuted, fontSize: "0.75rem", mt: 0.25 }}>{alert.description}</Typography>}
+                          </TableCell>
+                          <TableCell>
+                            <Typography sx={{ color: C.textSub, fontSize: "0.82rem", fontWeight: 500 }}>{alert.user_name || "—"}</Typography>
+                            {alert.user_email && <Typography sx={{ color: C.textMuted, fontSize: "0.72rem" }}>{alert.user_email}</Typography>}
+                          </TableCell>
+                          <TableCell>
+                            <Chip label={alert.module} size="small" sx={{ height: 22, fontSize: "0.7rem", fontWeight: 600, bgcolor: C.accentDim, color: C.accentHi, borderRadius: "5px" }} />
+                          </TableCell>
+                          <TableCell>
+                            <Chip 
+                              label={alert.is_active ? "Actif" : "Inactif"} 
+                              size="small"
+                              sx={{ 
+                                height: 22, fontSize: "0.7rem", fontWeight: 700, borderRadius: "5px", 
+                                bgcolor: alert.is_active ? C.successDim : C.dangerDim, 
+                                color: alert.is_active ? C.success : C.danger 
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell sx={{ color: C.textMuted, fontSize: "0.78rem" }}>{fmt(alert.created_at)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+                {empAlertTotalPages > 1 && (
+                  <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 1.5, mt: 2, pt: 2, borderTop: `1px solid ${C.border}` }}>
+                    <Button size="small" disabled={empAlertPage === 0} onClick={() => setEmpAlertPage(empAlertPage - 1)}
+                      sx={{ textTransform: "none", color: C.accent, fontSize: "0.8rem" }}>
+                      ← Précédent
+                    </Button>
+                    <Typography sx={{ color: C.textMuted, fontSize: "0.8rem" }}>
+                      Page <strong style={{ color: C.text }}>{empAlertPage + 1}</strong> / {empAlertTotalPages}
+                    </Typography>
+                    <Button size="small" disabled={empAlertPage >= empAlertTotalPages - 1} onClick={() => setEmpAlertPage(empAlertPage + 1)}
+                      sx={{ textTransform: "none", color: C.accent, fontSize: "0.8rem" }}>
+                      Suivant →
+                    </Button>
+                  </Box>
+                )}
+              </>
             ) : (
               <Box sx={{ textAlign: "center", py: 10, bgcolor: C.surface, border: `1px solid ${C.border}`, borderRadius: "12px" }}>
                 <NotificationsNoneIcon sx={{ fontSize: 48, color: C.border, mb: 2 }} />

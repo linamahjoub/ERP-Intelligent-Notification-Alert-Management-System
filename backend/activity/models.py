@@ -9,6 +9,10 @@ class ActivityLog(models.Model):
     ACTION_USER_CREATED = "user_created"
     ACTION_CATEGORY_CREATED = "category_created"
     ACTION_ALERT_CREATED = "alert_created"
+    ACTION_PRODUCTION_ORDER_CREATED = "production_order_created"
+    ACTION_PRODUCTION_ORDER_UPDATED = "production_order_updated"
+    ACTION_PRODUCTION_ORDER_DELETED = "production_order_deleted"
+    ACTION_PRODUCTION_ISSUE_REPORTED = "production_issue_reported"
 
     ACTION_CHOICES = [
         (ACTION_PRODUCT_CREATED, "Product created"),
@@ -17,6 +21,10 @@ class ActivityLog(models.Model):
         (ACTION_USER_CREATED, "User created"),
         (ACTION_CATEGORY_CREATED, "Category created"),
         (ACTION_ALERT_CREATED, "Alert created"),
+        (ACTION_PRODUCTION_ORDER_CREATED, "Production order created"),
+        (ACTION_PRODUCTION_ORDER_UPDATED, "Production order updated"),
+        (ACTION_PRODUCTION_ORDER_DELETED, "Production order deleted"),
+        (ACTION_PRODUCTION_ISSUE_REPORTED, "Production issue reported"),
     ]
 
     actor = models.ForeignKey(

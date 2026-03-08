@@ -7,7 +7,7 @@ from django.conf import settings
 import logging
 from .models import Alert
 from .serializers import AlertSerializer
-from .services import evaluate_alert_against_current_stock
+from .services import evaluate_alert_against_current_stock, evaluate_alert_against_current_invoices
 from activity.models import ActivityLog
 
 # Configurer le logger
@@ -136,9 +136,12 @@ class AlertViewSet(viewsets.ModelViewSet):
         alert = serializer.save(user=self.request.user)
         channels = normalize_channels(alert.notification_channels)
 
-        # Évaluer immédiatement les conditions existantes pour les alertes stock
-        if alert.module == 'stock' and alert.is_active:
-            evaluate_alert_against_current_stock(alert)
+        # Évaluer immédiatement les données existantes selon le module
+        if alert.is_active:
+            if alert.module == 'stock':
+                evaluate_alert_against_current_stock(alert)
+            elif alert.module == 'facturation':
+                evaluate_alert_against_current_invoices(alert)
         
         # Logger l'activité
         ActivityLog.objects.create(
@@ -154,7 +157,7 @@ class AlertViewSet(viewsets.ModelViewSet):
             print(f"[ALERT CREATE] Email utilisateur: {user_email}")
             
             if not user_email:
-                print(f"[ALERT CREATE] ⚠️ Email utilisateur VIDE! Impossible d'envoyer.")
+                print(f"[ALERT CREATE]  Email utilisateur VIDE! Impossible d'envoyer.")
                 logger.warning(f"Email utilisateur vide pour {self.request.user.username}")
                 return
             
@@ -202,11 +205,11 @@ L'équipe SmartNotify
             print(f"[ALERT CREATE] Résultat send_mail: {result}")
             
             if result > 0:
-                print(f"[ALERT CREATE] ✅ Email envoyé avec succès à {user_email}")
-                logger.info(f"✅ Email de confirmation d'alerte envoyé à {user_email}")
+                print(f"[ALERT CREATE]  Email envoyé avec succès à {user_email}")
+                logger.info(f"Email de confirmation d'alerte envoyé à {user_email}")
             else:
-                print(f"[ALERT CREATE] ⚠️ send_mail a retourné {result}")
-                logger.warning(f"⚠️ Email de création non envoyé à {user_email} (result={result})")
+                print(f"[ALERT CREATE]  send_mail a retourné {result}")
+                logger.warning(f" Email de création non envoyé à {user_email} (result={result})")
             
             # Envoyer un email aux destinataires spécifiés
             if alert.recipients and 'email' in channels:
@@ -230,7 +233,7 @@ L'équipe SmartNotify
         from rest_framework.exceptions import PermissionDenied
         
         print("\n" + "="*80)
-        print("[PERFORM_UPDATE] ✅ perform_update() a été appelé!")
+        print("[PERFORM_UPDATE]  perform_update() a été appelé!")
         print("="*80)
         
         alert = self.get_object()
@@ -241,9 +244,12 @@ L'équipe SmartNotify
         alert_updated = serializer.save()
         print(f"\n[ALERT UPDATE] Alerte mise à jour: {alert_updated.name}")
 
-        # Réévaluer immédiatement les alertes stock actives après modification
-        if alert_updated.module == 'stock' and alert_updated.is_active:
-            evaluate_alert_against_current_stock(alert_updated)
+        # Réévaluer immédiatement les alertes actives après modification
+        if alert_updated.is_active:
+            if alert_updated.module == 'stock':
+                evaluate_alert_against_current_stock(alert_updated)
+            elif alert_updated.module == 'facturation':
+                evaluate_alert_against_current_invoices(alert_updated)
         
         # Envoyer une notification de modification
         user_email = self.request.user.email

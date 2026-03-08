@@ -29,28 +29,26 @@ import {
 import {
   Notifications as NotificationsIcon,
   TrendingUp as TrendingUpIcon,
-  MoreVert as MoreVertIcon,
-  Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   CheckCircle as CheckCircleIcon,
   Warning as WarningIcon,
   Error as ErrorIcon,
-  AdminPanelSettings as AdminIcon,
   Download as DownloadIcon,
   Menu as MenuIcon,
   People as PeopleIcon,
   Sync as SyncIcon,
   Settings as SettingsIcon,
   Inventory as InventoryIcon,
+  ShoppingCart as ShoppingCartIcon,
   PersonAdd as PersonAddIcon,
   Category as CategoryIcon,
   Search as SearchIcon,
 } from "@mui/icons-material";
 import { Document, Packer, Paragraph, TextRun, HeadingLevel } from "docx";
-import { GoPeople } from "react-icons/go";
 
 import SharedSidebar from "../../components/SharedSidebar";
+
 
 // ─────────────────────────────────────────────
 // NotificationActivityChart (Canvas Area Chart)
@@ -127,7 +125,6 @@ const NotificationActivityChart = () => {
 
     ctx.clearRect(0, 0, W, H);
 
-    // Y grid + labels
     ctx.font = "11px 'DM Sans', sans-serif";
     ctx.fillStyle = "#94a3b8";
     ctx.textAlign = "right";
@@ -142,24 +139,21 @@ const NotificationActivityChart = () => {
       ctx.fillText(tick, padL - 8, y + 4);
     });
 
-    // X labels
     ctx.textAlign = "center";
     days.forEach((day, i) => {
       const x = padL + (i / (days.length - 1)) * chartW;
       ctx.fillText(day, x, H - padB + 18);
     });
 
-    // Draw datasets (reversed so "envoyées" is on top)
     [...datasets].reverse().forEach((ds) => {
       const points = ds.data.map((val, i) => ({
         x: padL + (i / (days.length - 1)) * chartW,
-        y: padT + chartH - (val * progress / maxVal) * chartH,
+        y: padT + chartH - ((val * progress) / maxVal) * chartH,
       }));
 
       const cps = catmullRomPoints(points);
       const bottomY = padT + chartH;
 
-      // Filled area
       ctx.beginPath();
       ctx.moveTo(points[0].x, bottomY);
       ctx.lineTo(points[0].x, points[0].y);
@@ -171,7 +165,6 @@ const NotificationActivityChart = () => {
       ctx.fillStyle = ds.fillColor;
       ctx.fill();
 
-      // Line
       ctx.beginPath();
       ctx.moveTo(points[0].x, points[0].y);
       cps.forEach(({ cp1x, cp1y, cp2x, cp2y }, i) => {
@@ -182,7 +175,6 @@ const NotificationActivityChart = () => {
       ctx.lineJoin = "round";
       ctx.stroke();
 
-      // Dots
       points.forEach((pt) => {
         ctx.beginPath();
         ctx.arc(pt.x, pt.y, 3.5, 0, Math.PI * 2);
@@ -208,7 +200,9 @@ const NotificationActivityChart = () => {
       if (progress < 1) rafRef.current = requestAnimationFrame(animate);
     };
     rafRef.current = requestAnimationFrame(animate);
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -222,8 +216,6 @@ const NotificationActivityChart = () => {
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
     const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
-
     const W = rect.width;
     const H = rect.height;
     const padL = 44;
@@ -233,10 +225,8 @@ const NotificationActivityChart = () => {
     const chartH = H - padT - padB;
     const chartW = W - padL - padR;
 
-    // Trouver le point le plus proche
     let closestDay = null;
     let closestDist = Infinity;
-
     datasets[0].data.forEach((_, i) => {
       const x = padL + (i / (days.length - 1)) * chartW;
       const dist = Math.abs(mouseX - x);
@@ -247,25 +237,18 @@ const NotificationActivityChart = () => {
     });
 
     if (closestDay !== null) {
-      const dayData = datasets.map(ds => ({
+      const dayData = datasets.map((ds) => ({
         label: ds.label,
         value: ds.data[closestDay],
         color: ds.color,
       }));
-      setTooltip({
-        day: days[closestDay],
-        data: dayData,
-        x: e.clientX,
-        y: e.clientY,
-      });
+      setTooltip({ day: days[closestDay], data: dayData, x: e.clientX, y: e.clientY });
     } else {
       setTooltip(null);
     }
   };
 
-  const handleMouseLeave = () => {
-    setTooltip(null);
-  };
+  const handleMouseLeave = () => setTooltip(null);
 
   return (
     <Box sx={{ width: "100%", height: "100%" }}>
@@ -278,16 +261,13 @@ const NotificationActivityChart = () => {
         Tendance sur les 7 derniers jours
       </Typography>
 
-      {/* Canvas */}
       <Box sx={{ width: "100%", height: 220, position: "relative" }}>
-        <canvas 
-          ref={canvasRef} 
+        <canvas
+          ref={canvasRef}
           style={{ width: "100%", height: "100%", display: "block", cursor: "crosshair" }}
           onMouseMove={handleMouseMove}
           onMouseLeave={handleMouseLeave}
         />
-        
-        {/* Tooltip */}
         {tooltip && (
           <Box
             sx={{
@@ -311,35 +291,35 @@ const NotificationActivityChart = () => {
               <Box key={item.label} sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 2, mb: 0.5 }}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
                   <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: item.color }} />
-                  <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem" }}>
-                    {item.label}
-                  </Typography>
+                  <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem" }}>{item.label}</Typography>
                 </Box>
-                <Typography sx={{ color: "white", fontWeight: 700, fontSize: "0.8rem" }}>
-                  {item.value}
-                </Typography>
+                <Typography sx={{ color: "white", fontWeight: 700, fontSize: "0.8rem" }}>{item.value}</Typography>
               </Box>
             ))}
           </Box>
         )}
       </Box>
 
-      {/* Legend */}
       <Box sx={{ display: "flex", gap: 3, justifyContent: "center", mt: 2 }}>
         {datasets.map((ds) => (
           <Box key={ds.label} sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
             <Box sx={{ position: "relative", width: 24, height: 12, display: "flex", alignItems: "center" }}>
               <Box sx={{ width: "100%", height: 2, bgcolor: ds.color, borderRadius: 1 }} />
-              <Box sx={{
-                position: "absolute", left: "50%", top: "50%",
-                transform: "translate(-50%, -50%)",
-                width: 7, height: 7, borderRadius: "50%",
-                bgcolor: ds.color, border: "1.5px solid #0f172a",
-              }} />
+              <Box
+                sx={{
+                  position: "absolute",
+                  left: "50%",
+                  top: "50%",
+                  transform: "translate(-50%, -50%)",
+                  width: 7,
+                  height: 7,
+                  borderRadius: "50%",
+                  bgcolor: ds.color,
+                  border: "1.5px solid #0f172a",
+                }}
+              />
             </Box>
-            <Typography sx={{ fontSize: "0.8rem", color: ds.color, fontWeight: 500 }}>
-              {ds.label}
-            </Typography>
+            <Typography sx={{ fontSize: "0.8rem", color: ds.color, fontWeight: 500 }}>{ds.label}</Typography>
           </Box>
         ))}
       </Box>
@@ -370,12 +350,16 @@ const AdminDashboard = () => {
   const [notificationsAnchorEl, setNotificationsAnchorEl] = useState(null);
   const [onlineUsersOpen, setOnlineUsersOpen] = useState(false);
   const [onlineUsers, setOnlineUsers] = useState({ count: 0, users: [] });
+  const [productsPage, setProductsPage] = useState(1);
+  const [notifMenuPage, setNotifMenuPage] = useState(0);
+  const [products, setProducts] = useState([]);
 
   const [dashboardData, setDashboardData] = useState({
     stats: {
       activeAlerts: 0,
       sentNotifications: 0,
       resolvedAlerts: 0,
+      pendingOrders: 0,
       configuredRules: 0,
       systemStatus: "active",
       totalUsers: 0,
@@ -388,8 +372,6 @@ const AdminDashboard = () => {
     moduleDistribution: [],
     recentActivity: [],
   });
-
-  const COLORS = ["#10b981", "#3b82f6", "#8b5cf6", "#f59e0b", "#ef4444"];
 
   const formatActivityTime = (value) => {
     if (!value) return "Récemment";
@@ -418,6 +400,20 @@ const AdminDashboard = () => {
     return "#10b981";
   };
 
+  const isResolvedNotification = (notif) => {
+    const title = String(notif?.title || "").toLowerCase();
+    const message = String(notif?.message || "").toLowerCase();
+    const type = String(notif?.notification_type || "").toLowerCase();
+    return (
+      type.includes("resolved") ||
+      title.includes("résol") ||
+      title.includes("resol") ||
+      message.includes("[resolved]") ||
+      message.includes("condition résolue") ||
+      message.includes("alerte résolue")
+    );
+  };
+
   const mapActivityToTimeline = (activity) => {
     const actionType = activity?.action_type;
     let icon = "notification";
@@ -425,10 +421,19 @@ const AdminDashboard = () => {
     let title = activity?.title || "Activité système";
     let description = activity?.description || "";
 
-    if (actionType === "product_created") { icon = "package"; color = "#3b82f6"; title = activity?.title || "Nouveau produit"; }
-    else if (actionType === "user_created") { icon = "user"; color = "#10b981"; title = activity?.title || "Nouvel utilisateur"; }
-    else if (actionType === "category_created") { icon = "category"; color = "#f59e0b"; title = activity?.title || "Nouvelle catégorie"; }
-    else if (actionType === "alert_created") { icon = "notification"; color = "#ef4444"; title = activity?.title || "Nouvelle alerte"; }
+    if (actionType === "product_created") {
+      icon = "package"; color = "#3b82f6";
+      title = activity?.title || "Nouveau produit";
+    } else if (actionType === "user_created") {
+      icon = "user"; color = "#10b981";
+      title = activity?.title || "Nouvel utilisateur";
+    } else if (actionType === "category_created") {
+      icon = "category"; color = "#f59e0b";
+      title = activity?.title || "Nouvelle catégorie";
+    } else if (actionType === "alert_created") {
+      icon = "notification"; color = "#ef4444";
+      title = activity?.title || "Nouvelle alerte";
+    }
 
     return {
       id: activity?.id || `${actionType}-${activity?.created_at || Math.random()}`,
@@ -439,15 +444,15 @@ const AdminDashboard = () => {
 
   const getActivityIcon = (iconType) => {
     switch (iconType) {
-      case "warning": return <ErrorIcon sx={{ fontSize: 20 }} />;
-      case "check": return <CheckCircleIcon sx={{ fontSize: 20 }} />;
-      case "notification": return <NotificationsIcon sx={{ fontSize: 20 }} />;
-      case "sync": return <SyncIcon sx={{ fontSize: 20 }} />;
-      case "user": return <PersonAddIcon sx={{ fontSize: 20 }} />;
-      case "settings": return <SettingsIcon sx={{ fontSize: 20 }} />;
-      case "package": return <InventoryIcon sx={{ fontSize: 20 }} />;
-      case "category": return <CategoryIcon sx={{ fontSize: 20 }} />;
-      default: return <NotificationsIcon sx={{ fontSize: 20 }} />;
+      case "warning":    return <ErrorIcon sx={{ fontSize: 18 }} />;
+      case "check":      return <CheckCircleIcon sx={{ fontSize: 18 }} />;
+      case "notification": return <NotificationsIcon sx={{ fontSize: 18 }} />;
+      case "sync":       return <SyncIcon sx={{ fontSize: 18 }} />;
+      case "user":       return <PersonAddIcon sx={{ fontSize: 18 }} />;
+      case "settings":   return <SettingsIcon sx={{ fontSize: 18 }} />;
+      case "package":    return <InventoryIcon sx={{ fontSize: 18 }} />;
+      case "category":   return <CategoryIcon sx={{ fontSize: 18 }} />;
+      default:           return <NotificationsIcon sx={{ fontSize: 18 }} />;
     }
   };
 
@@ -457,37 +462,56 @@ const AdminDashboard = () => {
       try {
         setLoading(true);
         const token = localStorage.getItem("access_token");
-
-        const [usersResponse, alertsResponse] = await Promise.all([
+        const [usersResponse, alertsResponse, productsResponse, ordersStatsResponse] = await Promise.all([
           fetch("http://localhost:8000/api/admin/users/", {
             headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
           }),
           fetch("http://localhost:8000/api/alerts/", {
             headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
           }),
+          fetch("http://localhost:8000/api/stock/products/", {
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          }),
+          fetch("http://localhost:8000/api/orders/orders/statistics/", {
+            headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+          }),
         ]);
 
         const usersData = usersResponse.ok ? await usersResponse.json() : {};
         const alertsData = alertsResponse.ok ? await alertsResponse.json() : {};
+        const productsData = productsResponse.ok ? await productsResponse.json() : {};
+        const ordersStatsData = ordersStatsResponse.ok ? await ordersStatsResponse.json() : {};
 
-        const users = Array.isArray(usersData) ? usersData : (usersData.results || []);
+        const users = Array.isArray(usersData) ? usersData : usersData.results || [];
         let allAlerts = [];
         if (Array.isArray(alertsData)) allAlerts = alertsData;
         else if (alertsData.results) allAlerts = alertsData.results;
         else if (alertsData.data) allAlerts = alertsData.data;
 
+        let allProducts = [];
+        if (Array.isArray(productsData)) allProducts = productsData;
+        else if (productsData.results) allProducts = productsData.results;
+        else if (productsData.data) allProducts = productsData.data;
+
+        setProducts(allProducts);
+
         const totalUsers = users.length;
         const activeUsers = users.filter((u) => u.is_active === true).length;
-        const activeAlerts = allAlerts.filter((a) =>
-          a.is_active === true || a.status === "active" || a.status === "ACTIVE" || a.active === true
+        const activeAlerts = allAlerts.filter(
+          (a) => a.is_active === true || a.status === "active" || a.status === "ACTIVE" || a.active === true
         ).length;
+        const resolvedAlerts = allAlerts.filter(
+          (a) => a.is_active === false || a.status === "resolved" || a.status === "RESOLVED"
+        ).length;
+        const pendingOrders = Number(ordersStatsData?.pending) || 0;
 
         setDashboardData((prev) => ({
           ...prev,
           stats: {
             activeAlerts,
             sentNotifications: 0,
-            resolvedAlerts: 0,
+            resolvedAlerts,
+            pendingOrders,
             configuredRules: allAlerts.length,
             totalUsers,
             activeUsers,
@@ -514,7 +538,7 @@ const AdminDashboard = () => {
         });
         if (res.ok) {
           const data = await res.json();
-          const items = Array.isArray(data) ? data : (data?.results || []);
+          const items = Array.isArray(data) ? data : data?.results || [];
           setDashboardData((prev) => ({
             ...prev,
             recentActivity: items.map(mapActivityToTimeline),
@@ -538,9 +562,21 @@ const AdminDashboard = () => {
       });
       if (res.ok) {
         const json = await res.json();
-        const items = Array.isArray(json) ? json : (json?.results || []);
+        const items = Array.isArray(json) ? json : json?.results || [];
         setNotificationsData(items);
         setUnreadNotifications(items.filter((i) => i?.is_read === false));
+
+        const sentNotifications = items.length;
+        const resolvedFromNotifications = items.filter(isResolvedNotification).length;
+
+        setDashboardData((prev) => ({
+          ...prev,
+          stats: {
+            ...prev.stats,
+            sentNotifications,
+            resolvedAlerts: Math.max(prev?.stats?.resolvedAlerts || 0, resolvedFromNotifications),
+          },
+        }));
       }
     } catch (err) {
       console.log("Erreur notifications:", err);
@@ -559,7 +595,7 @@ const AdminDashboard = () => {
       const token = localStorage.getItem("access_token");
       const res = await fetch("http://localhost:8000/api/users/online/", {
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        credentials: 'include',
+        credentials: "include",
       });
       if (res.ok) {
         const data = await res.json();
@@ -572,7 +608,7 @@ const AdminDashboard = () => {
 
   useEffect(() => {
     fetchOnlineUsers();
-    const interval = setInterval(fetchOnlineUsers, 30000); // Refresh every 30 seconds
+    const interval = setInterval(fetchOnlineUsers, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -580,7 +616,9 @@ const AdminDashboard = () => {
   const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
   const handleMenuClick = (event, user) => { setAnchorEl(event.currentTarget); setSelectedUser(user); };
   const handleMenuClose = () => { setAnchorEl(null); setSelectedUser(null); };
-  const handleEditUser = () => { if (selectedUser?.id) { navigate(`/admin/users/${selectedUser.id}/edit`); handleMenuClose(); } };
+  const handleEditUser = () => {
+    if (selectedUser?.id) { navigate(`/admin/users/${selectedUser.id}/edit`); handleMenuClose(); }
+  };
   const handleDeleteUser = () => { setDeleteDialogOpen(true); handleMenuClose(); };
   const handleOpenOnlineUsers = () => { fetchOnlineUsers(); setOnlineUsersOpen(true); };
   const handleCloseOnlineUsers = () => setOnlineUsersOpen(false);
@@ -589,68 +627,39 @@ const AdminDashboard = () => {
     setDeleteDialogOpen(false);
     setSelectedUser(null);
   };
+
   const handleExportData = async () => {
     try {
       const stats = dashboardData?.stats || {};
       const recentAlerts = (dashboardData?.alerts || []).slice(0, 10);
       const recentNotifications = (notificationsData || []).slice(0, 10);
-      const exportDate = new Date().toLocaleString("fr-FR", {
-        dateStyle: "full",
-        timeStyle: "medium",
-      });
+      const exportDate = new Date().toLocaleString("fr-FR", { dateStyle: "full", timeStyle: "medium" });
 
       const doc = new Document({
-        sections: [
-          {
-            children: [
-              new Paragraph({
-                heading: HeadingLevel.TITLE,
-                children: [new TextRun({ text: "Rapport Dashboard Administrateur", bold: true })],
-              }),
-              new Paragraph({
-                children: [new TextRun({ text: `Exporté le : ${exportDate}` })],
-              }),
-              new Paragraph({ text: "" }),
-
-              new Paragraph({
-                heading: HeadingLevel.HEADING_1,
-                children: [new TextRun({ text: "Statistiques" })],
-              }),
-              new Paragraph({ text: `• Alertes Actives : ${stats.activeAlerts || 0}` }),
-              new Paragraph({ text: `• Notifications Envoyées : ${stats.sentNotifications || 0}` }),
-              new Paragraph({ text: `• Alertes Résolues : ${stats.resolvedAlerts || 0}` }),
-              new Paragraph({ text: `• Règles Configurées : ${stats.configuredRules || 0}` }),
-              new Paragraph({ text: `• Utilisateurs Totaux : ${stats.totalUsers || 0}` }),
-              new Paragraph({ text: `• Utilisateurs Actifs : ${stats.activeUsers || 0}` }),
-              new Paragraph({ text: "" }),
-
-              new Paragraph({
-                heading: HeadingLevel.HEADING_1,
-                children: [new TextRun({ text: "Alertes Récentes" })],
-              }),
-              ...(recentAlerts.length > 0
-                ? recentAlerts.map((alert, index) =>
-                    new Paragraph({
-                      text: `${index + 1}. [${alert?.module || "Système"}] ${alert?.name || "Alerte"} - ${alert?.is_active ? "Active" : "Inactive"}`,
-                    })
-                  )
-                : [new Paragraph({ text: "Aucune alerte disponible" })]),
-              new Paragraph({ text: "" }),
-
-              new Paragraph({
-                heading: HeadingLevel.HEADING_1,
-                children: [new TextRun({ text: "Notifications Récentes" })],
-              }),
-              ...(recentNotifications.length > 0
-                ? recentNotifications.map((notification, index) =>
-                    new Paragraph({
-                      text: `${index + 1}. ${notification?.title || "Sans titre"} - ${notification?.is_read ? "Lue" : "Non lue"}`,
-                    })
-                  )
-                : [new Paragraph({ text: "Aucune notification disponible" })]),
-            ],
-          },
-        ],
+        sections: [{
+          children: [
+            new Paragraph({ heading: HeadingLevel.TITLE, children: [new TextRun({ text: "Rapport Dashboard Administrateur", bold: true })] }),
+            new Paragraph({ children: [new TextRun({ text: `Exporté le : ${exportDate}` })] }),
+            new Paragraph({ text: "" }),
+            new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text: "Statistiques" })] }),
+            new Paragraph({ text: `• Alertes Actives : ${stats.activeAlerts || 0}` }),
+            new Paragraph({ text: `• Notifications Envoyées : ${stats.sentNotifications || 0}` }),
+            new Paragraph({ text: `• Alertes Résolues : ${stats.resolvedAlerts || 0}` }),
+            new Paragraph({ text: `• Règles Configurées : ${stats.configuredRules || 0}` }),
+            new Paragraph({ text: `• Utilisateurs Totaux : ${stats.totalUsers || 0}` }),
+            new Paragraph({ text: `• Utilisateurs Actifs : ${stats.activeUsers || 0}` }),
+            new Paragraph({ text: "" }),
+            new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text: "Alertes Récentes" })] }),
+            ...(recentAlerts.length > 0
+              ? recentAlerts.map((alert, index) => new Paragraph({ text: `${index + 1}. [${alert?.module || "Système"}] ${alert?.name || "Alerte"} - ${alert?.is_active ? "Active" : "Inactive"}` }))
+              : [new Paragraph({ text: "Aucune alerte disponible" })]),
+            new Paragraph({ text: "" }),
+            new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun({ text: "Notifications Récentes" })] }),
+            ...(recentNotifications.length > 0
+              ? recentNotifications.map((notification, index) => new Paragraph({ text: `${index + 1}. ${notification?.title || "Sans titre"} - ${notification?.is_read ? "Lue" : "Non lue"}` }))
+              : [new Paragraph({ text: "Aucune notification disponible" })]),
+          ],
+        }],
       });
 
       const blob = await Packer.toBlob(doc);
@@ -663,15 +672,21 @@ const AdminDashboard = () => {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-
       setSuccessMessage(`Rapport Word exporté : ${fileName}`);
     } catch (error) {
       console.error("Erreur export Word:", error);
       setErrorMessage(`Erreur lors de la génération du document Word: ${error?.message || "inconnue"}`);
     }
   };
+
   const handleOpenNotifications = (e) => setNotificationsAnchorEl(e.currentTarget);
-  const handleCloseNotifications = () => setNotificationsAnchorEl(null);
+  const handleCloseNotifications = () => {
+    setNotificationsAnchorEl(null);
+    setNotifMenuPage(0);
+  };
+  const handleStatCardClick = (path) => {
+    if (path) navigate(path);
+  };
   const handleMarkAllNotificationsRead = async () => {
     try {
       const token = localStorage.getItem("access_token");
@@ -700,10 +715,10 @@ const AdminDashboard = () => {
 
   const getStatusIcon = (status) => {
     switch (status) {
-      case "active": return <CheckCircleIcon fontSize="small" />;
+      case "active":   return <CheckCircleIcon fontSize="small" />;
       case "critical": return <ErrorIcon fontSize="small" />;
-      case "warning": return <WarningIcon fontSize="small" />;
-      default: return <WarningIcon fontSize="small" />;
+      case "warning":  return <WarningIcon fontSize="small" />;
+      default:         return <WarningIcon fontSize="small" />;
     }
   };
 
@@ -764,224 +779,292 @@ const AdminDashboard = () => {
   }
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "black" }}>
+    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "black", position: "relative" }}>
       <SharedSidebar mobileOpen={mobileOpen} onMobileClose={handleDrawerToggle} />
 
       <Box
         component="main"
         sx={{
-          flexGrow: 1,
-          width: "100%",
-          maxWidth: "100%",
-          minWidth: 0,
-          minHeight: "100vh",
-          bgcolor: "black",
-          overflowY: "auto",
-          overflowX: "hidden",
+          flexGrow: 1, width: 0, minWidth: 0, minHeight: "100vh", bgcolor: "black",
+          overflowY: "auto", overflowX: "clip",
+          position: "relative",
           "&::-webkit-scrollbar": { width: "8px" },
           "&::-webkit-scrollbar-track": { bgcolor: "rgba(15, 23, 42, 0.4)" },
-          "&::-webkit-scrollbar-thumb": {
-            bgcolor: "rgba(59, 130, 246, 0.3)",
-            borderRadius: "4px",
-            "&:hover": { bgcolor: "rgba(59, 130, 246, 0.5)" },
-          },
+          "&::-webkit-scrollbar-thumb": { bgcolor: "rgba(59, 130, 246, 0.3)", borderRadius: "4px", "&:hover": { bgcolor: "rgba(59, 130, 246, 0.5)" } },
         }}
       >
-        {/* Header */}
-        <Box sx={{ width: "100%", display: "flex", justifyContent: "center", px: 3, py: 1.2, borderBottom: "1px solid rgba(59, 130, 246, 0.1)" }}>
-          <Box sx={{ width: "100%", maxWidth: { xs: "100%", sm: "100%", md: "1200px", lg: "1400px" }, display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 2 }}>
-            {isMobile && (
-              <IconButton onClick={handleDrawerToggle} sx={{ color: "white", mr: 1, "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>
-                <MenuIcon />
-              </IconButton>
-            )}
-            {/* Search */}
-            <Box sx={{ flex: 1, maxWidth: 500, position: "relative" }}>
+        <Box sx={{ position: "relative", zIndex: 1, width: "100%" }}>
+          {/* ── Navbar ── */}
+          <Box sx={{ width: "100%", borderBottom: "1px solid rgba(59, 130, 246, 0.1)", py: 1.5, px: 2 }}>
+            <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%" }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              {isMobile && (
+                <IconButton onClick={handleDrawerToggle} sx={{ color: "white", mr: 1, "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>
+                  <MenuIcon />
+                </IconButton>
+              )}
+              <Typography variant="h6" sx={{ color: "white", fontWeight: 600, fontSize: "2.5rem" }}>
+                Tableau de bord
+              </Typography>
+            </Box>
+
+            <Box sx={{ flex: 1, maxWidth: 500, mx: 3, position: "relative", display: { xs: "none", md: "block" } }}>
               <SearchIcon sx={{ position: "absolute", left: 16, top: "50%", transform: "translateY(-50%)", color: "#64748b", fontSize: 20 }} />
               <input
                 type="text"
-                placeholder="Rechercher dans le dashboard..."
+                placeholder="Search"
                 style={{
-                  width: "100%", padding: "12px 16px 12px 48px",
-                  backgroundColor: "rgba(59, 130, 246, 0.1)",
-                  border: "1px solid rgba(59, 130, 246, 0.2)",
-                  borderRadius: "12px", color: "#94a3b8", fontSize: "0.9rem", outline: "none",
+                  width: "100%", padding: "10px 16px 10px 48px",
+                  backgroundColor: "rgba(59, 130, 246, 0.1)", border: "1px solid rgba(59, 130, 246, 0.2)",
+                  borderRadius: "8px", color: "#94a3b8", fontSize: "0.9rem", outline: "none", boxSizing: "border-box",
                 }}
                 onFocus={(e) => { e.target.style.borderColor = "#3b82f6"; e.target.style.backgroundColor = "rgba(59, 130, 246, 0.2)"; }}
                 onBlur={(e) => { e.target.style.borderColor = "rgba(59, 130, 246, 0.2)"; e.target.style.backgroundColor = "rgba(59, 130, 246, 0.1)"; }}
               />
             </Box>
-            {/* Right actions */}
-            <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-              <Badge badgeContent={onlineUsers.count} color="success">
-                <IconButton 
-                  onClick={handleOpenOnlineUsers}
-                  sx={{ 
-                    color: "#64748b",
-                    "&:hover": { bgcolor: "rgba(34, 197, 94, 0.1)" }
-                  }}
-                >
-                  <GoPeople  />
-                </IconButton>
-              </Badge>
-              <Badge badgeContent={unreadNotifications.length} color="error">
-                <IconButton onClick={handleOpenNotifications} sx={{ color: "#64748b", "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>
+
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+              <IconButton sx={{ color: "#64748b", "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }} onClick={handleOpenNotifications}>
+                <Badge badgeContent={unreadNotifications.length} color="error">
                   <NotificationsIcon />
-                </IconButton>
-              </Badge>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                <Box sx={{ textAlign: "right", display: { xs: "none", sm: "block" } }}>
-                  <Typography variant="body2" sx={{ color: "white", fontWeight: 600, fontSize: "0.9rem" }}>
-                    {user?.first_name || user?.username}
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: "#64748b", fontSize: "0.75rem" }}>
-                    {isAdmin ? "Administrateur" : "Utilisateur"}
+                </Badge>
+              </IconButton>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 0.8, cursor: "pointer", "&:hover": { opacity: 0.1   } }}>
+               
+                <Box sx={{ display: { xs: "none", sm: "block" } }}>
+                  <Typography variant="body2" sx={{ color: "white", fontWeight: 600 }}>
+                    {user?.first_name && user?.last_name ? `${user.first_name} ${user.last_name}` : user?.username}
                   </Typography>
                 </Box>
-                <Avatar sx={{ width: 40, height: 40, bgcolor: isAdmin ? "#ef4444" : "#3b82f6", fontWeight: 600, fontSize: "1rem" }}>
+                <Avatar sx={{ width: 36, height: 36, bgcolor: isAdmin ? "#ef4444" : "#3b82f6", fontWeight: 600, fontSize: "0.95rem" }}>
                   {user?.first_name?.charAt(0) || user?.username?.charAt(0) || "U"}
                 </Avatar>
+               
               </Box>
+              
             </Box>
           </Box>
         </Box>
 
-        {/* Page title */}
-        <Box sx={{ width: "100%", display: "flex", justifyContent: "center", px: 3, pt: 3, pb: 0 }}>
-          <Box sx={{ width: "100%", maxWidth: { xs: "100%", sm: "100%", md: "1200px", lg: "1400px" } }}>
-            <Typography variant="h4" sx={{ color: "white", fontWeight: 700, mb: 0.5 }}>
-              Tableau de Bord Administrateur
-            </Typography>
-            <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.95rem", mb: 2.5 }}>
-              Gestion complète du système et surveillance
-            </Typography>
-          </Box>
+        {/* ── Welcome Section ── */}
+        <Box sx={{ width: "100%", py: 2, px: 2, borderBottom: "1px solid rgba(59, 130, 246, 0.1)" }}>
+          <Typography variant="h5" sx={{ color: "white", fontWeight: 600 }}>
+            Welcome, {user?.first_name || user?.username}!
+          </Typography>
         </Box>
 
-        {/* Dashboard content */}
-        <Box sx={{ width: "100%", display: "flex", justifyContent: "center", px: 3, pt: 0, pb: 6 }}>
-          <Box sx={{ width: "100%", maxWidth: { xs: "100%", sm: "100%", md: "1200px", lg: "1400px" } }}>
+        {/* ── Dashboard content ── */}
+        <Box sx={{ width: "100%", px: 2, pt: 3, pb: 6, boxSizing: "border-box" }}>
 
-          {/* Stats cards */}
-          <Grid container spacing={3} sx={{ mb: 4, width: "100%", maxWidth: "100%" }}>
-            {/* Alertes Actives */}
-            <Grid item xs={12} sm={6} md={3}>
-              <Card sx={{ bgcolor: "rgba(239, 68, 68, 0.1)", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: 3, transition: "all 0.3s ease", "&:hover": { transform: "translateY(-4px)", boxShadow: "0 8px 24px rgba(239, 68, 68, 0.2)" } }}>
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 2 }}>
-                    <Typography variant="body2" sx={{ color: "#94a3b8", fontSize: "0.85rem" }}>Alertes Actives</Typography>
-                    <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: "rgba(239, 68, 68, 0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <WarningIcon sx={{ color: "#ef4444", fontSize: 20 }} />
+          {/* ── Stats cards ── */}
+          <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
+            {[
+              {
+                label: "Alertes Actives", value: dashboardData.stats.activeAlerts,
+                bg: "rgba(239, 68, 68, 0.1)", border: "rgba(239, 68, 68, 0.2)", iconBg: "rgba(239, 68, 68, 0.15)",
+                icon: <WarningIcon sx={{ color: "#ef4444", fontSize: 20 }} />, shadow: "rgba(239, 68, 68, 0.2)",
+                subIcon: <ErrorIcon sx={{ color: "#ef4444", fontSize: 16 }} />, subText: "Nécessite attention", subColor: "#ef4444",
+                path: "/alerts",
+              },
+              {
+                label: "Notifications Totales", value: notificationsData.length.toLocaleString(),
+                bg: "rgba(59, 130, 246, 0.1)", border: "rgba(59, 130, 246, 0.2)", iconBg: "rgba(59, 130, 246, 0.15)",
+                icon: <NotificationsIcon sx={{ color: "#3b82f6", fontSize: 20 }} />, shadow: "rgba(59, 130, 246, 0.2)",
+                subIcon: <TrendingUpIcon sx={{ color: "#10b981", fontSize: 16 }} />, subText: `${unreadNotifications.length} non lues`, subColor: "#10b981",
+                path: "/notifications",
+              },
+              {
+                label: "Alertes Résolues", value: dashboardData.stats.resolvedAlerts,
+                bg: "rgba(16, 185, 129, 0.1)", border: "#10B98133", iconBg: "rgba(16, 185, 129, 0.15)",
+                icon: <CheckCircleIcon sx={{ color: "#10b981", fontSize: 20 }} />, shadow: "rgba(16, 185, 129, 0.2)",
+                subIcon: <TrendingUpIcon sx={{ color: "#10b981", fontSize: 16 }} />, subText: "Alertes résolues", subColor: "#10b981",
+                path: "/alerts",
+              },
+              {
+                label: "Utilisateurs Totaux", value: dashboardData.stats.totalUsers || 0,
+                bg: "rgba(139, 92, 246, 0.1)", border: "rgba(139, 92, 246, 0.2)", iconBg: "rgba(139, 92, 246, 0.15)",
+                icon: <PeopleIcon sx={{ color: "#8b5cf6", fontSize: 20 }} />, shadow: "rgba(139, 92, 246, 0.2)",
+                subIcon: <PeopleIcon sx={{ color: "#8b5cf6", fontSize: 16 }} />, subText: `${dashboardData.stats.activeUsers || 0} actifs`, subColor: "#8b5cf6",
+                path: "/employes_requests",
+              },
+              {
+                label: "Les commandes en attentes", value: dashboardData.stats.pendingOrders || 0,
+                bg: "rgba(245, 158, 11, 0.12)", border: "rgba(245, 158, 11, 0.3)", iconBg: "rgba(245, 158, 11, 0.2)",
+                icon: <ShoppingCartIcon sx={{ color: "#f59e0b", fontSize: 20 }} />, shadow: "rgba(245, 158, 11, 0.25)",
+                subIcon: <ShoppingCartIcon sx={{ color: "#f59e0b", fontSize: 16 }} />, subText: "Statut: en attente", subColor: "#fbbf24",
+                path: "/orders",
+              },
+            ].map((card) => (
+              <Box
+                key={card.label}
+                role="button"
+                tabIndex={0}
+                onClick={() => handleStatCardClick(card.path)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleStatCardClick(card.path);
+                  }
+                }}
+                sx={{ flex: "1 1 0", minWidth: { xs: "calc(50% - 8px)", md: 0 }, cursor: "pointer" }}
+              >
+                <Card sx={{
+                  bgcolor: card.bg, border: `1px solid ${card.border}`, borderRadius: 3,
+                  width: "100%", height: "100%", display: "flex", flexDirection: "column",
+                  transition: "all 0.3s ease", "&:hover": { transform: "translateY(-4px)", boxShadow: `0 8px 24px ${card.shadow}` },
+                }}>
+                  <CardContent sx={{ p: 3, flexGrow: 1, display: "flex", flexDirection: "column", justifyContent: "space-between" }}>
+                    <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 2 }}>
+                      <Typography variant="body2" sx={{ color: "#94a3b8", fontSize: "0.85rem" }}>{card.label}</Typography>
+                      <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: card.iconBg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        {card.icon}
+                      </Box>
                     </Box>
-                  </Box>
-                  <Typography variant="h3" sx={{ color: "white", fontWeight: 700, mb: 1 }}>{dashboardData.stats.activeAlerts}</Typography>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <ErrorIcon sx={{ color: "#ef4444", fontSize: 16 }} />
-                    <Typography variant="caption" sx={{ color: "#ef4444", fontSize: "0.8rem", fontWeight: 500 }}>Nécessite attention</Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            {/* Notifications Totales */}
-            <Grid item xs={12} sm={6} md={3}>
-              <Card sx={{ bgcolor: "rgba(59, 130, 246, 0.1)", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: 3, transition: "all 0.3s ease", "&:hover": { transform: "translateY(-4px)", boxShadow: "0 8px 24px rgba(59, 130, 246, 0.2)" } }}>
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 2 }}>
-                    <Typography variant="body2" sx={{ color: "#94a3b8", fontSize: "0.85rem" }}>Notifications Totales</Typography>
-                    <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: "rgba(59, 130, 246, 0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <NotificationsIcon sx={{ color: "#3b82f6", fontSize: 20 }} />
+                    <Typography variant="h3" sx={{ color: "white", fontWeight: 700, mb: 1 }}>{card.value}</Typography>
+                    <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                      {card.subIcon}
+                      <Typography variant="caption" sx={{ color: card.subColor, fontSize: "0.8rem", fontWeight: 500 }}>{card.subText}</Typography>
                     </Box>
-                  </Box>
-                  <Typography variant="h3" sx={{ color: "white", fontWeight: 700, mb: 1 }}>{notificationsData.length.toLocaleString()}</Typography>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <TrendingUpIcon sx={{ color: "#10b981", fontSize: 16 }} />
-                    <Typography variant="caption" sx={{ color: "#10b981", fontSize: "0.8rem", fontWeight: 500 }}>
-                      {unreadNotifications.length} non lues
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
+                  </CardContent>
+                </Card>
+              </Box>
+            ))}
+          </Box>
 
-            {/* Alertes Résolues */}
-            <Grid item xs={12} sm={6} md={3}>
-              <Card sx={{ bgcolor: "rgba(16, 185, 129, 0.1)", border: "1px solid #10B98133", borderRadius: 3, transition: "all 0.3s ease", "&:hover": { transform: "translateY(-4px)", boxShadow: "0 8px 24px rgba(16, 185, 129, 0.2)" } }}>
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 2 }}>
-                    <Typography variant="body2" sx={{ color: "#94a3b8", fontSize: "0.85rem" }}>Alertes Résolues</Typography>
-                    <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: "rgba(16, 185, 129, 0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <CheckCircleIcon sx={{ color: "#10b981", fontSize: 20 }} />
-                    </Box>
-                  </Box>
-                  <Typography variant="h3" sx={{ color: "white", fontWeight: 700, mb: 1 }}>{dashboardData.stats.resolvedAlerts}</Typography>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <TrendingUpIcon sx={{ color: "#10b981", fontSize: 16 }} />
-                    <Typography variant="caption" sx={{ color: "#10b981", fontSize: "0.8rem", fontWeight: 500 }}>Alertes résolues</Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            {/* Utilisateurs Totaux */}
-            <Grid item xs={12} sm={6} md={3}>
-              <Card sx={{ bgcolor: "rgba(139, 92, 246, 0.1)", border: "1px solid rgba(139, 92, 246, 0.2)", borderRadius: 3, transition: "all 0.3s ease", "&:hover": { transform: "translateY(-4px)", boxShadow: "0 8px 24px rgba(139, 92, 246, 0.2)" } }}>
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", mb: 2 }}>
-                    <Typography variant="body2" sx={{ color: "#94a3b8", fontSize: "0.85rem" }}>Utilisateurs Totaux</Typography>
-                    <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: "rgba(139, 92, 246, 0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <PeopleIcon sx={{ color: "#8b5cf6", fontSize: 20 }} />
-                    </Box>
-                  </Box>
-                  <Typography variant="h3" sx={{ color: "white", fontWeight: 700, mb: 1 }}>{dashboardData.stats.totalUsers || 0}</Typography>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
-                    <PeopleIcon sx={{ color: "#8b5cf6", fontSize: 16 }} />
-                    <Typography variant="caption" sx={{ color: "#8b5cf6", fontSize: "0.8rem", fontWeight: 500 }}>
-                      {dashboardData.stats.activeUsers || 0} actifs
-                    </Typography>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-
-          {/* Charts row */}
-          <Grid container spacing={3} sx={{ mb: 4, width: "100%", maxWidth: "100%" }}>
-            {/* ✅ Activité des notifications - Area Chart */}
-            <Grid item xs={12} lg={8}>
+          {/* ── Row 1: Produits + Activité ── */}
+          <Box sx={{ display: "flex", width: "100%", gap: 2, mb: 3, alignItems: "stretch", flexWrap: { xs: "wrap", md: "nowrap" } }}>
+            {/* Liste des Produits */}
+            <Box sx={{ flex: { xs: "1 1 100%", md: "0 0 calc(50% - 8px)" }, maxWidth: { xs: "100%", md: "calc(50% - 8px)" }, minWidth: 0 }}>
               <Card sx={{ bgcolor: "rgba(30, 41, 59, 0.5)", border: "1px solid rgba(59, 130, 246, 0.1)", borderRadius: 3, height: "100%" }}>
-                <CardContent sx={{ p: 3, height: "100%" }}>
+                <CardContent sx={{ p: 3, height: "100%", display: "flex", flexDirection: "column" }}>
+                  <Box sx={{ mb: 3 }}>
+                    <Typography variant="h6" sx={{ color: "white", fontWeight: 600 }}>Liste des Produits</Typography>
+                  </Box>
+                  <Box sx={{ overflowX: "auto", flexGrow: 1 }}>
+                    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                      <thead>
+                        <tr style={{ borderBottom: "1px solid rgba(59, 130, 246, 0.2)" }}>
+                          {["Produit", "SKU", "Catégorie", "Quantité", "Statut", "Prix"].map((h) => (
+                            <th key={h} style={{ padding: "12px", textAlign: "left", color: "#94a3b8", fontSize: "0.85rem", fontWeight: 600 }}>{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {products && products.length > 0 ? (
+                          products.slice((productsPage - 1) * 5, productsPage * 5).map((product, index) => (
+                            <tr
+                              key={product.id || index}
+                              style={{ borderBottom: "1px solid rgba(59, 130, 246, 0.1)", transition: "all 0.2s ease" }}
+                              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "rgba(59, 130, 246, 0.05)")}
+                              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
+                            >
+                              <td style={{ padding: "12px", color: "white", fontSize: "0.9rem" }}>{product.name || "N/A"}</td>
+                              <td style={{ padding: "12px", color: "#94a3b8", fontSize: "0.9rem" }}>{product.sku || "N/A"}</td>
+                              <td style={{ padding: "12px", color: "#94a3b8", fontSize: "0.9rem" }}>{product.category || "N/A"}</td>
+                              <td style={{ padding: "12px", color: "#94a3b8", fontSize: "0.9rem" }}>{product.quantity || "0"}</td>
+                              <td style={{ padding: "12px" }}>
+                                <Chip
+                                  label={product.status === "optimal" ? "Optimal" : product.status === "low" ? "Faible" : product.status === "out_of_stock" ? "Rupture" : product.status || "N/A"}
+                                  size="small"
+                                  sx={{
+                                    bgcolor: product.status === "optimal" ? "rgba(16, 185, 129, 0.15)" : product.status === "low" ? "rgba(251, 146, 60, 0.15)" : "rgba(239, 68, 68, 0.15)",
+                                    color: product.status === "optimal" ? "#10b981" : product.status === "low" ? "#f59e0b" : "#ef4444",
+                                    fontWeight: 600, fontSize: "0.75rem",
+                                  }}
+                                />
+                              </td>
+                              <td style={{ padding: "12px", color: "#10b981", fontSize: "0.9rem", fontWeight: 600 }}>${product.price || "0.00"}</td>
+                            </tr>
+                          ))
+                        ) : (
+                          <tr>
+                            <td colSpan="6" style={{ padding: "24px", textAlign: "center", color: "#64748b" }}>Aucun produit disponible</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </Box>
+                  {products && products.length > 0 && (
+                    <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 1, mt: "auto", pt: 2, borderTop: "1px solid rgba(59, 130, 246, 0.1)" }}>
+                      <IconButton onClick={() => setProductsPage(Math.max(1, productsPage - 1))} disabled={productsPage === 1} sx={{ color: productsPage === 1 ? "#64748b" : "#3b82f6", "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>
+                        &lt;
+                      </IconButton>
+                      <Box sx={{ display: "flex", gap: 0.5, alignItems: "center" }}>
+                        {(() => {
+                          const totalPages = Math.ceil(products.length / 5);
+                          const pages = [1];
+                          const start = Math.max(2, productsPage - 1);
+                          const end = Math.min(totalPages - 1, productsPage + 1);
+                          if (start > 2) pages.push("...");
+                          for (let i = start; i <= end; i++) { if (!pages.includes(i)) pages.push(i); }
+                          if (end < totalPages - 1) pages.push("...");
+                          if (totalPages > 1) pages.push(totalPages);
+                          return pages.map((page, idx) =>
+                            page === "..." ? (
+                              <Typography key={idx} sx={{ color: "#64748b", px: 1 }}>...</Typography>
+                            ) : (
+                              <Button key={page} onClick={() => setProductsPage(page)} sx={{
+                                minWidth: 36, height: 36, borderRadius: "6px", fontSize: "0.9rem",
+                                fontWeight: page === productsPage ? 600 : 400,
+                                bgcolor: page === productsPage ? "#3b82f6" : "transparent",
+                                color: page === productsPage ? "white" : "#94a3b8",
+                                border: "1px solid rgba(59, 130, 246, 0.3)",
+                                "&:hover": { bgcolor: page === productsPage ? "#3b82f6" : "rgba(59, 130, 246, 0.1)", borderColor: "#3b82f6" },
+                              }}>{page}</Button>
+                            )
+                          );
+                        })()}
+                      </Box>
+                      <IconButton onClick={() => setProductsPage(Math.min(Math.ceil(products.length / 5), productsPage + 1))} disabled={productsPage >= Math.ceil(products.length / 5)} sx={{ color: productsPage >= Math.ceil(products.length / 5) ? "#64748b" : "#3b82f6", "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>
+                        &gt;
+                      </IconButton>
+                    </Box>
+                  )}
+                </CardContent>
+              </Card>
+            </Box>
+
+            {/* Activité des notifications */}
+            <Box sx={{ flex: { xs: "1 1 100%", md: "0 0 calc(50% - 8px)" }, maxWidth: { xs: "100%", md: "calc(50% - 8px)" }, minWidth: 0 }}>
+              <Card sx={{ bgcolor: "rgba(30, 41, 59, 0.5)", border: "1px solid rgba(59, 130, 246, 0.1)", borderRadius: 3, height: "100%" }}>
+                <CardContent sx={{ p: 2, height: "100%" }}>
                   <NotificationActivityChart />
                 </CardContent>
               </Card>
-            </Grid>
+            </Box>
+          </Box>
 
+          {/* ── Row 2: Répartition + Alertes Récentes ── */}
+          <Box sx={{ display: "flex", width: "100%", gap: 2, mb: 3, alignItems: "stretch", flexWrap: { xs: "wrap", md: "nowrap" } }}>
             {/* Répartition des alertes */}
-            <Grid item xs={12} lg={4}>
+            <Box sx={{ flex: { xs: "1 1 100%", md: "0 0 calc(50% - 8px)" }, maxWidth: { xs: "100%", md: "calc(50% - 8px)" }, minWidth: 0 }}>
               <Card sx={{ bgcolor: "rgba(30, 41, 59, 0.5)", border: "1px solid rgba(59, 130, 246, 0.1)", borderRadius: 3, height: "100%" }}>
-                <CardContent sx={{ p: 3, height: "100%" }}>
+                <CardContent sx={{ p: 3 }}>
                   <Typography variant="h6" sx={{ color: "white", fontWeight: 600, mb: 3 }}>Répartition des alertes</Typography>
-                  <Box sx={{ height: 300, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2 }}>
+                  <Box sx={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2 }}>
                     {moduleDistribution.total > 0 ? (
                       <>
                         <Box sx={{
-                          width: 180, height: 180, borderRadius: "50%",
+                          width: 160, height: 160, borderRadius: "50%",
                           background: `conic-gradient(${moduleConicGradient})`,
-                          position: "relative",
-                          boxShadow: "0 10px 24px rgba(0,0,0,0.35)",
+                          position: "relative", boxShadow: "0 10px 24px rgba(0,0,0,0.35)",
                           animation: "alertDonutIn 0.8s ease-out",
                           "@keyframes alertDonutIn": { "0%": { transform: "scale(0.85)", opacity: 0 }, "100%": { transform: "scale(1)", opacity: 1 } },
                         }}>
-                          <Box sx={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", width: 110, height: 110, borderRadius: "50%", bgcolor: "rgba(15, 23, 42, 0.95)", display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column" }}>
+                          <Box sx={{
+                            position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)",
+                            width: 100, height: 100, borderRadius: "50%", bgcolor: "rgba(15, 23, 42, 0.95)",
+                            display: "flex", alignItems: "center", justifyContent: "center", flexDirection: "column",
+                          }}>
                             <Typography sx={{ color: "white", fontWeight: 700, fontSize: "1.5rem" }}>{moduleDistribution.items.length}</Typography>
                             <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem" }}>modules</Typography>
                           </Box>
                         </Box>
-                        <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap", justifyContent: "center" }}>
+                        <Box sx={{ display: "flex", gap: 1.5, flexWrap: "wrap", justifyContent: "center" }}>
                           {moduleDistributionItems.map((item) => (
-                            <Box key={item.key} sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                            <Box key={item.key} sx={{ display: "flex", alignItems: "center", gap: 0.8 }}>
                               <Box sx={{ width: 10, height: 10, borderRadius: "50%", bgcolor: item.color }} />
-                              <Typography sx={{ color: "#94a3b8", fontSize: "0.8rem" }}>{item.label} ({item.percent}%)</Typography>
+                              <Typography sx={{ color: "#94a3b8", fontSize: "0.78rem" }}>{item.label} ({item.percent}%)</Typography>
                             </Box>
                           ))}
                         </Box>
@@ -992,53 +1075,11 @@ const AdminDashboard = () => {
                   </Box>
                 </CardContent>
               </Card>
-            </Grid>
-          </Grid>
+            </Box>
 
-          {/* Bottom row */}
-          <Grid container spacing={3} sx={{ width: "100%", maxWidth: "100%" }}>
-            {/* Activités récentes - Timeline */}
-            <Grid item xs={12} lg={6}>
-              <Card sx={{ bgcolor: "rgba(30, 41, 59, 0.5)", border: "1px solid rgba(59, 130, 246, 0.1)", borderRadius: 3 }}>
-                <CardContent sx={{ p: 3 }}>
-                  <Box sx={{ mb: 3 }}>
-                    <Typography variant="h6" sx={{ color: "white", fontWeight: 600, mb: 0.5 }}>Mes activités récentes</Typography>
-                    <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.875rem" }}>Ce que vous avez fait récemment</Typography>
-                  </Box>
-                  <Box sx={{ position: "relative", pl: 4 }}>
-                    <Box sx={{ position: "absolute", left: "18px", top: "12px", bottom: "12px", width: "2px", bgcolor: "rgba(59, 130, 246, 0.2)" }} />
-                    <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                      {dashboardData.recentActivity.length > 0 ? (
-                        dashboardData.recentActivity.map((activity) => (
-                          <Box key={activity.id} sx={{ position: "relative", transition: "all 0.2s ease", "&:hover": { transform: "translateX(4px)" } }}>
-                            <Box sx={{ position: "absolute", left: "-34px", top: "2px", width: 36, height: 36, borderRadius: "50%", bgcolor: `${activity.color}15`, border: `2px solid ${activity.color}`, display: "flex", alignItems: "center", justifyContent: "center", color: activity.color, zIndex: 1 }}>
-                              {getActivityIcon(activity.icon)}
-                            </Box>
-                            <Box>
-                              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", mb: 0.5 }}>
-                                <Typography variant="subtitle2" sx={{ color: "white", fontWeight: 600, fontSize: "0.9rem" }}>{activity.title}</Typography>
-                                <Typography variant="caption" sx={{ color: "#64748b", fontSize: "0.75rem", whiteSpace: "nowrap", ml: 2 }}>{activity.time}</Typography>
-                              </Box>
-                              <Typography variant="body2" sx={{ color: "#94a3b8", fontSize: "0.85rem" }}>{activity.description}</Typography>
-                            </Box>
-                          </Box>
-                        ))
-                      ) : (
-                        <Box sx={{ textAlign: "center", py: 6 }}>
-                          <NotificationsIcon sx={{ fontSize: 48, color: "#64748b", mb: 2 }} />
-                          <Typography variant="body1" sx={{ color: "#94a3b8", mb: 1 }}>Aucune activité récente</Typography>
-                          <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.85rem" }}>Vos actions apparaîtront ici</Typography>
-                        </Box>
-                      )}
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            {/* Alertes récentes */}
-            <Grid item xs={12} lg={6}>
-              <Card sx={{ bgcolor: "rgba(30, 41, 59, 0.5)", border: "1px solid rgba(59, 130, 246, 0.1)", borderRadius: 3 }}>
+            {/* Alertes Récentes */}
+            <Box sx={{ flex: { xs: "1 1 100%", md: "0 0 calc(50% - 8px)" }, maxWidth: { xs: "100%", md: "calc(50% - 8px)" }, minWidth: 0 }}>
+              <Card sx={{ bgcolor: "rgba(30, 41, 59, 0.5)", border: "1px solid rgba(59, 130, 246, 0.1)", borderRadius: 3, height: "100%" }}>
                 <CardContent sx={{ p: 3 }}>
                   <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
                     <Typography variant="h6" sx={{ color: "white", fontWeight: 600 }}>Alertes Récentes</Typography>
@@ -1050,7 +1091,7 @@ const AdminDashboard = () => {
                   </Box>
                   <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                     {dashboardData.alerts && dashboardData.alerts.length > 0 ? (
-                      dashboardData.alerts.slice(0, 4).map((alert) => (
+                      dashboardData.alerts.slice(0, 2).map((alert) => (
                         <Paper key={alert.id} sx={{
                           p: 2, bgcolor: "rgba(30, 41, 59, 0.3)", border: "1px solid",
                           borderColor: alert.type === "critical" ? "rgba(239, 68, 68, 0.2)" : alert.type === "warning" ? "rgba(251, 146, 60, 0.2)" : "rgba(59, 130, 246, 0.2)",
@@ -1069,9 +1110,7 @@ const AdminDashboard = () => {
                             <Typography variant="caption" sx={{ color: "#64748b" }}>{alert.time || "Récemment"}</Typography>
                           </Box>
                           <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 1 }}>
-                            <Typography variant="caption" sx={{ color: "#64748b" }}>
-                              Status: {alert.status === "active" ? "Actif" : "Résolu"}
-                            </Typography>
+                            <Typography variant="caption" sx={{ color: "#64748b" }}>Status: {alert.status === "active" ? "Actif" : "Résolu"}</Typography>
                             <Button size="small" onClick={() => handleViewAlertDetails(alert)} sx={{ fontSize: "0.75rem", color: "#3b82f6", "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>
                               Voir les détails
                             </Button>
@@ -1084,14 +1123,102 @@ const AdminDashboard = () => {
                   </Box>
                 </CardContent>
               </Card>
-            </Grid>
-          </Grid>
+            </Box>
           </Box>
-        </Box>
-      </Box>
 
-      {/* Context menu */}
-      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose} PaperProps={{ sx: { bgcolor: "#1e293b", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: 2, minWidth: 180 } }}>
+          {/* ── Activités récentes (pleine largeur) ── */}
+          <Box sx={{ width: "calc(100% + 32px)", ml: -2, mr: -2 }}>
+            <Card sx={{ bgcolor: "rgba(30, 41, 59, 0.5)", border: "1px solid rgba(59, 130, 246, 0.1)", borderRadius: 3, width: "100%" }}>
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="h6" sx={{ color: "white", fontWeight: 600, mb: 0.5 }}>
+                    Mes activités récentes
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.875rem" }}>
+                    Ce que vous avez fait récemment
+                  </Typography>
+                </Box>
+
+                <Box sx={{ display: "flex", flexDirection: "column" }}>
+                  {dashboardData.recentActivity.length > 0 ? (
+                    dashboardData.recentActivity.map((activity, idx) => (
+                      <Box
+                        key={activity.id}
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 2,
+                          py: 1,
+                          px: 2,
+                          borderRadius: 2,
+                          borderBottom: idx < dashboardData.recentActivity.length - 1
+                            ? "1px solid rgba(59, 130, 246, 0.07)"
+                            : "none",
+                          transition: "background 0.15s ease",
+                          "&:hover": { bgcolor: "rgba(59, 130, 246, 0.05)" },
+                        }}
+                      >
+                        {/* Icon */}
+                        <Box
+                          sx={{
+                            width: 32, height: 32, borderRadius: "50%",
+                            bgcolor: `${activity.color}15`,
+                            border: `1.5px solid ${activity.color}40`,
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            color: activity.color, flexShrink: 0,
+                          }}
+                        >
+                          {getActivityIcon(activity.icon)}
+                        </Box>
+
+                        {/* Title — flex:1 to fill space */}
+                        <Typography
+                          sx={{
+                            color: "white", fontWeight: 600, fontSize: "0.88rem",
+                            flex: 1, minWidth: 0, overflow: "hidden",
+                            textOverflow: "ellipsis", whiteSpace: "nowrap",
+                          }}
+                        >
+                          {activity.title}
+                        </Typography>
+
+                        {/* Description inline (SKU · Quantité or plain text) */}
+                        {activity.description && (() => {
+                          const text = String(activity.description);
+                          const parts = text.split("|").map((p) => p.trim()).filter(Boolean);
+                          const isSkuQty =
+                            parts.length === 2 &&
+                            /sku\s*:/i.test(parts[0]) &&
+                            /quantit[eé]\s*:/i.test(parts[1]);
+                          return (
+                            <Typography sx={{ color: "#64748b", fontSize: "0.8rem", whiteSpace: "nowrap", flexShrink: 0 }}>
+                              {isSkuQty ? `${parts[0]}  ·  ${parts[1]}` : text}
+                            </Typography>
+                          );
+                        })()}
+
+                        {/* Date always right */}
+                        <Typography sx={{ color: "#475569", fontSize: "0.75rem", whiteSpace: "nowrap", flexShrink: 0, ml: 1 }}>
+                          {activity.time}
+                        </Typography>
+                      </Box>
+                    ))
+                  ) : (
+                    <Box sx={{ textAlign: "center", py: 4 }}>
+                      <NotificationsIcon sx={{ fontSize: 40, color: "#334155", mb: 1.5 }} />
+                      <Typography variant="body2" sx={{ color: "#64748b" }}>Aucune activité récente</Typography>
+                    </Box>
+                  )}
+                </Box>
+              </CardContent>
+            </Card>
+          </Box>
+
+        </Box>
+
+      {/* ── Context menu ── */}
+      <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}
+        PaperProps={{ sx: { bgcolor: "#1e293b", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: 2, minWidth: 180 } }}>
         <MenuItem onClick={handleEditUser} sx={{ color: "#94a3b8", "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>
           <EditIcon sx={{ mr: 1, fontSize: 20, color: "#3b82f6" }} /> Modifier
         </MenuItem>
@@ -1100,8 +1227,9 @@ const AdminDashboard = () => {
         </MenuItem>
       </Menu>
 
-      {/* Alert details dialog */}
-      <Dialog open={alertDetailsOpen} onClose={handleCloseAlertDetails} maxWidth="md" fullWidth PaperProps={{ sx: { bgcolor: "black", border: "1px solid #3B82F633", borderRadius: 3 } }}>
+      {/* ── Alert details dialog ── */}
+      <Dialog open={alertDetailsOpen} onClose={handleCloseAlertDetails} maxWidth="md" fullWidth
+        PaperProps={{ sx: { bgcolor: "black", border: "1px solid #3B82F633", borderRadius: 3 } }}>
         <DialogTitle sx={{ color: "white", borderBottom: "1px solid rgba(59, 130, 246, 0.1)", pb: 2 }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
             <Box sx={{ width: 48, height: 48, borderRadius: 2, bgcolor: selectedAlert?.type === "critical" ? "rgba(239, 68, 68, 0.15)" : "rgba(59, 130, 246, 0.15)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1162,34 +1290,55 @@ const AdminDashboard = () => {
         </DialogContent>
         <DialogActions sx={{ p: 3, borderTop: "1px solid rgba(59, 130, 246, 0.1)" }}>
           <Button onClick={handleCloseAlertDetails} sx={{ color: "#94a3b8", "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>Fermer</Button>
-          <Button variant="contained" sx={{ bgcolor: "#3b82f6", color: "white", fontWeight: 600, "&:hover": { bgcolor: "#2563eb" } }} onClick={() => { handleCloseAlertDetails(); setSuccessMessage("Alerte marquée comme traitée"); }}>
+          <Button variant="contained" sx={{ bgcolor: "#3b82f6", color: "white", fontWeight: 600, "&:hover": { bgcolor: "#2563eb" } }}
+            onClick={() => { handleCloseAlertDetails(); setSuccessMessage("Alerte marquée comme traitée"); }}>
             Marquer comme traitée
           </Button>
         </DialogActions>
       </Dialog>
 
-      {/* Notifications menu */}
-      <Menu anchorEl={notificationsAnchorEl} open={Boolean(notificationsAnchorEl)} onClose={handleCloseNotifications} PaperProps={{ sx: { mt: 1, width: 360, bgcolor: "#0f172a", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: 2, overflow: "hidden" } }}>
+      {/* ── Notifications menu ── */}
+      <Menu anchorEl={notificationsAnchorEl} open={Boolean(notificationsAnchorEl)} onClose={handleCloseNotifications}
+        PaperProps={{ sx: { mt: 1, width: 360, bgcolor: "#0f172a", border: "1px solid rgba(59, 130, 246, 0.2)", borderRadius: 2, overflow: "hidden" } }}>
         <Box sx={{ p: 2, borderBottom: "1px solid rgba(59, 130, 246, 0.1)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <Typography sx={{ color: "white", fontWeight: 700 }}>Notifications</Typography>
-          <Button size="small" onClick={handleMarkAllNotificationsRead} sx={{ color: "#3b82f6", textTransform: "none", fontSize: "0.75rem" }}>Tout marquer comme lu</Button>
+          <Button size="small" onClick={handleMarkAllNotificationsRead} sx={{ color: "#3b82f6", textTransform: "none", fontSize: "0.75rem" }}>
+            Tout marquer comme lu
+          </Button>
         </Box>
-        <Box sx={{ maxHeight: 360, overflowY: "auto" }}>
+        <Box>
           {unreadNotifications.length > 0 ? (
-            unreadNotifications.slice(0, 6).map((notif) => (
-              <Box key={notif.id} sx={{ px: 2, py: 1.5, display: "flex", gap: 1.5, borderBottom: "1px solid rgba(59, 130, 246, 0.08)" }}>
-                <Box sx={{ pt: 0.6 }}>
-                  <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: getNotificationDotColor(notif) }} />
-                </Box>
-                <Box sx={{ flex: 1 }}>
-                  <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
-                    <Typography sx={{ color: "white", fontWeight: 600, fontSize: "0.9rem" }}>{notif.title}</Typography>
-                    <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", whiteSpace: "nowrap" }}>{formatRelativeTime(notif.created_at)}</Typography>
+            <>
+              {unreadNotifications.slice(notifMenuPage * 3, (notifMenuPage + 1) * 3).map((notif) => (
+                <Box key={notif.id} sx={{ px: 2, py: 1.5, display: "flex", gap: 1.5, borderBottom: "1px solid rgba(59, 130, 246, 0.08)" }}>
+                  <Box sx={{ pt: 0.6 }}>
+                    <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: getNotificationDotColor(notif) }} />
                   </Box>
-                  <Typography sx={{ color: "#94a3b8", fontSize: "0.8rem" }}>{notif.message}</Typography>
+                  <Box sx={{ flex: 1 }}>
+                    <Box sx={{ display: "flex", justifyContent: "space-between", gap: 2 }}>
+                      <Typography sx={{ color: "white", fontWeight: 600, fontSize: "0.9rem" }}>{notif.title}</Typography>
+                      <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem", whiteSpace: "nowrap" }}>{formatRelativeTime(notif.created_at)}</Typography>
+                    </Box>
+                    <Typography sx={{ color: "#94a3b8", fontSize: "0.8rem" }}>{notif.message}</Typography>
+                  </Box>
                 </Box>
-              </Box>
-            ))
+              ))}
+              {Math.ceil(unreadNotifications.length / 3) > 1 && (
+                <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", px: 2, py: 1.5, borderTop: "1px solid rgba(59, 130, 246, 0.1)" }}>
+                  <Button size="small" disabled={notifMenuPage === 0} onClick={() => setNotifMenuPage(notifMenuPage - 1)}
+                    sx={{ color: "#3b82f6", fontSize: "0.7rem", textTransform: "none" }}>
+                    ← Prev
+                  </Button>
+                  <Typography sx={{ color: "#94a3b8", fontSize: "0.75rem" }}>
+                    {notifMenuPage + 1} / {Math.ceil(unreadNotifications.length / 3)}
+                  </Typography>
+                  <Button size="small" disabled={notifMenuPage >= Math.ceil(unreadNotifications.length / 3) - 1} onClick={() => setNotifMenuPage(notifMenuPage + 1)}
+                    sx={{ color: "#3b82f6", fontSize: "0.7rem", textTransform: "none" }}>
+                    Next →
+                  </Button>
+                </Box>
+              )}
+            </>
           ) : (
             <Box sx={{ p: 2 }}>
               <Typography sx={{ color: "#94a3b8", fontSize: "0.85rem" }}>Aucune notification non lue</Typography>
@@ -1203,8 +1352,9 @@ const AdminDashboard = () => {
         </Box>
       </Menu>
 
-      {/* Delete dialog */}
-      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)} PaperProps={{ sx: { bgcolor: "#1e293b", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: 3 } }}>
+      {/* ── Delete dialog ── */}
+      <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}
+        PaperProps={{ sx: { bgcolor: "#1e293b", border: "1px solid rgba(239, 68, 68, 0.2)", borderRadius: 3 } }}>
         <DialogTitle sx={{ color: "white", borderBottom: "1px solid rgba(239, 68, 68, 0.1)" }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <ErrorIcon sx={{ color: "#ef4444" }} /> Confirmer la suppression
@@ -1212,7 +1362,8 @@ const AdminDashboard = () => {
         </DialogTitle>
         <DialogContent sx={{ pt: 3 }}>
           <Typography sx={{ color: "#94a3b8", mb: 2 }}>
-            Êtes-vous sûr de vouloir supprimer l'utilisateur <strong style={{ color: "white" }}>{selectedUser?.name}</strong> ?
+            Êtes-vous sûr de vouloir supprimer l'utilisateur{" "}
+            <strong style={{ color: "white" }}>{selectedUser?.name}</strong> ?
           </Typography>
           <Alert severity="warning" sx={{ bgcolor: "rgba(251, 146, 60, 0.1)", border: "1px solid rgba(251, 146, 60, 0.2)" }}>
             Cette action est irréversible. Toutes les données associées seront également supprimées.
@@ -1224,85 +1375,46 @@ const AdminDashboard = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Online Users Dialog */}
-      <Dialog 
-        open={onlineUsersOpen} 
-        onClose={handleCloseOnlineUsers} 
-        maxWidth="md" 
-        fullWidth 
-        PaperProps={{ sx: { bgcolor: "#1e293b", border: "1px solid rgba(34, 197, 94, 0.2)", borderRadius: 3 } }}
-      >
+      {/* ── Online Users Dialog ── */}
+      <Dialog open={onlineUsersOpen} onClose={handleCloseOnlineUsers} maxWidth="md" fullWidth
+        PaperProps={{ sx: { bgcolor: "#1e293b", border: "1px solid rgba(34, 197, 94, 0.2)", borderRadius: 3 } }}>
         <DialogTitle sx={{ color: "white", borderBottom: "1px solid rgba(34, 197, 94, 0.1)", pb: 2 }}>
           <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
             <PeopleIcon sx={{ color: "#64748b" }} />
-            <Typography variant="h6" sx={{ color: "white", fontWeight: 600 }}>
-              Utilisateurs en ligne ({onlineUsers.count})
-            </Typography>
+            <Typography variant="h6" sx={{ color: "white", fontWeight: 600 }}>Utilisateurs en ligne ({onlineUsers.count})</Typography>
           </Box>
         </DialogTitle>
         <DialogContent sx={{ pt: 3 }}>
           {onlineUsers.users.length === 0 ? (
             <Box sx={{ textAlign: "center", py: 4 }}>
-              <Typography sx={{ color: "#64748b" }}>
-                Aucun utilisateur en ligne pour le moment
-              </Typography>
+              <Typography sx={{ color: "#64748b" }}>Aucun utilisateur en ligne pour le moment</Typography>
             </Box>
           ) : (
             <Grid container spacing={2}>
-              {onlineUsers.users.map((user) => (
-                <Grid item xs={12} key={user.id}>
-                  <Card sx={{ 
-                    bgcolor: "rgba(30, 41, 59, 0.5)", 
-                    border: "1px solid rgba(59, 130, 246, 0.1)", 
-                    borderRadius: 2,
-                    "&:hover": { bgcolor: "rgba(30, 41, 59, 0.8)", borderColor: "rgba(59, 130, 246, 0.3)" }
-                  }}>
+              {onlineUsers.users.map((u) => (
+                <Grid item xs={12} key={u.id}>
+                  <Card sx={{ bgcolor: "rgba(30, 41, 59, 0.5)", border: "1px solid rgba(59, 130, 246, 0.1)", borderRadius: 2, "&:hover": { bgcolor: "rgba(30, 41, 59, 0.8)", borderColor: "rgba(59, 130, 246, 0.3)" } }}>
                     <CardContent sx={{ p: 2 }}>
                       <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
-                        <Avatar sx={{ 
-                          width: 48, 
-                          height: 48, 
-                          bgcolor: user.is_staff || user.is_superuser ? "#ef4444" : "#3b82f6",
-                          fontWeight: 600
-                        }}>
-                          {user.username?.charAt(0).toUpperCase()}
+                        <Avatar sx={{ width: 48, height: 48, bgcolor: u.is_staff || u.is_superuser ? "#ef4444" : "#3b82f6", fontWeight: 600 }}>
+                          {u.username?.charAt(0).toUpperCase()}
                         </Avatar>
                         <Box sx={{ flex: 1 }}>
                           <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 0.5 }}>
                             <Typography variant="body1" sx={{ color: "white", fontWeight: 600 }}>
-                              {user.first_name && user.last_name 
-                                ? `${user.first_name} ${user.last_name}` 
-                                : user.username}
+                              {u.first_name && u.last_name ? `${u.first_name} ${u.last_name}` : u.username}
                             </Typography>
-                            <Chip 
-                              label={user.role || (user.is_staff || user.is_superuser ? "Admin" : "Utilisateur")}
+                            <Chip
+                              label={u.role || (u.is_staff || u.is_superuser ? "Admin" : "Utilisateur")}
                               size="small"
-                              sx={{ 
-                                bgcolor: user.is_staff || user.is_superuser 
-                                  ? "rgba(239, 68, 68, 0.2)" 
-                                  : "rgba(59, 130, 246, 0.2)",
-                                color: user.is_staff || user.is_superuser ? "#ef4444" : "#3b82f6",
-                                fontWeight: 600,
-                                fontSize: "0.7rem"
-                              }}
+                              sx={{ bgcolor: u.is_staff || u.is_superuser ? "rgba(239, 68, 68, 0.2)" : "rgba(59, 130, 246, 0.2)", color: u.is_staff || u.is_superuser ? "#ef4444" : "#3b82f6", fontWeight: 600, fontSize: "0.7rem" }}
                             />
-                            <Box sx={{ 
-                              width: 8, 
-                              height: 8, 
-                              borderRadius: "50%", 
-                              bgcolor: "#64748b",
-                              boxShadow: "0 0 8px #64748b"
-                            }} />
+                            <Box sx={{ width: 8, height: 8, borderRadius: "50%", bgcolor: "#64748b", boxShadow: "0 0 8px #64748b" }} />
                           </Box>
-                          <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.85rem" }}>
-                            {user.email}
-                          </Typography>
-                          {user.last_login && (
+                          <Typography variant="body2" sx={{ color: "#64748b", fontSize: "0.85rem" }}>{u.email}</Typography>
+                          {u.last_login && (
                             <Typography variant="caption" sx={{ color: "#475569", fontSize: "0.75rem" }}>
-                              Dernière connexion: {new Date(user.last_login).toLocaleString("fr-FR", {
-                                dateStyle: "short",
-                                timeStyle: "short"
-                              })}
+                              Dernière connexion: {new Date(u.last_login).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" })}
                             </Typography>
                           )}
                         </Box>
@@ -1315,35 +1427,21 @@ const AdminDashboard = () => {
           )}
         </DialogContent>
         <DialogActions sx={{ p: 3, borderTop: "1px solid rgba(34, 197, 94, 0.1)" }}>
-          <Button 
-            onClick={handleCloseOnlineUsers} 
-            sx={{ color: "#94a3b8", "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}
-          >
-            Fermer
-          </Button>
-          <Button 
-            onClick={fetchOnlineUsers} 
-            startIcon={<SyncIcon />}
-            variant="contained"
-            sx={{ 
-              bgcolor: "#64748b", 
-              color: "white", 
-              fontWeight: 600, 
-              "&:hover": { bgcolor: "#64748b" } 
-            }}
-          >
-            Actualiser
-          </Button>
+          <Button onClick={handleCloseOnlineUsers} sx={{ color: "#94a3b8", "&:hover": { bgcolor: "rgba(59, 130, 246, 0.1)" } }}>Fermer</Button>
+          <Button onClick={fetchOnlineUsers} startIcon={<SyncIcon />} variant="contained" sx={{ bgcolor: "#64748b", color: "white", fontWeight: 600, "&:hover": { bgcolor: "#64748b" } }}>Actualiser</Button>
         </DialogActions>
       </Dialog>
 
-      {/* Snackbars */}
+      {/* ── Snackbars ── */}
       <Snackbar open={!!successMessage} autoHideDuration={3000} onClose={() => setSuccessMessage("")} anchorOrigin={{ vertical: "top", horizontal: "right" }}>
         <Alert severity="success" sx={{ width: "100%" }}>{successMessage}</Alert>
       </Snackbar>
       <Snackbar open={!!errorMessage} autoHideDuration={3000} onClose={() => setErrorMessage("")} anchorOrigin={{ vertical: "top", horizontal: "right" }}>
         <Alert severity="error" sx={{ width: "100%" }}>{errorMessage}</Alert>
       </Snackbar>
+        </Box>
+        {/* End content wrapper */}
+      </Box>
     </Box>
   );
 };

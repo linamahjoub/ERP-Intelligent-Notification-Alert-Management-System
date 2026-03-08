@@ -2,8 +2,9 @@
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 from stock.models import Product
+from facturation.models import Invoice
 from alerts.models import Alert
-from alerts.services import evaluate_stock_alerts_for_product
+from alerts.services import evaluate_stock_alerts_for_product, evaluate_facturation_alerts_for_invoice
 import logging
 
 logger = logging.getLogger(__name__)
@@ -61,3 +62,24 @@ def check_quantity_change(sender, instance, **kwargs):
                         
     except Product.DoesNotExist:
         pass
+
+
+@receiver(post_save, sender=Invoice)
+def check_invoice_amount_alert(sender, instance, created, **kwargs):
+    """
+    Déclenché après création/modification d'une facture.
+    Vérifie si le montant respecte les règles d'alerte facturation.
+    """
+    logger.info(
+        "Vérification des alertes facturation pour la facture %s (ID: %s)",
+        instance.invoice_number,
+        instance.id,
+    )
+
+    result = evaluate_facturation_alerts_for_invoice(instance)
+    if result["triggered"] > 0:
+        logger.info(
+            "%s alerte(s) facturation déclenchée(s) pour la facture %s",
+            result["triggered"],
+            instance.invoice_number,
+        )

@@ -41,10 +41,13 @@ INSTALLED_APPS = [
     'notifications',
     'activity',
     'stock',
+    'stock_movements',
+    'orders',
     'fournisseur',
     'categories',
     'entrepots',
     'facturation',
+    'production',
 ]
 
 MIDDLEWARE = [

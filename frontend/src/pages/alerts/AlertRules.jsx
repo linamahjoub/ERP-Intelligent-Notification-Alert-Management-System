@@ -228,10 +228,10 @@ const AlertRules = () => {
   );
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "black" }}>
+    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "black", position: "relative" }}>
       <SharedSidebar mobileOpen={mobileOpen} onMobileClose={handleDrawerToggle} />
 
-      <Box component="main" sx={{ flexGrow: 1, width: "100%", minHeight: "100vh", bgcolor: "black", overflowY: "auto" }}>
+      <Box component="main" sx={{ flexGrow: 1, width: "100%", minHeight: "100vh", bgcolor: "black", overflowY: "auto", position: "relative", zIndex: 1 }}>
 
         {/* En-tête */}
         <Box sx={{ p: 1.2, borderBottom: "1px solid rgba(59, 130, 246, 0.1)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>

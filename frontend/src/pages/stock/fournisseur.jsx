@@ -399,6 +399,7 @@ const Fournisseur = () => {
         minHeight: "100vh",
         bgcolor: "black",
         overflow: "hidden",
+        position: "relative",
       }}
     >
       <SharedSidebar
@@ -409,7 +410,7 @@ const Fournisseur = () => {
 
       <Box
         component="main"
-        sx={{ flexGrow: 1, minWidth: 0, height: "100vh", bgcolor: "black", overflowY: "auto", overflowX: "hidden" }}
+        sx={{ flexGrow: 1, minWidth: 0, height: "100vh", bgcolor: "black", overflowY: "auto", overflowX: "hidden", position: "relative", zIndex: 1 }}
       >
         <Box
           sx={{

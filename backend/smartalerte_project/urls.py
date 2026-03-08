@@ -10,10 +10,13 @@ urlpatterns = [
     path('api/admin/', include('accounts.urls')),
     path('api/alerts/', include('alerts.urls')),
     path('api/stock/', include('stock.urls')),
+    path('api/stock/', include('stock_movements.urls')),
+    path('api/orders/', include('orders.urls')),
     path('api/fournisseurs/', include('fournisseur.urls')),
     path('api/categories/', include('categories.urls')),
     path('api/entrepots/', include('entrepots.urls')),
     path('api/facturation/', include('facturation.urls')),
+    path('api/production/', include('production.urls')),
     path('api/activity/', include('activity.urls')),
     path('api/', include('notifications.urls')),
 ]

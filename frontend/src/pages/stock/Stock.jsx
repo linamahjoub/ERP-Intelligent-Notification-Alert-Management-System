@@ -362,10 +362,10 @@ const DashboardStock = () => {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "black", overflow: "hidden" }}>
+    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "black", overflow: "hidden", position: "relative" }}>
       <SharedSidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(!mobileOpen)} selectedMenu="stock" />
 
-      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, height: "100vh", bgcolor: "black", overflowY: "auto", overflowX: "hidden" }}>
+      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, height: "100vh", bgcolor: "black", overflowY: "auto", overflowX: "hidden", position: "relative", zIndex: 1 }}>
 
         {/* Header bar */}
         <Box sx={{ p: 1.2, borderBottom: "1px solid rgba(59,130,246,0.1)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>
@@ -619,6 +619,9 @@ const DashboardStock = () => {
       <Menu anchorEl={anchorEl} open={Boolean(anchorEl)} onClose={handleMenuClose}
         PaperProps={{ sx: { bgcolor: "rgba(15,23,42,0.97)", border: "1px solid rgba(59,130,246,0.2)", borderRadius: "12px", backdropFilter: "blur(12px)", boxShadow: "0 8px 32px rgba(0,0,0,0.4)" } }}
       >
+        <MenuItem onClick={() => { navigate("/orders/new", { state: { prefilledProduct: selectedProduct } }); handleMenuClose(); }} sx={{ color: "#10b981", fontSize: "0.875rem", gap: 1, "&:hover": { bgcolor: "rgba(16,185,129,0.08)" } }}>
+          <AddIcon fontSize="small" /> Passer une commande
+        </MenuItem>
         <MenuItem onClick={() => { handleOpenAddDialog(selectedProduct); handleMenuClose(); }} sx={{ color: "#3b82f6", fontSize: "0.875rem", gap: 1, "&:hover": { bgcolor: "rgba(59,130,246,0.08)" } }}>
           <EditIcon fontSize="small" /> Modifier
         </MenuItem>
