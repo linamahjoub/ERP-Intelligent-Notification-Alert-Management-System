@@ -5,7 +5,7 @@
 
 // Configuration Google OAuth
 const GOOGLE_CLIENT_ID = process.env.REACT_APP_GOOGLE_CLIENT_ID || 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
-const REDIRECT_URI = process.env.REACT_APP_GOOGLE_REDIRECT_URI || 'http://localhost:3000/auth/google/callback';
+const REDIRECT_URI = 'http://localhost:3000/auth/google/callback';
 
 /**
  * Génère une URL d'authentification Google OAuth 2.0

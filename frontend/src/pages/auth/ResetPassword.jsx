@@ -9,10 +9,15 @@ import {
   Box,
   Alert,
   CircularProgress,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
+import { ArrowBack as ArrowBackIcon } from '@mui/icons-material';
 import notif from '../../assets/notif.png';
 
 const ResetPassword = () => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const { uid, token } = useParams();
   const navigate = useNavigate();
   const [newPassword, setNewPassword] = useState('');
@@ -68,40 +73,78 @@ const ResetPassword = () => {
   };
 
   return (
-    <Container component="main" maxWidth="xs">
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: 'linear-gradient(135deg, #0a0e27 0%, #16213e 50%, #0f3460 100%)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: isMobile ? 2 : 3,
+      }}
+    >
+      <Container component="main" maxWidth="sm">
       <Box
         sx={{
-          marginTop: 8,
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
         }}
       >
-        <Paper elevation={3} sx={{ p: 4, width: '100%' }}>
+        <Paper
+          elevation={0}
+          sx={{
+            width: '100%',
+            p: isMobile ? 3 : 4,
+            background: '#0d1117',
+            border: '1px solid #30363d',
+            borderRadius: 2,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+          }}
+        >
+          <Box sx={{ width: '100%', mb: 3 }}>
+            <Link to="/login" style={{ textDecoration: 'none' }}>
+              <Button
+                startIcon={<ArrowBackIcon />}
+                sx={{
+                  color: '#64748b',
+                  '&:hover': { color: '#e0e7ff', backgroundColor: 'rgba(255,255,255,0.05)' },
+                }}
+              >
+                Retour a la page de connexion
+              </Button>
+            </Link>
+          </Box>
+
           <Box
             sx={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              mb: 3,
-              gap: 1
+              mb: 4,
+              gap: 2,
             }}
           >
             <img
               src={notif}
               alt="SmartAlerte Logo"
-              width="40"
-              height="40"
+              width="45"
+              height="45"
+              style={{ filter: 'drop-shadow(0 0 8px rgba(96, 165, 250, 0.3))' }}
             />
             <Typography
-              variant="h4"
+              variant="h5"
               component="div"
               sx={{
-                fontWeight: 'bold',
-                color: 'primary.main',
+                fontWeight: 700,
+                background: 'linear-gradient(135deg, #60a5fa 0%, #3b82f6 100%)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                letterSpacing: 0.5,
               }}
             >
-              SmartAlerte
+              SmartNotify
             </Typography>
           </Box>
 
@@ -109,25 +152,59 @@ const ResetPassword = () => {
             component="h1"
             variant="h5"
             align="center"
-            gutterBottom
-            sx={{ mb: 3 }}
+            sx={{
+              mb: 1,
+              fontWeight: 700,
+              color: '#e2e8f0',
+              fontSize: isMobile ? '1.5rem' : '1.75rem',
+            }}
           >
             Réinitialiser le mot de passe
           </Typography>
 
+          <Typography
+            align="center"
+            sx={{
+              mb: 3,
+              color: '#94a3b8',
+              fontSize: '0.95rem',
+              lineHeight: 1.5,
+            }}
+          >
+            Choisissez un nouveau mot de passe pour sécuriser votre compte
+          </Typography>
+
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert
+              severity="error"
+              sx={{
+                mb: 2,
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                borderColor: '#ef4444',
+                color: '#fca5a5',
+                '& .MuiAlert-icon': { color: '#ef4444' },
+              }}
+            >
               {error}
             </Alert>
           )}
 
           {success && (
-            <Alert severity="success" sx={{ mb: 2 }}>
+            <Alert
+              severity="success"
+              sx={{
+                mb: 2,
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                borderColor: '#22c55e',
+                color: '#86efac',
+                '& .MuiAlert-icon': { color: '#22c55e' },
+              }}
+            >
               {success}
             </Alert>
           )}
 
-          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
+          <Box component="form" onSubmit={handleSubmit} sx={{ mt: 3 }}>
             <TextField
               margin="normal"
               required
@@ -139,6 +216,29 @@ const ResetPassword = () => {
               autoComplete="new-password"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  color: '#e2e8f0',
+                  backgroundColor: '#161b22',
+                  border: '1px solid #30363d',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    borderColor: '#3b82f6',
+                    boxShadow: '0 0 12px rgba(59, 130, 246, 0.1)',
+                  },
+                  '&.Mui-focused': {
+                    borderColor: '#3b82f6',
+                    boxShadow: '0 0 16px rgba(59, 130, 246, 0.2)',
+                  },
+                },
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: '#30363d',
+                },
+                '& .MuiInputLabel-root': {
+                  color: '#94a3b8',
+                  '&.Mui-focused': { color: '#60a5fa' },
+                },
+              }}
             />
 
             <TextField
@@ -152,21 +252,89 @@ const ResetPassword = () => {
               autoComplete="new-password"
               value={newPassword2}
               onChange={(e) => setNewPassword2(e.target.value)}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  color: '#e2e8f0',
+                  backgroundColor: '#161b22',
+                  border: '1px solid #30363d',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    borderColor: '#3b82f6',
+                    boxShadow: '0 0 12px rgba(59, 130, 246, 0.1)',
+                  },
+                  '&.Mui-focused': {
+                    borderColor: '#3b82f6',
+                    boxShadow: '0 0 16px rgba(59, 130, 246, 0.2)',
+                  },
+                },
+                '& .MuiOutlinedInput-notchedOutline': {
+                  borderColor: '#30363d',
+                },
+                '& .MuiInputLabel-root': {
+                  color: '#94a3b8',
+                  '&.Mui-focused': { color: '#60a5fa' },
+                },
+              }}
             />
 
             <Button
               type="submit"
               fullWidth
               variant="contained"
-              sx={{ mt: 3, mb: 2 }}
-              disabled={loading}
+              sx={{
+                mt: 3,
+                mb: 2,
+                py: 1.2,
+                background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                color: 'white',
+                fontWeight: 600,
+                fontSize: '1rem',
+                textTransform: 'none',
+                borderRadius: 1,
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)',
+                  boxShadow: '0 8px 20px rgba(59, 130, 246, 0.3)',
+                },
+                '&:disabled': {
+                  background: '#4b5563',
+                  color: '#9ca3af',
+                },
+              }}
+              disabled={loading || !newPassword || !newPassword2}
             >
-              {loading ? <CircularProgress size={24} /> : 'Réinitialiser'}
+              {loading ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CircularProgress size={20} sx={{ color: '#60a5fa' }} />
+                  <span>Réinitialisation...</span>
+                </Box>
+              ) : (
+                'Réinitialiser le mot de passe'
+              )}
             </Button>
 
-            <Box textAlign="center">
+            <Box
+              sx={{
+                textAlign: 'center',
+                pt: 2,
+                borderTop: '1px solid #30363d',
+              }}
+            >
+              <Typography sx={{ color: '#64748b', mb: 1, fontSize: '0.9rem' }}>
+                Retour rapide a l espace de connexion
+              </Typography>
               <Link to="/login" style={{ textDecoration: 'none' }}>
-                <Button color="primary">
+                <Button
+                  sx={{
+                    color: '#60a5fa',
+                    fontWeight: 600,
+                    textTransform: 'none',
+                    '&:hover': {
+                      color: '#93c5fd',
+                      backgroundColor: 'rgba(96, 165, 250, 0.1)',
+                    },
+                  }}
+                >
                   Retour à la connexion
                 </Button>
               </Link>
@@ -175,6 +343,7 @@ const ResetPassword = () => {
         </Paper>
       </Box>
     </Container>
+    </Box>
   );
 };
 

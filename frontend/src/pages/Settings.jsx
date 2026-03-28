@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Typography, Paper, Box, useTheme, useMediaQuery, IconButton, AppBar, Toolbar, TextField, Button, Alert, CircularProgress, InputAdornment, Select, MenuItem, FormControl, InputLabel, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip as MuiChip } from '@mui/material';
-import { Menu as MenuIcon, Lock as LockIcon, Visibility as VisibilityIcon, VisibilityOff as VisibilityOffIcon, PersonAdd as PersonAddIcon, Edit as EditIcon } from '@mui/icons-material';
+import { Container, Typography, Paper, Box, useTheme, useMediaQuery, IconButton, AppBar, Toolbar, TextField, Button, Alert, CircularProgress, InputAdornment, Select, MenuItem, FormControl, InputLabel, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Chip as MuiChip, Drawer, List, ListItem, ListItemButton, ListItemIcon, ListItemText } from '@mui/material';
+import { Menu as MenuIcon, Lock as LockIcon, Visibility as VisibilityIcon, VisibilityOff as VisibilityOffIcon, PersonAdd as PersonAddIcon, Edit as EditIcon, Settings as SettingsIcon, Security as SecurityIcon, Category as CategoryIcon, Notifications as NotificationsIcon, People as PeopleIcon, Business as BusinessIcon } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import SharedSidebar from '../components/SharedSidebar';
@@ -15,6 +15,7 @@ const Settings = () => {
   const { user, updateProfile } = useAuth();
   const isAdmin = user?.is_superuser || user?.is_staff || user?.is_primary_admin;
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeSection, setActiveSection] = useState('/settings/profile');
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
@@ -31,7 +32,7 @@ const Settings = () => {
     vatRate: '',
     stockAlertThreshold: ''
   });
-
+  
   // État pour le formulaire d'ajout d'employé
   const [employeeData, setEmployeeData] = useState({
     email: '',
@@ -44,18 +45,40 @@ const Settings = () => {
     company: '',
     authorized_pages: []
   });
-
+  
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState('');
   const usersList = Array.isArray(users) ? users : [];
-
+  
   // Liste des rôles disponibles
   const availableRoles = [
     { value: 'user', label: 'Utilisateur', is_staff: false, is_superuser: false },
     { value: 'manager', label: 'Manager', is_staff: true, is_superuser: false },
     { value: 'admin', label: 'Administrateur', is_staff: true, is_superuser: false }
   ];
-
+  
+  // Navigation items pour la sidebar
+  const navigationItems = [
+    {
+      label: 'Général',
+      href: '/settings/profile',
+      icon: <BusinessIcon sx={{ fontSize: 24 }} />,
+    },
+  
+    ...(isAdmin ? [
+      {
+        label: 'Utilisateurs',
+        href: '/settings/preferences',
+        icon: <PeopleIcon sx={{ fontSize: 24 }} />,
+      }
+    ] : []),
+    {
+      label: 'Sécurité',
+      href: '/settings/security',
+      icon: <SecurityIcon sx={{ fontSize: 24 }} />,
+    }
+  ];
+  
   // Charger les utilisateurs
   useEffect(() => {
     if (activeSection === '/settings/preferences') {
@@ -68,12 +91,11 @@ const Settings = () => {
       fetchUsers();
     }
   }, [activeSection, isAdmin]);
-
+  
   useEffect(() => {
     const savedCurrency = localStorage.getItem('settings_currency') || '';
     const savedVatRate = localStorage.getItem('settings_vat_rate') || '';
     const savedThreshold = localStorage.getItem('settings_stock_threshold') || '';
-
     setAccountInfo((prev) => ({
       ...prev,
       currency: savedCurrency,
@@ -81,7 +103,7 @@ const Settings = () => {
       stockAlertThreshold: savedThreshold
     }));
   }, []);
-
+  
   useEffect(() => {
     if (user) {
       setAccountInfo((prev) => ({
@@ -90,21 +112,23 @@ const Settings = () => {
       }));
     }
   }, [user]);
-
+  
+  useEffect(() => {
+    // Ajuster la sidebar en fonction de la taille de l'écran
+    setSidebarOpen(!isMobile);
+  }, [isMobile]);
+  
   const fetchUsers = async () => {
     try {
       const token = localStorage.getItem('access_token');
       console.log('Token:', token);
       console.log('Fetching users from: http://localhost:8000/api/admin/users/');
-      
       const response = await fetch('http://localhost:8000/api/admin/users/', {
         headers: {
           Authorization: `Bearer ${token}`,
         },
       });
-      
       console.log('Response status:', response.status);
-      
       if (response.ok) {
         const data = await response.json();
         console.log('Users loaded:', data);
@@ -127,64 +151,24 @@ const Settings = () => {
       setErrorMessage(`Erreur réseau: ${error.message}`);
     }
   };
-
+  
   const handleDrawerToggle = () => setMobileOpen(!mobileOpen);
+  const handleSidebarToggle = () => setSidebarOpen(!sidebarOpen);
 
-  const settingsItems = [
-    { label: 'Général', href: '/settings/profile' },
-    { label: 'Catégories', href: '/categories' },
-    { label: 'Notifications', href: '/notifications' },
-    ...(isAdmin ? [{ label: 'Utilisateur', href: '/settings/preferences' }] : []),
-    { label: 'Sécurité', href: '/settings/security' }
-  ];
-
-  const handleSectionChange = (href) => {
-    // Naviguer vers les pages externes
-    if (href === '/notifications' || href === '/categories') {
-      navigate(href);
-      return;
-    }
-
-    if (href === '/settings/preferences' && !isAdmin) {
-      setErrorMessage('Accès réservé aux administrateurs');
-      setSuccessMessage('');
-      return;
-    }
-    
-    // Gérer les sections internes de Settings
-    setActiveSection(href);
-    setSuccessMessage('');
-    setErrorMessage('');
-    setPasswordData({ current_password: '', new_password: '', confirm_password: '' });
-    setEmployeeData({
-      email: '',
-      username: '',
-      password: '',
-      first_name: '',
-      last_name: '',
-      phone_number: '',
-      role: 'user',
-      company: '',
-      authorized_pages: []
-    });
-  };
-
+  
   const handleUpdateUserRole = async () => {
     if (!selectedUser) {
       setErrorMessage('Veuillez sélectionner un utilisateur');
       return;
     }
-
     try {
       setLoading(true);
       setErrorMessage('');
       setSuccessMessage('');
-
       const token = localStorage.getItem('access_token');
       
       // Trouver le rôle sélectionné pour récupérer is_staff et is_superuser
       const selectedRole = availableRoles.find(r => r.value === employeeData.role);
-      
       const updateData = {
         role: employeeData.role,
         is_staff: selectedRole?.is_staff || false,
@@ -192,7 +176,6 @@ const Settings = () => {
       };
       
       console.log('Updating user role:', updateData);
-      
       const response = await fetch(`http://localhost:8000/api/admin/users/${selectedUser}/`, {
         method: 'PATCH',
         headers: {
@@ -201,14 +184,14 @@ const Settings = () => {
         },
         body: JSON.stringify(updateData),
       });
-
+      
       if (!response.ok) {
         const errorData = await response.json();
         console.error('Erreur update rôle:', errorData);
         setErrorMessage('Erreur lors de la mise à jour du rôle: ' + JSON.stringify(errorData));
         return;
       }
-
+      
       const result = await response.json();
       console.log('User role updated:', result);
       setSuccessMessage('Rôle mis à jour avec succès');
@@ -220,28 +203,24 @@ const Settings = () => {
       setLoading(false);
     }
   };
-
+  
   const handlePasswordChange = async () => {
     if (!passwordData.current_password || !passwordData.new_password || !passwordData.confirm_password) {
       setErrorMessage('Tous les champs sont requis');
       return;
     }
-
     if (passwordData.new_password !== passwordData.confirm_password) {
       setErrorMessage('Les mots de passe ne correspondent pas');
       return;
     }
-
     if (passwordData.new_password.length < 8) {
       setErrorMessage('Le mot de passe doit contenir au moins 8 caractères');
       return;
     }
-
     try {
       setLoading(true);
       setErrorMessage('');
       setSuccessMessage('');
-      
       const token = localStorage.getItem('access_token');
       const response = await fetch('http://localhost:8000/api/auth/change-password/', {
         method: 'POST',
@@ -255,11 +234,9 @@ const Settings = () => {
           new_password2: passwordData.confirm_password,
         }),
       });
-
       if (!response.ok) {
         const errorData = await response.json();
         console.error('Erreur changement mot de passe:', errorData);
-        
         if (errorData.old_password) {
           setErrorMessage(errorData.old_password[0] || errorData.old_password);
         } else if (errorData.new_password) {
@@ -271,7 +248,6 @@ const Settings = () => {
         }
         return;
       }
-
       const result = await response.json();
       setSuccessMessage(result.message || 'Mot de passe changé avec succès');
       setPasswordData({ current_password: '', new_password: '', confirm_password: '' });
@@ -282,27 +258,24 @@ const Settings = () => {
       setLoading(false);
     }
   };
-
+  
   const togglePasswordVisibility = (field) => {
     setShowPasswords(prev => ({ ...prev, [field]: !prev[field] }));
   };
-
+  
   const handleSaveAccountInfo = async () => {
     try {
       setLoading(true);
       setErrorMessage('');
       setSuccessMessage('');
-
       const result = await updateProfile({ company: accountInfo.company });
       if (!result.success) {
         setErrorMessage(result.error || 'Erreur lors de l\'enregistrement');
         return;
       }
-
       localStorage.setItem('settings_currency', accountInfo.currency || '');
       localStorage.setItem('settings_vat_rate', accountInfo.vatRate || '');
       localStorage.setItem('settings_stock_threshold', accountInfo.stockAlertThreshold || '');
-
       setSuccessMessage('Informations du compte enregistrées');
     } catch (error) {
       setErrorMessage('Erreur réseau lors de l\'enregistrement');
@@ -310,10 +283,74 @@ const Settings = () => {
       setLoading(false);
     }
   };
-
+  
+  // Sidebar content with framed design - plus sombre
+  const sidebarContent = (
+    <Box
+      sx={{
+        height: '100%',
+        bgcolor: '#0a0a0f',
+        backdropFilter: 'blur(0px)',
+        display: 'flex',
+        flexDirection: 'column',
+        borderRadius: '24px',
+        margin: '16px',
+        border: '1px solid rgba(59,130,246,0.15)',
+        boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+        overflow: 'hidden'
+      }}
+    >
+      <List sx={{ px: 2, py: 2, flex: 1 }}>
+        {navigationItems.map((item) => (
+          <ListItem key={item.href} disablePadding sx={{ mb: 1 }}>
+            <ListItemButton
+              onClick={() => setActiveSection(item.href)}
+              selected={activeSection === item.href}
+              sx={{
+                borderRadius: '12px',
+                py: 1.5,
+                px: 2,
+                '&.Mui-selected': {
+                  bgcolor: 'rgba(59,130,246,0.2)',
+                  '&:hover': {
+                    bgcolor: 'rgba(59,130,246,0.25)',
+                  },
+                  '& .MuiListItemIcon-root': {
+                    color: '#3b82f6',
+                  },
+                  '& .MuiListItemText-primary': {
+                    color: '#3b82f6',
+                    fontWeight: 600,
+                  },
+                },
+                '&:hover': {
+                  bgcolor: 'rgba(59,130,246,0.1)',
+                },
+              }}
+            >
+              <ListItemIcon sx={{ color: activeSection === item.href ? '#3b82f6' : '#5a6e8c', minWidth: 40 }}>
+                {item.icon}
+              </ListItemIcon>
+              <ListItemText
+                primary={item.label}
+                primaryTypographyProps={{
+                  sx: {
+                    color: activeSection === item.href ? '#3b82f6' : '#8a9bb0',
+                    fontWeight: activeSection === item.href ? 600 : 400,
+                    fontSize: '0.95rem'
+                  }
+                }}
+              />
+            </ListItemButton>
+          </ListItem>
+        ))}
+      </List>
+    </Box>
+  );
+  
   return (
-    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'black', position: 'relative' }}>
-      {/* Aurora Background */}
+    <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#050507', position: 'relative' }}>
+      {/* Aurora Background - rendu plus subtil */}
       <Box
         sx={{
           position: "fixed",
@@ -323,85 +360,148 @@ const Settings = () => {
           bottom: 0,
           zIndex: 0,
           pointerEvents: "none",
-          opacity: 0.4,
+          opacity: 0.15,
         }}
       >
         <Aurora
-          colorStops={["#66a1ff", "#B19EEF", "#5227FF"]}
-          blend={0.5}
-          amplitude={1.0}
-          speed={1}
+          colorStops={["#2c4c9e", "#5e3a9e", "#2c1a4e"]}
+          blend={0.3}
+          amplitude={0.8}
+          speed={0.8}
         />
       </Box>
-
+      
       <SharedSidebar mobileOpen={mobileOpen} onMobileClose={handleDrawerToggle} />
+      
+      {/* Sidebar de paramètres avec cadre - Desktop */}
+      {!isMobile && (
+        <Drawer
+          variant="persistent"
+          anchor="left"
+          open={sidebarOpen}
+          sx={{
+            width: 320,
+            flexShrink: 0,
+            '& .MuiDrawer-paper': {
+              width: 320,
+              boxSizing: 'border-box',
+              position: 'relative',
+              height: '100vh',
+              bgcolor: 'transparent',
+              border: 'none',
+              boxShadow: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            },
+          }}
+        >
+          <Box sx={{ width: '100%', height: '100%', py: 2 }}>
+            {sidebarContent}
+          </Box>
+        </Drawer>
+      )}
+      
+      {/* Sidebar de paramètres - Mobile (Drawer temporaire) */}
+      {isMobile && (
+        <Drawer
+          variant="temporary"
+          anchor="left"
+          open={sidebarOpen}
+          onClose={handleSidebarToggle}
+          ModalProps={{
+            keepMounted: true,
+          }}
+          sx={{
+            display: { xs: 'block', md: 'none' },
+            '& .MuiDrawer-paper': {
+              boxSizing: 'border-box',
+              width: 300,
+              bgcolor: 'transparent',
+              border: 'none',
+              boxShadow: 'none',
+            },
+          }}
+        >
+          <Box sx={{ width: '100%', height: '100%', p: 2 }}>
+            {sidebarContent}
+          </Box>
+        </Drawer>
+      )}
       
       <Box
         component="main"
         sx={{
           flexGrow: 1,
-          width: isMobile ? '100%' : 'calc(100% - 280px)',
+          width: isMobile ? '100%' : sidebarOpen ? 'calc(100% - 320px)' : '100%',
           minHeight: '100vh',
-          bgcolor: 'black',
+          bgcolor: '#050507',
           position: 'relative',
           zIndex: 1,
+          transition: theme.transitions.create('width', {
+            easing: theme.transitions.easing.sharp,
+            duration: theme.transitions.duration.enteringScreen,
+          }),
         }}
       >
-        {/* Header mobile */}
-        {isMobile && (
-          <AppBar position="sticky" sx={{ bgcolor: 'black', borderBottom: '1px solid rgba(59,130,246,0.1)' }}>
-            <Toolbar>
-              <IconButton
-                edge="start"
-                color="inherit"
-                onClick={handleDrawerToggle}
-                sx={{ mr: 2 }}
-              >
-                <MenuIcon />
-              </IconButton>
-              <Typography variant="h6" sx={{ color: 'white' }}>
-                Informations 
-              </Typography>
-            </Toolbar>
-          </AppBar>
+        {/* Header mobile avec bouton de menu */}
+        <AppBar position="sticky" sx={{ bgcolor: '#0a0a0f', borderBottom: '1px solid rgba(59,130,246,0.15)', display: { xs: 'block', md: 'none' } }}>
+          <Toolbar>
+            <IconButton
+              edge="start"
+              color="inherit"
+              onClick={handleSidebarToggle}
+              sx={{ mr: 2, color: '#94a3b8' }}
+            >
+              <MenuIcon />
+            </IconButton>
+            <Typography variant="h6" sx={{ color: 'white' }}>
+              Paramètres
+            </Typography>
+          </Toolbar>
+        </AppBar>
+        
+        {/* Bouton pour basculer la sidebar - Desktop */}
+        {!isMobile && (
+          <IconButton
+            onClick={handleSidebarToggle}
+            sx={{
+              position: 'fixed',
+              left: sidebarOpen ? 300 : 20,
+              top: 20,
+              zIndex: 1200,
+              bgcolor: '#0f0f14',
+              color: '#3b82f6',
+              '&:hover': {
+                bgcolor: '#1a1a24',
+              },
+              transition: theme.transitions.create('left', {
+                easing: theme.transitions.easing.sharp,
+                duration: theme.transitions.duration.enteringScreen,
+              }),
+              border: '1px solid rgba(59,130,246,0.2)',
+            }}
+          >
+            <MenuIcon />
+          </IconButton>
         )}
         
         <Box sx={{ p: 3 }}>
           <Container maxWidth="md">
-            {/* PillNav Navigation */}
-            <Box sx={{ mb: 4 }}>
-              <PillNav
-                logo={notif}
-                logoAlt="SmartNotify Logo"
-                items={settingsItems}
-                activeHref={activeSection}
-                onNavItemClick={handleSectionChange}
-                className="settings-nav"
-                ease="power2.easeOut"
-                baseColor="#000000"
-                pillColor="#3b82f6"
-                hoveredPillTextColor="#ffffff"
-                pillTextColor="#94a3b8"
-                theme="color"
-                initialLoadAnimation={false}
-              />
-            </Box>
-
             {/* Sécurité Section */}
             {activeSection === '/settings/security' && (
-              <Paper elevation={3} sx={{ p: 4, mt: 4, bgcolor: 'rgba(30,41,59,0.5)', border: '1px solid rgba(59,130,246,0.1)' }}>
+              <Paper elevation={3} sx={{ p: 4, mt: 4, bgcolor: '#0a0a0f', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '20px' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
                   <LockIcon sx={{ color: '#3b82f6', fontSize: 32 }} />
                   <Box>
                     <Typography variant="h4" sx={{ color: 'white' }}>
                       Sécurité du compte
                     </Typography>
-                    <Typography variant="body2" sx={{ color: '#64748b' }}>
+                    <Typography variant="body2" sx={{ color: '#6b7280' }}>
                       Gérez votre mot de passe et vos paramètres de sécurité
                     </Typography>
                   </Box>
                 </Box>
-
                 {successMessage && (
                   <Alert severity="success" sx={{ mb: 3, bgcolor: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', color: '#10b981' }}>
                     {successMessage}
@@ -412,13 +512,12 @@ const Settings = () => {
                     {errorMessage}
                   </Alert>
                 )}
-
+                
                 {/* Formulaire de changement de mot de passe */}
                 <Box sx={{ mt: 4 }}>
                   <Typography variant="h6" sx={{ color: 'white', mb: 3 }}>
                     Changer votre mot de passe
                   </Typography>
-
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                     {/* Mot de passe actuel */}
                     <TextField
@@ -434,7 +533,7 @@ const Settings = () => {
                             <IconButton
                               onClick={() => togglePasswordVisibility('current')}
                               edge="end"
-                              sx={{ color: '#94a3b8' }}
+                              sx={{ color: '#6b7280' }}
                             >
                               {showPasswords.current ? <VisibilityOffIcon /> : <VisibilityIcon />}
                             </IconButton>
@@ -443,18 +542,17 @@ const Settings = () => {
                       }}
                       sx={{
                         '& .MuiOutlinedInput-root': {
-                          color: '#94a3b8',
-                          '& fieldset': { borderColor: 'rgba(59,130,246,0.2)' },
-                          '&:hover fieldset': { borderColor: 'rgba(59,130,246,0.4)' },
+                          color: '#e2e8f0',
+                          '& fieldset': { borderColor: '#1f2937' },
+                          '&:hover fieldset': { borderColor: '#374151' },
                           '&.Mui-focused fieldset': { borderColor: '#3b82f6' },
-                          bgcolor: 'rgba(59,130,246,0.05)',
+                          bgcolor: '#111827',
                           borderRadius: '10px',
                         },
-                        '& .MuiInputLabel-root': { color: '#64748b' },
+                        '& .MuiInputLabel-root': { color: '#6b7280' },
                         '& .MuiInputLabel-root.Mui-focused': { color: '#3b82f6' },
                       }}
                     />
-
                     {/* Nouveau mot de passe */}
                     <TextField
                       label="Nouveau mot de passe"
@@ -469,7 +567,7 @@ const Settings = () => {
                             <IconButton
                               onClick={() => togglePasswordVisibility('new')}
                               edge="end"
-                              sx={{ color: '#94a3b8' }}
+                              sx={{ color: '#6b7280' }}
                             >
                               {showPasswords.new ? <VisibilityOffIcon /> : <VisibilityIcon />}
                             </IconButton>
@@ -478,18 +576,17 @@ const Settings = () => {
                       }}
                       sx={{
                         '& .MuiOutlinedInput-root': {
-                          color: '#94a3b8',
-                          '& fieldset': { borderColor: 'rgba(59,130,246,0.2)' },
-                          '&:hover fieldset': { borderColor: 'rgba(59,130,246,0.4)' },
+                          color: '#e2e8f0',
+                          '& fieldset': { borderColor: '#1f2937' },
+                          '&:hover fieldset': { borderColor: '#374151' },
                           '&.Mui-focused fieldset': { borderColor: '#3b82f6' },
-                          bgcolor: 'rgba(59,130,246,0.05)',
+                          bgcolor: '#111827',
                           borderRadius: '10px',
                         },
-                        '& .MuiInputLabel-root': { color: '#64748b' },
+                        '& .MuiInputLabel-root': { color: '#6b7280' },
                         '& .MuiInputLabel-root.Mui-focused': { color: '#3b82f6' },
                       }}
                     />
-
                     {/* Confirmer mot de passe */}
                     <TextField
                       label="Confirmer le mot de passe"
@@ -504,7 +601,7 @@ const Settings = () => {
                             <IconButton
                               onClick={() => togglePasswordVisibility('confirm')}
                               edge="end"
-                              sx={{ color: '#94a3b8' }}
+                              sx={{ color: '#6b7280' }}
                             >
                               {showPasswords.confirm ? <VisibilityOffIcon /> : <VisibilityIcon />}
                             </IconButton>
@@ -513,18 +610,17 @@ const Settings = () => {
                       }}
                       sx={{
                         '& .MuiOutlinedInput-root': {
-                          color: '#94a3b8',
-                          '& fieldset': { borderColor: 'rgba(59,130,246,0.2)' },
-                          '&:hover fieldset': { borderColor: 'rgba(59,130,246,0.4)' },
+                          color: '#e2e8f0',
+                          '& fieldset': { borderColor: '#1f2937' },
+                          '&:hover fieldset': { borderColor: '#374151' },
                           '&.Mui-focused fieldset': { borderColor: '#3b82f6' },
-                          bgcolor: 'rgba(59,130,246,0.05)',
+                          bgcolor: '#111827',
                           borderRadius: '10px',
                         },
-                        '& .MuiInputLabel-root': { color: '#64748b' },
+                        '& .MuiInputLabel-root': { color: '#6b7280' },
                         '& .MuiInputLabel-root.Mui-focused': { color: '#3b82f6' },
                       }}
                     />
-
                     {/* Bouton Enregistrer */}
                     <Button
                       onClick={handlePasswordChange}
@@ -549,22 +645,21 @@ const Settings = () => {
                 </Box>
               </Paper>
             )}
-
-             {/* Section Utilisateur - Gestion des employés */}
+            
+            {/* Section Utilisateur - Gestion des employés */}
             {activeSection === '/settings/preferences' && isAdmin && (
-              <Paper elevation={3} sx={{ p: 4, mt: 4, bgcolor: 'rgba(30,41,59,0.5)', border: '1px solid rgba(59,130,246,0.1)' }}>
+              <Paper elevation={3} sx={{ p: 4, mt: 4, bgcolor: '#0a0a0f', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '20px' }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
                   <PersonAddIcon sx={{ color: '#3b82f6', fontSize: 32 }} />
                   <Box>
                     <Typography variant="h4" sx={{ color: 'white' }}>
                       Gestion des utilisateurs
                     </Typography>
-                    <Typography variant="body2" sx={{ color: '#64748b' }}>
+                    <Typography variant="body2" sx={{ color: '#6b7280' }}>
                       Ajoutez et gérez les employés et leurs permissions
                     </Typography>
                   </Box>
                 </Box>
-
                 {successMessage && (
                   <Alert severity="success" sx={{ mb: 3, bgcolor: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)', color: '#10b981' }}>
                     {successMessage}
@@ -575,13 +670,11 @@ const Settings = () => {
                     {errorMessage}
                   </Alert>
                 )}
-
+                
                 {/* Gestion d'équipe - Tableau des employés */}
                 <Box sx={{ mt: 4, mb: 6 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                    <Typography variant="h6" sx={{ color: 'white' }}>
-                      Gestion d'équipe
-                    </Typography>
+                   
                     <Button
                       startIcon={<PersonAddIcon />}
                       variant="contained"
@@ -598,279 +691,259 @@ const Settings = () => {
                     >
                       Ajouter un employé
                     </Button>
-                  </Box>
-
-                  {usersList.length > 0 ? (
-                    <TableContainer 
-                      component={Paper}
-                      sx={{ 
-                        bgcolor: 'rgba(30,41,59,0.5)', 
-                        border: '1px solid rgba(59,130,246,0.1)',
-                        borderRadius: '10px',
-                        overflow: 'hidden'
-                      }}
-                    >
-                      <Table>
-                        <TableHead>
-                          <TableRow sx={{ bgcolor: 'rgba(59,130,246,0.1)', borderBottom: '1px solid rgba(59,130,246,0.2)' }}>
-                            <TableCell sx={{ color: '#94a3b8', fontWeight: 600, padding: '16px' }}>Nom</TableCell>
-                            <TableCell sx={{ color: '#94a3b8', fontWeight: 600, padding: '16px' }}>Email</TableCell>
-                            <TableCell sx={{ color: '#94a3b8', fontWeight: 600, padding: '16px' }}>Rôle</TableCell>
-                            <TableCell sx={{ color: '#94a3b8', fontWeight: 600, padding: '16px' }}>Pages autorisées</TableCell>
-                            <TableCell sx={{ color: '#94a3b8', fontWeight: 600, padding: '16px', textAlign: 'center' }}>Actions</TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {usersList.map((user) => (
-                            <TableRow key={user.id} sx={{ 
-                              borderBottom: '1px solid rgba(59,130,246,0.1)',
-                              '&:hover': { bgcolor: 'rgba(59,130,246,0.05)' }
-                            }}>
-                              <TableCell sx={{ color: '#94a3b8', padding: '16px' }}>
-                                <Box>
-                                  <Typography sx={{ color: 'white', fontWeight: 500 }}>
-                                    {user.first_name && user.last_name 
-                                      ? `${user.first_name} ${user.last_name}` 
-                                      : user.username}
-                                  </Typography>
-                                  <Typography variant="caption" sx={{ color: '#64748b' }}>
-                                    @{user.username}
-                                  </Typography>
-                                </Box>
-                              </TableCell>
-                              <TableCell sx={{ color: '#94a3b8', padding: '16px' }}>
-                                {user.email}
-                              </TableCell>
-                            
-                              <TableCell sx={{ color: '#94a3b8', padding: '16px' }}>
-                                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                                  {user.authorized_pages && user.authorized_pages.length > 0 ? (
-                                    user.authorized_pages.map((page, idx) => (
-                                      <MuiChip 
-                                        key={idx}
-                                        label={page}
-                                        size="small"
-                                        variant="outlined"
-                                        sx={{
-                                          borderColor: 'rgba(59,130,246,0.3)',
-                                          color: '#94a3b8',
-                                          fontSize: '0.75rem'
-                                        }}
-                                      />
-                                    ))
-                                  ) : (
-                                    <Typography variant="caption" sx={{ color: '#64748b' }}>
-                                      Aucune restriction
-                                    </Typography>
-                                  )}
-                                </Box>
-                              </TableCell>
-                              <TableCell sx={{ color: '#94a3b8', padding: '16px', textAlign: 'center' }}>
-                                <IconButton 
-                                  size="small"
-                                  sx={{ color: '#3b82f6', '&:hover': { bgcolor: 'rgba(59,130,246,0.1)' } }}
-                                  onClick={() => {
-                                    setSelectedUser(user.id);
-                                    setEmployeeData({ ...employeeData, role: user.role });
-                                    document.getElementById('modify-role-section').scrollIntoView({ behavior: 'smooth' });
-                                  }}
-                                >
-                                  <EditIcon fontSize="small" />
-                                </IconButton>
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  ) : (
-                    <Paper sx={{ p: 3, bgcolor: 'rgba(30,41,59,0.5)', border: '1px solid rgba(59,130,246,0.1)', textAlign: 'center' }}>
-                      <Typography sx={{ color: '#64748b' }}>
-                        Aucun employé ajouté pour le moment
-                      </Typography>
-                    </Paper>
-                  )}
+                  </Box>         
                 </Box>
-
-                {/* Section de modification du rôle d'un utilisateur existant */}
-                <Box sx={{ mt: 6, pt: 4, borderTop: '1px solid rgba(59,130,246,0.2)' }} id="modify-role-section">
-                  <Typography variant="h6" sx={{ color: 'white', mb: 3 }}>
-                    Modifier le rôle d'un utilisateur
-                  </Typography>
-
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-                    {/* Sélection utilisateur */}
-                    <FormControl fullWidth>
-                      <InputLabel sx={{ color: '#64748b', '&.Mui-focused': { color: '#3b82f6' } }}>Sélectionner un utilisateur</InputLabel>
-                      <Select
-                        value={selectedUser}
-                        onChange={(e) => setSelectedUser(e.target.value)}
-                        label="Sélectionner un utilisateur"
-                        sx={{
-                          color: '#94a3b8',
-                          '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(59,130,246,0.2)' },
-                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(59,130,246,0.4)' },
-                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#3b82f6' },
-                          bgcolor: 'rgba(59,130,246,0.05)',
-                          borderRadius: '10px',
-                        }}
-                      >
-                        {usersList.map((user) => (
-                          <MenuItem key={user.id} value={user.id}>
-                            {user.username} ({user.email}) - {user.role || 'user'}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-
-                    {/* Nouveau rôle */}
-                    <FormControl fullWidth>
-                      <InputLabel sx={{ color: '#64748b', '&.Mui-focused': { color: '#3b82f6' } }}>Nouveau rôle</InputLabel>
-                      <Select
-                        value={employeeData.role}
-                        onChange={(e) => setEmployeeData({ ...employeeData, role: e.target.value })}
-                        label="Nouveau rôle"
-                        sx={{
-                          color: '#94a3b8',
-                          '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(59,130,246,0.2)' },
-                          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(59,130,246,0.4)' },
-                          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#3b82f6' },
-                          bgcolor: 'rgba(59,130,246,0.05)',
-                          borderRadius: '10px',
-                        }}
-                      >
-                        {availableRoles.map((role) => (
-                          <MenuItem key={role.value} value={role.value}>
-                            {role.label}
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-
-                    {/* Bouton Mettre à jour */}
-                    <Button
-                      onClick={handleUpdateUserRole}
-                      disabled={loading}
-                      variant="contained"
-                      sx={{
-                        bgcolor: '#3b82f6',
-                        color: 'white',
-                        fontWeight: 600,
-                        py: 1.5,
-                        borderRadius: 2,
-                        textTransform: 'none',
-                        fontSize: '1rem',
-                        boxShadow: '0 4px 12px rgba(59,130,246,0.3)',
-                        '&:hover': { bgcolor: '#2563eb' },
-                        '&:disabled': { opacity: 0.6 },
-                      }}
-                    >
-                      {loading ? <CircularProgress size={24} /> : 'Mettre à jour le rôle'}
-                    </Button>
-                  </Box>
-                </Box>
+                
+              {/* Section de modification du rôle d'un utilisateur existant */}
+<Box sx={{ mt: 6, pt: 4, borderTop: '1px solid rgba(59,130,246,0.2)' }} id="modify-role-section">
+  <Typography variant="h6" sx={{ color: 'white', mb: 3 }}>
+    Modifier le rôle d'un utilisateur
+  </Typography>
+  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+    
+    {/* Sélection utilisateur */}
+    <FormControl fullWidth>
+      <InputLabel sx={{ color: '#6b7280', '&.Mui-focused': { color: '#3b82f6' } }}>
+        Sélectionner un utilisateur
+      </InputLabel>
+      <Select
+        value={selectedUser}
+        onChange={(e) => {
+          setSelectedUser(e.target.value);
+          // Charger les pages autorisées de l'utilisateur sélectionné
+          const user = usersList.find(u => u.id === e.target.value);
+          if (user) {
+            setEmployeeData({
+              ...employeeData,
+              role: user.role || 'user',
+              authorized_pages: user.authorized_pages || []
+            });
+          }
+        }}
+        label="Sélectionner un utilisateur"
+        sx={{
+          color: '#e2e8f0',
+          '& .MuiOutlinedInput-notchedOutline': { borderColor: '#1f2937' },
+          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#374151' },
+          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#3b82f6' },
+          bgcolor: '#111827',
+          borderRadius: '10px',
+        }}
+      >
+        {usersList.map((user) => (
+          <MenuItem key={user.id} value={user.id} sx={{ bgcolor: '#111827', color: '#e2e8f0' }}>
+            {user.username} ({user.email}) - {user.role || 'user'}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+    
+    {/* Nouveau rôle */}
+    <FormControl fullWidth>
+      <InputLabel sx={{ color: '#6b7280', '&.Mui-focused': { color: '#3b82f6' } }}>
+        Nouveau rôle
+      </InputLabel>
+      <Select
+        value={employeeData.role}
+        onChange={(e) => setEmployeeData({ ...employeeData, role: e.target.value })}
+        label="Nouveau rôle"
+        sx={{
+          color: '#e2e8f0',
+          '& .MuiOutlinedInput-notchedOutline': { borderColor: '#1f2937' },
+          '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: '#374151' },
+          '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#3b82f6' },
+          bgcolor: '#111827',
+          borderRadius: '10px',
+        }}
+      >
+        {availableRoles.map((role) => (
+          <MenuItem key={role.value} value={role.value} sx={{ bgcolor: '#111827', color: '#e2e8f0' }}>
+            {role.label}
+          </MenuItem>
+        ))}
+      </Select>
+    </FormControl>
+    
+    {/* Checkboxes pour les pages autorisées */}
+    <Box sx={{ mt: 1 }}>
+      <Typography variant="subtitle1" sx={{ color: '#94a3b8', mb: 2, fontWeight: 500 }}>
+        Pages autorisées
+      </Typography>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 1.5 }}>
+        {[
+          'Stock', 'Commandes', 'Catégories', 'Fournisseur', 
+          'Produit fini', 'ERP Modules', 'Historique', 'Entrepôt', 
+          'Facturation', 'Matière Première', 'Ordre de production', 
+          'Admin Panel', 'Employés', 'Paramètre'
+        ].map((page) => (
+          <Box key={page} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <input
+              type="checkbox"
+              id={`page-${page}`}
+              checked={employeeData.authorized_pages?.includes(page) || false}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setEmployeeData({
+                    ...employeeData,
+                    authorized_pages: [...(employeeData.authorized_pages || []), page]
+                  });
+                } else {
+                  setEmployeeData({
+                    ...employeeData,
+                    authorized_pages: employeeData.authorized_pages?.filter(p => p !== page) || []
+                  });
+                }
+              }}
+              style={{
+                width: '18px',
+                height: '18px',
+                cursor: 'pointer',
+                accentColor: '#3b82f6',
+                borderRadius: '4px',
+                border: '1px solid rgba(59,130,246,0.3)',
+                backgroundColor: '#1f2937'
+              }}
+            />
+            <label 
+              htmlFor={`page-${page}`} 
+              style={{ 
+                color: '#e2e8f0', 
+                cursor: 'pointer', 
+                fontSize: '0.9rem',
+                userSelect: 'none'
+              }}
+            >
+              {page}
+            </label>
+          </Box>
+        ))}
+      </Box>
+    </Box>
+    
+    {/* Bouton Mettre à jour */}
+    <Button
+      onClick={handleUpdateUserRole}
+      disabled={loading}
+      variant="contained"
+      sx={{
+        bgcolor: '#3b82f6',
+        color: 'white',
+        fontWeight: 600,
+        py: 1.5,
+        borderRadius: 2,
+        textTransform: 'none',
+        fontSize: '1rem',
+        boxShadow: '0 4px 12px rgba(59,130,246,0.3)',
+        '&:hover': { bgcolor: '#2563eb' },
+        '&:disabled': { opacity: 0.6 },
+        mt: 2,
+      }}
+    >
+      {loading ? <CircularProgress size={24} /> : 'Mettre à jour le rôle'}
+    </Button>
+  </Box>
+</Box>
               </Paper>
             )}
-
+            
             {activeSection === '/settings/preferences' && !isAdmin && (
-              <Paper elevation={3} sx={{ p: 4, mt: 4, bgcolor: 'rgba(30,41,59,0.5)', border: '1px solid rgba(59,130,246,0.1)' }}>
+              <Paper elevation={3} sx={{ p: 4, mt: 4, bgcolor: '#0a0a0f', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '20px' }}>
                 <Typography variant="h4" sx={{ color: 'white', mb: 2 }}>
                   Accès refusé
                 </Typography>
-                <Typography variant="body2" sx={{ color: '#64748b' }}>
+                <Typography variant="body2" sx={{ color: '#6b7280' }}>
                   Cette section est réservée aux administrateurs.
                 </Typography>
               </Paper>
             )}
-
+            
             {/* Contenu par défaut - Général */}
             {activeSection !== '/settings/security' && activeSection !== '/settings/preferences' && (
-              <Paper elevation={3} sx={{ p: 4, mt: 4, bgcolor: 'rgba(30,41,59,0.5)', border: '1px solid rgba(59,130,246,0.1)' }}>
+              <Paper elevation={3} sx={{ p: 4, mt: 4, bgcolor: '#0a0a0f', border: '1px solid rgba(59,130,246,0.15)', borderRadius: '20px' }}>
                 <Typography variant="h4" gutterBottom sx={{ color: 'white', mb: 3 }}>
                   Informations du compte
                 </Typography>
-                <Typography variant="body1" sx={{ color: '#94a3b8', mb: 4 }}>
+                <Typography variant="body1" sx={{ color: '#9ca3af', mb: 4 }}>
                   Configurez vos informations de base
                 </Typography>
-
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                   {/* Nom de l'entreprise */}
                   <Box>
-                    <Typography variant="body2" sx={{ color: '#94a3b8', mb: 1, fontWeight: 500 }}>
+                    <Typography variant="body2" sx={{ color: '#9ca3af', mb: 1, fontWeight: 500 }}>
                       Nom de l'entreprise
                     </Typography>
-                    <TextField 
-                      fullWidth 
+                    <TextField
+                      fullWidth
                       placeholder="Entrez le nom de votre entreprise"
                       value={accountInfo.company}
                       onChange={(e) => setAccountInfo({ ...accountInfo, company: e.target.value })}
                       sx={{
                         '& .MuiOutlinedInput-root': {
-                          color: '#94a3b8',
-                          '& fieldset': { borderColor: 'rgba(59,130,246,0.2)' },
-                          '&:hover fieldset': { borderColor: 'rgba(59,130,246,0.4)' },
+                          color: '#e2e8f0',
+                          '& fieldset': { borderColor: '#1f2937' },
+                          '&:hover fieldset': { borderColor: '#374151' },
                           '&.Mui-focused fieldset': { borderColor: '#3b82f6' },
-                          bgcolor: 'rgba(59,130,246,0.05)',
+                          bgcolor: '#111827',
                           borderRadius: '10px',
                         },
                       }}
                     />
                   </Box>
-
+                  
                   {/* Devise */}
                   <Box>
-                    <Typography variant="body2" sx={{ color: '#94a3b8', mb: 1, fontWeight: 500 }}>
+                    <Typography variant="body2" sx={{ color: '#9ca3af', mb: 1, fontWeight: 500 }}>
                       Devise
                     </Typography>
-                    <TextField 
-                      fullWidth 
+                    <TextField
+                      fullWidth
                       placeholder="EUR, USD, TND..."
                       value={accountInfo.currency}
                       onChange={(e) => setAccountInfo({ ...accountInfo, currency: e.target.value })}
                       sx={{
                         '& .MuiOutlinedInput-root': {
-                          color: '#94a3b8',
-                          '& fieldset': { borderColor: 'rgba(59,130,246,0.2)' },
-                          '&:hover fieldset': { borderColor: 'rgba(59,130,246,0.4)' },
+                          color: '#e2e8f0',
+                          '& fieldset': { borderColor: '#1f2937' },
+                          '&:hover fieldset': { borderColor: '#374151' },
                           '&.Mui-focused fieldset': { borderColor: '#3b82f6' },
-                          bgcolor: 'rgba(59,130,246,0.05)',
+                          bgcolor: '#111827',
                           borderRadius: '10px',
                         },
                       }}
                     />
                   </Box>
-
+                  
                   {/* Taux TVA */}
                   <Box>
-                    <Typography variant="body2" sx={{ color: '#94a3b8', mb: 1, fontWeight: 500 }}>
+                    <Typography variant="body2" sx={{ color: '#9ca3af', mb: 1, fontWeight: 500 }}>
                       Taux TVA (%)
                     </Typography>
-                    <TextField 
-                      fullWidth 
+                    <TextField
+                      fullWidth
                       type="number"
                       placeholder="19"
                       value={accountInfo.vatRate}
                       onChange={(e) => setAccountInfo({ ...accountInfo, vatRate: e.target.value })}
                       sx={{
                         '& .MuiOutlinedInput-root': {
-                          color: '#94a3b8',
-                          '& fieldset': { borderColor: 'rgba(59,130,246,0.2)' },
-                          '&:hover fieldset': { borderColor: 'rgba(59,130,246,0.4)' },
+                          color: '#e2e8f0',
+                          '& fieldset': { borderColor: '#1f2937' },
+                          '&:hover fieldset': { borderColor: '#374151' },
                           '&.Mui-focused fieldset': { borderColor: '#3b82f6' },
-                          bgcolor: 'rgba(59,130,246,0.05)',
+                          bgcolor: '#111827',
                           borderRadius: '10px',
                         },
                       }}
                     />
                   </Box>
-
+                  
                   {/* Seuil d'alerte stock */}
                   <Box>
-                    <Typography variant="body2" sx={{ color: '#94a3b8', mb: 1, fontWeight: 500 }}>
+                    <Typography variant="body2" sx={{ color: '#9ca3af', mb: 1, fontWeight: 500 }}>
                       Seuil d'alerte stock
                     </Typography>
-                    <TextField 
-                      fullWidth 
+                    <TextField
+                      fullWidth
                       type="number"
                       placeholder="10"
                       helperText="Recevez une alerte quand le stock est inférieur à cette valeur"
@@ -878,20 +951,20 @@ const Settings = () => {
                       onChange={(e) => setAccountInfo({ ...accountInfo, stockAlertThreshold: e.target.value })}
                       sx={{
                         '& .MuiOutlinedInput-root': {
-                          color: '#94a3b8',
-                          '& fieldset': { borderColor: 'rgba(59,130,246,0.2)' },
-                          '&:hover fieldset': { borderColor: 'rgba(59,130,246,0.4)' },
+                          color: '#e2e8f0',
+                          '& fieldset': { borderColor: '#1f2937' },
+                          '&:hover fieldset': { borderColor: '#374151' },
                           '&.Mui-focused fieldset': { borderColor: '#3b82f6' },
-                          bgcolor: 'rgba(59,130,246,0.05)',
+                          bgcolor: '#111827',
                           borderRadius: '10px',
                         },
                         '& .MuiFormHelperText-root': {
-                          color: '#64748b',
+                          color: '#6b7280',
                         },
                       }}
                     />
                   </Box>
-
+                  
                   {/* Bouton Enregistrer */}
                   <Button
                     variant="contained"

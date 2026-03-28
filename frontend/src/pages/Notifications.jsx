@@ -57,41 +57,43 @@ import {
   Warning as WarningIcon,
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
+  Telegram as TelegramIcon,
 } from "@mui/icons-material";
 import SharedSidebar from "../components/SharedSidebar";
 
 /* ─── Design tokens ─────────────────────────────────────────────────────── */
 const C = {
-  bg:         "#070b14",
-  surface:    "#0d1321",
-  surfaceHi:  "#111827",
-  border:     "#1e2d42",
-  borderHi:   "#2d4a6e",
-  accent:     "#3b82f6",
-  accentDim:  "rgba(59,130,246,0.12)",
-  accentHi:   "#60a5fa",
-  success:    "#10b981",
+  bg: "#070b14",
+  surface: "#0d1321",
+  surfaceHi: "#111827",
+  border: "#1e2d42",
+  borderHi: "#2d4a6e",
+  accent: "#3b82f6",
+  accentDim: "rgba(59,130,246,0.12)",
+  accentHi: "#60a5fa",
+  success: "#10b981",
   successDim: "rgba(16,185,129,0.12)",
-  danger:     "#ef4444",
-  dangerDim:  "rgba(239,68,68,0.12)",
-  text:       "#f1f5f9",
-  textMuted:  "#64748b",
-  textSub:    "#94a3b8",
-  unreadBg:   "rgba(59,130,246,0.06)",
+  danger: "#ef4444",
+  dangerDim: "rgba(239,68,68,0.12)",
+  text: "#f1f5f9",
+  textMuted: "#64748b",
+  textSub: "#94a3b8",
+  unreadBg: "rgba(59,130,246,0.06)",
 };
 
 /* ─── Notification Config ──────────────────────────────────────────────── */
 const notificationChannels = [
-  { value: 'email',   label: 'Email',    icon: EmailIcon,         color: '#ef4444' },
-  { value: 'in-app',  label: 'In-App',   icon: NotificationsIcon,  color: '#3b82f6' },
+  { value: 'email', label: 'Email', icon: EmailIcon, color: '#ef4444' },
+  { value: 'in-app', label: 'In-App', icon: NotificationsIcon, color: '#3b82f6' },
+  { value: 'telegram', label: 'Telegram', icon: TelegramIcon, color: '#26A5E4' },
 ];
 
 const scheduleOptions = [
-  { value: 'immediate', label: 'Temps réel',         description: 'Vérification continue' },
-  { value: 'hourly',    label: 'Toutes les heures',  description: 'Vérification horaire' },
-  { value: 'daily',     label: 'Quotidien',          description: 'Une fois par jour' },
-  { value: 'weekly',    label: 'Hebdomadaire',       description: 'Une fois par semaine' },
-  { value: 'monthly',   label: 'Mensuel',            description: 'Une fois par mois' },
+  { value: 'immediate', label: 'Temps réel', description: 'Vérification continue' },
+  { value: 'hourly', label: 'Toutes les heures', description: 'Vérification horaire' },
+  { value: 'daily', label: 'Quotidien', description: 'Une fois par jour' },
+  { value: 'weekly', label: 'Hebdomadaire', description: 'Une fois par semaine' },
+  { value: 'monthly', label: 'Mensuel', description: 'Une fois par mois' },
 ];
 
 /* ─── Helpers ────────────────────────────────────────────────────────────── */
@@ -239,45 +241,47 @@ const Notifications = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
-  const [mobileOpen,          setMobileOpen]          = useState(false);
-  const [loading,              setLoading]              = useState(true);
-  const [searchTerm,           setSearchTerm]           = useState("");
-  const [successMessage,       setSuccessMessage]       = useState("");
-  const [errorMessage,         setErrorMessage]         = useState("");
-  const [notifications,        setNotifications]        = useState([]);
-  const [alerts,               setAlerts]               = useState([]);
-  const [employeeAlerts,       setEmployeeAlerts]       = useState([]);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
+  const [notifications, setNotifications] = useState([]);
+  const [alerts, setAlerts] = useState([]);
+  const [employeeAlerts, setEmployeeAlerts] = useState([]);
   const [employeeNotifications, setEmployeeNotifications] = useState([]);
-  const [activeTab,            setActiveTab]            = useState(0);
+  const [activeTab, setActiveTab] = useState(0);
   const [selectedNotification, setSelectedNotification] = useState(null);
-  const [detailDialogOpen,     setDetailDialogOpen]     = useState(false);
-  const [selectedAlert,        setSelectedAlert]        = useState(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+  const [selectedAlert, setSelectedAlert] = useState(null);
   const [notificationDialogOpen, setNotificationDialogOpen] = useState(false);
-  const [notificationForm, setNotificationForm] = useState({ title: "", message: "", notification_type: "alert_triggered" });
+  const [notificationForm, setNotificationForm] = useState({ title: "", message: "", notification_type: "alert_triggered", priority: "medium" });
   const [emailTemplate, setEmailTemplate] = useState({ subject: "", body: "" });
   const [showEmailTemplate, setShowEmailTemplate] = useState(false);
   const [notificationSettings, setNotificationSettings] = useState({
     emailEnabled: true,
     inAppEnabled: true,
+    telegramEnabled: false,
     schedule: "immediate",
     emailAddresses: [],
+    telegramChatId: "",
   });
   const [emailInput, setEmailInput] = useState("");
 
   /* filter state — notifications */
   const [filterAnchorEl, setFilterAnchorEl] = useState(null);
-  const [filterDate,     setFilterDate]     = useState("all");
-  const [filterStatus,   setFilterStatus]   = useState("all");
+  const [filterDate, setFilterDate] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
 
   /* filter state — alerts */
   const [alertFilterAnchorEl, setAlertFilterAnchorEl] = useState(null);
-  const [alertFilterDate,     setAlertFilterDate]     = useState("all");
-  const [alertFilterStatus,   setAlertFilterStatus]   = useState("all");
+  const [alertFilterDate, setAlertFilterDate] = useState("all");
+  const [alertFilterStatus, setAlertFilterStatus] = useState("all");
 
   /* filter state — employee notifications */
   const [empNotifFilterAnchorEl, setEmpNotifFilterAnchorEl] = useState(null);
-  const [empNotifFilterDate,     setEmpNotifFilterDate]     = useState("all");
-  const [empNotifFilterStatus,   setEmpNotifFilterStatus]   = useState("all");
+  const [empNotifFilterDate, setEmpNotifFilterDate] = useState("all");
+  const [empNotifFilterStatus, setEmpNotifFilterStatus] = useState("all");
 
   /* pagination state */
   const [notifPage, setNotifPage] = useState(0);
@@ -288,23 +292,23 @@ const Notifications = () => {
 
   /* option lists */
   const dateOptions = [
-    { value: "all",        label: "Toutes les dates" },
-    { value: "today",      label: "Aujourd'hui" },
-    { value: "this_week",  label: "Cette semaine" },
+    { value: "all", label: "Toutes les dates" },
+    { value: "today", label: "Aujourd'hui" },
+    { value: "this_week", label: "Cette semaine" },
     { value: "this_month", label: "Ce mois" },
   ];
   const statusOptions = [
-    { value: "all",    label: "Tous les statuts" },
+    { value: "all", label: "Tous les statuts" },
     { value: "unread", label: "Non lues" },
-    { value: "read",   label: "Lues" },
+    { value: "read", label: "Lues" },
   ];
   const alertStatusOptions = [
-    { value: "all",      label: "Tous les statuts" },
-    { value: "active",   label: "Actif" },
+    { value: "all", label: "Tous les statuts" },
+    { value: "active", label: "Actif" },
     { value: "inactive", label: "Inactif" },
   ];
 
-  const activeFiltersCount      = (filterDate !== "all" ? 1 : 0) + (filterStatus !== "all" ? 1 : 0);
+  const activeFiltersCount = (filterDate !== "all" ? 1 : 0) + (filterStatus !== "all" ? 1 : 0);
   const activeAlertFiltersCount = (alertFilterDate !== "all" ? 1 : 0) + (alertFilterStatus !== "all" ? 1 : 0);
   const activeEmpNotifFiltersCount = (empNotifFilterDate !== "all" ? 1 : 0) + (empNotifFilterStatus !== "all" ? 1 : 0);
 
@@ -317,11 +321,11 @@ const Notifications = () => {
   /* ── date range helper */
   const passesDateFilter = (isoDate, filter) => {
     if (filter === "all") return true;
-    const d    = new Date(isoDate);
-    const now  = new Date();
+    const d = new Date(isoDate);
+    const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    if (filter === "today")      return d >= today;
-    if (filter === "this_week")  { const w = new Date(today); w.setDate(w.getDate() - 7);  return d >= w; }
+    if (filter === "today") return d >= today;
+    if (filter === "this_week") { const w = new Date(today); w.setDate(w.getDate() - 7); return d >= w; }
     if (filter === "this_month") { const m = new Date(today); m.setMonth(m.getMonth() - 1); return d >= m; }
     return true;
   };
@@ -330,11 +334,11 @@ const Notifications = () => {
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const res  = await fetch("http://localhost:8000/api/notifications/", { headers: authHeaders() });
+      const res = await fetch("http://localhost:8000/api/notifications/", { headers: authHeaders() });
       if (!res.ok) throw new Error();
       const data = await res.json();
       const allNotifications = Array.isArray(data.results) ? data.results : Array.isArray(data) ? data : [];
-      
+
       if (user?.is_superuser) {
         // Admin: séparer mes notifications vs notifications des employés
         const currentUserId = user?.id != null ? String(user.id) : null;
@@ -342,10 +346,10 @@ const Notifications = () => {
           const raw = notif?.user?.id ?? notif?.user;
           return raw != null ? String(raw) : null;
         };
-        
+
         const myNotifications = allNotifications.filter((n) => normalizeNotifUserId(n) === currentUserId);
         const empNotifications = allNotifications.filter((n) => normalizeNotifUserId(n) !== currentUserId);
-        
+
         setNotifications(myNotifications);
         setEmployeeNotifications(empNotifications);
       } else {
@@ -354,7 +358,7 @@ const Notifications = () => {
         setEmployeeNotifications([]);
       }
     } catch { setErrorMessage("Erreur lors du chargement des notifications"); }
-    finally  { setLoading(false); }
+    finally { setLoading(false); }
   };
 
   const fetchAlerts = async () => {
@@ -367,10 +371,10 @@ const Notifications = () => {
         if (!res.ok) throw new Error();
         const data = await res.json();
         const allAlerts = Array.isArray(data) ? data : [];
-        
+
         console.log("DEBUG - Toutes les alertes du serveur:", allAlerts);
         console.log("DEBUG - User admin (id, is_superuser):", { id: user.id, is_superuser: user.is_superuser });
-        
+
         // ✅ Séparer correctement: mes alertes (celles de l'admin) vs alertes des employés
         // Normaliser les types pour éviter les décalages string/number
         const currentUserId = user?.id != null ? String(user.id) : null;
@@ -381,13 +385,13 @@ const Notifications = () => {
 
         const myAlerts = allAlerts.filter((a) => normalizeAlertUserId(a) === currentUserId);
         const empAlerts = allAlerts.filter((a) => normalizeAlertUserId(a) !== currentUserId);
-        
+
         console.log("DEBUG - Mes alertes (admin):", myAlerts, "Nombre:", myAlerts.length);
         console.log("DEBUG - Alertes des employés:", empAlerts, "Nombre:", empAlerts.length);
-        
+
         setAlerts(myAlerts);           // ← Mes alertes (admin)
         setEmployeeAlerts(empAlerts);  // ← Alertes des employés
-        
+
       } else {
         // Utilisateur normal: voir seulement ses propres alertes
         const res = await fetch("http://localhost:8000/api/alerts/", { headers: authHeaders() });
@@ -397,8 +401,8 @@ const Notifications = () => {
         setAlerts(Array.isArray(data) ? data : []);
         setEmployeeAlerts([]);
       }
-    } catch { 
-      setErrorMessage("Erreur lors du chargement des alertes"); 
+    } catch {
+      setErrorMessage("Erreur lors du chargement des alertes");
     }
   };
 
@@ -430,12 +434,12 @@ const Notifications = () => {
     }
   }, []);
 
-  useEffect(() => { 
-    if (user) { 
-      fetchNotifications(); 
+  useEffect(() => {
+    if (user) {
+      fetchNotifications();
       fetchAlerts();
       fetchEmailRecipients();
-    } 
+    }
   }, [user]);
 
   /* Reset pagination when filters/search changes */
@@ -493,6 +497,7 @@ const Notifications = () => {
       title: `Alerte: ${alert.name}`,
       message: alert.description || "",
       notification_type: "alert_triggered",
+      priority: alert.severity || "medium",
     });
     setNotificationDialogOpen(true);
   };
@@ -552,22 +557,23 @@ const Notifications = () => {
         title: resolvedTitle,
         message: resolvedMessage,
         notification_type: notificationForm.notification_type,
+        priority: notificationForm.priority,
         email_subject: resolvedEmailSubject,
         email_body: resolvedEmailBody,
       };
-      
+
       // Ajouter alert et user seulement s'ils existent
       if (selectedAlert?.id) payload.alert = selectedAlert.id;
       if (selectedAlert?.user?.id) payload.user = selectedAlert.user.id;
-      
+
       console.log("Payload envoyé:", payload);
-      
+
       const res = await fetch("http://localhost:8000/api/notifications/", {
         method: "POST",
         headers: authHeaders(),
         body: JSON.stringify(payload),
       });
-      
+
       const responseText = await res.text();
       let responseData = null;
       try {
@@ -576,10 +582,10 @@ const Notifications = () => {
         responseData = null;
       }
       console.log("Réponse du serveur (status", res.status, "):", responseData);
-      
+
       if (!res.ok) {
         let errorMsg = "Erreur serveur non identifiée";
-        
+
         if (responseData && responseData.detail) {
           errorMsg = responseData.detail;
         } else if (responseData && typeof responseData === 'object') {
@@ -594,16 +600,16 @@ const Notifications = () => {
         } else if (responseText) {
           errorMsg = responseText;
         }
-        
+
         console.error("Détails de l'erreur:", responseData);
         throw new Error(errorMsg);
       }
-      
+
       setSuccessMessage("Notification créée et envoyée avec succès");
       setNotificationDialogOpen(false);
-      setNotificationForm({ title: "", message: "", notification_type: "alert_triggered" });
+      setNotificationForm({ title: "", message: "", notification_type: "alert_triggered", priority: "medium" });
       fetchNotifications();
-    } catch (error) { 
+    } catch (error) {
       console.error("Erreur complète:", error);
       setErrorMessage(error.message || "Erreur lors de la création de la notification");
     }
@@ -639,6 +645,16 @@ const Notifications = () => {
     setNotificationSettings({ ...notificationSettings, emailAddresses: next });
   };
 
+  const handleToggleChannel = (channel) => {
+    if (channel === 'email') {
+      setNotificationSettings({ ...notificationSettings, emailEnabled: !notificationSettings.emailEnabled });
+    } else if (channel === 'in-app') {
+      setNotificationSettings({ ...notificationSettings, inAppEnabled: !notificationSettings.inAppEnabled });
+    } else if (channel === 'telegram') {
+      setNotificationSettings({ ...notificationSettings, telegramEnabled: !notificationSettings.telegramEnabled });
+    }
+  };
+
   const handleSaveSettings = () => {
     // Valider les paramètres
     if (notificationSettings.emailEnabled) {
@@ -654,12 +670,22 @@ const Notifications = () => {
         return;
       }
     }
-    
+
+    // Valider Telegram si activé
+    if (notificationSettings.telegramEnabled && !notificationSettings.telegramChatId) {
+      setErrorMessage("Veuillez entrer un ID de chat Telegram");
+      return;
+    }
+
     // Sauvegarder les paramètres sur le serveur
     fetch("http://localhost:8000/api/notifications/email_recipients/", {
       method: "PUT",
       headers: authHeaders(),
-      body: JSON.stringify({ emails: notificationSettings.emailAddresses || [] }),
+      body: JSON.stringify({ 
+        emails: notificationSettings.emailAddresses || [],
+        telegram_enabled: notificationSettings.telegramEnabled,
+        telegram_chat_id: notificationSettings.telegramChatId
+      }),
     })
       .then((res) => {
         if (!res.ok) throw new Error();
@@ -671,16 +697,8 @@ const Notifications = () => {
         setSuccessMessage("Paramètres de notification sauvegardés");
       })
       .catch(() => {
-        setErrorMessage("Erreur lors de l'enregistrement des emails");
+        setErrorMessage("Erreur lors de l'enregistrement des paramètres");
       });
-  };
-
-  const handleToggleChannel = (channel) => {
-    if (channel === 'email') {
-      setNotificationSettings({ ...notificationSettings, emailEnabled: !notificationSettings.emailEnabled });
-    } else if (channel === 'in-app') {
-      setNotificationSettings({ ...notificationSettings, inAppEnabled: !notificationSettings.inAppEnabled });
-    }
   };
 
   /* ─── Filtered lists ─────────────────────────────────────────────────── */
@@ -732,7 +750,7 @@ const Notifications = () => {
   const empNotifTotalPages = Math.ceil(filteredEmployeeNotifications.length / ITEMS_PER_PAGE);
 
   const unreadTotal = notifications.filter((n) => !n.is_read).length;
-  const readTotal   = notifications.filter((n) =>  n.is_read).length;
+  const readTotal = notifications.filter((n) => n.is_read).length;
 
   /* ─── Guards ─────────────────────────────────────────────────────────── */
   if (!user) return (
@@ -784,11 +802,11 @@ const Notifications = () => {
             <Tooltip title="Actualiser">
               <IconButton
                 onClick={() => { fetchNotifications(); fetchAlerts(); }}
-                sx={{ 
-                  color: C.textMuted, 
-                  border: "1px solid rgba(59,130,246,0.15)", 
-                  borderRadius: "10px", 
-                  "&:hover": { color: C.accent, borderColor: "rgba(59,130,246,0.4)" } 
+                sx={{
+                  color: C.textMuted,
+                  border: "1px solid rgba(59,130,246,0.15)",
+                  borderRadius: "10px",
+                  "&:hover": { color: C.accent, borderColor: "rgba(59,130,246,0.4)" }
                 }}
               >
                 <RefreshIcon />
@@ -796,12 +814,12 @@ const Notifications = () => {
             </Tooltip>
             <Tooltip title="Paramètres de notification">
               <IconButton
-                onClick={() => setActiveTab(user?.is_superuser ? 3 : 2)}
-                sx={{ 
-                  color: C.textMuted, 
-                  border: "1px solid rgba(59,130,246,0.15)", 
-                  borderRadius: "10px", 
-                  "&:hover": { color: C.accent, borderColor: "rgba(59,130,246,0.4)" } 
+                onClick={() => setActiveTab(user?.is_superuser ? 4 : 2)}
+                sx={{
+                  color: C.textMuted,
+                  border: "1px solid rgba(59,130,246,0.15)",
+                  borderRadius: "10px",
+                  "&:hover": { color: C.accent, borderColor: "rgba(59,130,246,0.4)" }
                 }}
               >
                 <SettingsIcon />
@@ -809,20 +827,20 @@ const Notifications = () => {
             </Tooltip>
             {unreadTotal > 0 && (
               <Button
-                variant="contained" 
+                variant="contained"
                 startIcon={<DoneAllIcon />}
                 onClick={handleMarkAllAsRead}
-                sx={{ 
-                  bgcolor: C.accent, 
-                  color: "white", 
-                  fontWeight: 600, 
-                  py: 1.2, 
-                  px: 3, 
-                  borderRadius: 2, 
-                  textTransform: "none", 
-                  fontSize: "0.95rem", 
-                  boxShadow: "0 4px 12px rgba(59,130,246,0.3)", 
-                  "&:hover": { bgcolor: "#2563eb" } 
+                sx={{
+                  bgcolor: C.accent,
+                  color: "white",
+                  fontWeight: 600,
+                  py: 1.2,
+                  px: 3,
+                  borderRadius: 2,
+                  textTransform: "none",
+                  fontSize: "0.95rem",
+                  boxShadow: "0 4px 12px rgba(59,130,246,0.3)",
+                  "&:hover": { bgcolor: "#2563eb" }
                 }}
               >
                 Tout marquer comme lu
@@ -833,36 +851,36 @@ const Notifications = () => {
 
         {/* ── Stat strip ───────────────────────────────────────────── */}
         <Box sx={{ display: "flex", gap: 2, mb: 4, flexWrap: "wrap" }}>
-          <StatCard 
-            label="Total Notifications" 
-            value={notifications.length} 
+          <StatCard
+            label="Total Notifications"
+            value={notifications.length}
             color="#3b82f6"
             icon={InboxIcon}
             iconColor="#3b82f6"
             description="Toutes notifications"
             onClick={() => { setActiveTab(0); setFilterStatus("all"); }}
           />
-          <StatCard 
-            label="Non lues" 
-            value={unreadTotal} 
+          <StatCard
+            label="Non lues"
+            value={unreadTotal}
             color={unreadTotal > 0 ? "#ef4444" : "#94a3b8"}
             icon={ErrorIcon}
             iconColor={unreadTotal > 0 ? "#ef4444" : "#94a3b8"}
             description={unreadTotal > 0 ? "Nécessite attention" : "Aucune notification"}
             onClick={() => { setActiveTab(0); setFilterStatus("unread"); }}
           />
-          <StatCard 
-            label="Lues" 
-            value={readTotal} 
+          <StatCard
+            label="Lues"
+            value={readTotal}
             color="#10b981"
             icon={CheckCircleIcon}
             iconColor="#10b981"
             description="Notifications lues"
             onClick={() => { setActiveTab(0); setFilterStatus("read"); }}
           />
-          <StatCard 
-            label="Alertes Actives" 
-            value={alerts.length + employeeAlerts.length} 
+          <StatCard
+            label="Alertes Actives"
+            value={alerts.length + employeeAlerts.length}
             color="#8b5cf6"
             icon={WarningIcon}
             iconColor="#8b5cf6"
@@ -906,7 +924,7 @@ const Notifications = () => {
                   <IconButton
                     onClick={(e) => setFilterAnchorEl(e.currentTarget)}
                     sx={{
-                      color:  activeFiltersCount > 0 ? C.accent : C.textMuted,
+                      color: activeFiltersCount > 0 ? C.accent : C.textMuted,
                       bgcolor: activeFiltersCount > 0 ? C.accentDim : "rgba(59,130,246,0.05)",
                       border: `1px solid ${activeFiltersCount > 0 ? "rgba(59,130,246,0.4)" : "rgba(59,130,246,0.15)"}`,
                       borderRadius: "10px", width: 44, height: 44, flexShrink: 0,
@@ -932,8 +950,8 @@ const Notifications = () => {
                     borderRadius: "10px", color: "#94a3b8", fontSize: "0.875rem",
                     outline: "none", boxSizing: "border-box",
                   }}
-                  onFocus={(e)  => (e.target.style.borderColor = "rgba(59,130,246,0.5)")}
-                  onBlur={(e)   => (e.target.style.borderColor = "rgba(59,130,246,0.18)")}
+                  onFocus={(e) => (e.target.style.borderColor = "rgba(59,130,246,0.5)")}
+                  onBlur={(e) => (e.target.style.borderColor = "rgba(59,130,246,0.18)")}
                 />
               </Box>
             </Box>
@@ -1040,13 +1058,13 @@ const Notifications = () => {
                             <Chip
                               label={getModuleERPLabel(notif.alert.module).name}
                               size="small"
-                              sx={{ 
-                                height: 20, 
-                                fontSize: "0.68rem", 
-                                fontWeight: 600, 
-                                bgcolor: `${getModuleERPLabel(notif.alert.module).color}20`, 
-                                color: getModuleERPLabel(notif.alert.module).color, 
-                                borderRadius: "4px" 
+                              sx={{
+                                height: 20,
+                                fontSize: "0.68rem",
+                                fontWeight: 600,
+                                bgcolor: `${getModuleERPLabel(notif.alert.module).color}20`,
+                                color: getModuleERPLabel(notif.alert.module).color,
+                                borderRadius: "4px"
                               }}
                             />
                           )}
@@ -1055,6 +1073,20 @@ const Notifications = () => {
                             size="small"
                             sx={{ height: 20, fontSize: "0.68rem", fontWeight: 600, bgcolor: C.accentDim, color: C.accentHi, borderRadius: "4px" }}
                           />
+                          {notif.priority && (
+                            <Chip
+                              label={notif.priority === "critical" ? "Critique" : notif.priority === "high" ? "Haute" : notif.priority === "medium" ? "Moyenne" : "Basse"}
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: "0.68rem",
+                                fontWeight: 600,
+                                borderRadius: "4px",
+                                bgcolor: notif.priority === "critical" ? "rgba(239,68,68,0.15)" : notif.priority === "high" ? "rgba(249,115,22,0.15)" : notif.priority === "medium" ? "rgba(234,179,8,0.15)" : "rgba(34,197,94,0.15)",
+                                color: notif.priority === "critical" ? "#ef4444" : notif.priority === "high" ? "#f97316" : notif.priority === "medium" ? "#eab308" : "#22c55e",
+                              }}
+                            />
+                          )}
                           {notif.user && (
                             <Typography sx={{ color: C.textMuted, fontSize: "0.75rem" }}>
                               {notif.user.username || notif.user.email}
@@ -1130,7 +1162,7 @@ const Notifications = () => {
                   <IconButton
                     onClick={(e) => setEmpNotifFilterAnchorEl(e.currentTarget)}
                     sx={{
-                      color:  activeEmpNotifFiltersCount > 0 ? C.accent : C.textMuted,
+                      color: activeEmpNotifFiltersCount > 0 ? C.accent : C.textMuted,
                       bgcolor: activeEmpNotifFiltersCount > 0 ? C.accentDim : "rgba(59,130,246,0.05)",
                       border: `1px solid ${activeEmpNotifFiltersCount > 0 ? "rgba(59,130,246,0.4)" : "rgba(59,130,246,0.15)"}`,
                       borderRadius: "10px", width: 44, height: 44, flexShrink: 0,
@@ -1156,8 +1188,8 @@ const Notifications = () => {
                     borderRadius: "10px", color: "#94a3b8", fontSize: "0.875rem",
                     outline: "none", boxSizing: "border-box",
                   }}
-                  onFocus={(e)  => (e.target.style.borderColor = "rgba(59,130,246,0.5)")}
-                  onBlur={(e)   => (e.target.style.borderColor = "rgba(59,130,246,0.18)")}
+                  onFocus={(e) => (e.target.style.borderColor = "rgba(59,130,246,0.5)")}
+                  onBlur={(e) => (e.target.style.borderColor = "rgba(59,130,246,0.18)")}
                 />
               </Box>
             </Box>
@@ -1230,100 +1262,114 @@ const Notifications = () => {
               <>
                 <Box sx={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                   {paginatedEmployeeNotifications.map((notif) => (
-                  <Box
-                    key={notif.id}
-                    onClick={() => { setSelectedNotification(notif); setDetailDialogOpen(true); }}
-                    sx={{
-                      display: "flex", alignItems: "flex-start", gap: 2,
-                      bgcolor: notif.is_read ? C.surface : C.unreadBg,
-                      border: `1px solid ${notif.is_read ? C.border : C.borderHi}`,
-                      borderLeft: `3px solid ${notif.is_read ? "transparent" : C.accent}`,
-                      borderRadius: "10px", p: "14px 18px",
-                      cursor: "pointer", transition: "all 0.18s ease",
-                      "&:hover": { bgcolor: notif.is_read ? C.surfaceHi : "rgba(59,130,246,0.1)", borderColor: C.accent },
-                    }}
-                  >
-                    <Box sx={{ pt: "5px", flexShrink: 0 }}>
-                      <CircleIcon sx={{ fontSize: 8, color: notif.is_read ? C.textMuted : C.accent, opacity: notif.is_read ? 0.35 : 1 }} />
-                    </Box>
-
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1, mb: 0.5 }}>
-                        <Typography sx={{ color: C.text, fontWeight: notif.is_read ? 500 : 700, fontSize: "0.9rem", lineHeight: 1.4 }} noWrap>
-                          {notif.title}
-                        </Typography>
-                        <Typography sx={{ color: C.textMuted, fontSize: "0.75rem", flexShrink: 0, pt: "2px" }}>
-                          {fmt(notif.created_at)}
-                        </Typography>
+                    <Box
+                      key={notif.id}
+                      onClick={() => { setSelectedNotification(notif); setDetailDialogOpen(true); }}
+                      sx={{
+                        display: "flex", alignItems: "flex-start", gap: 2,
+                        bgcolor: notif.is_read ? C.surface : C.unreadBg,
+                        border: `1px solid ${notif.is_read ? C.border : C.borderHi}`,
+                        borderLeft: `3px solid ${notif.is_read ? "transparent" : C.accent}`,
+                        borderRadius: "10px", p: "14px 18px",
+                        cursor: "pointer", transition: "all 0.18s ease",
+                        "&:hover": { bgcolor: notif.is_read ? C.surfaceHi : "rgba(59,130,246,0.1)", borderColor: C.accent },
+                      }}
+                    >
+                      <Box sx={{ pt: "5px", flexShrink: 0 }}>
+                        <CircleIcon sx={{ fontSize: 8, color: notif.is_read ? C.textMuted : C.accent, opacity: notif.is_read ? 0.35 : 1 }} />
                       </Box>
-                      <Typography sx={{ color: C.textSub, fontSize: "0.82rem", lineHeight: 1.5, mb: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "90%" }}>
-                        {notif.message}
-                      </Typography>
-                      <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
-                        {notif.alert && notif.alert.module && (
-                          <Chip
-                            label={getModuleERPLabel(notif.alert.module).name}
-                            size="small"
-                            sx={{ 
-                              height: 20, 
-                              fontSize: "0.68rem", 
-                              fontWeight: 600, 
-                              bgcolor: `${getModuleERPLabel(notif.alert.module).color}20`, 
-                              color: getModuleERPLabel(notif.alert.module).color, 
-                              borderRadius: "4px" 
-                            }}
-                          />
-                        )}
-                        <Chip
-                          label={notif.notification_type === "alert_triggered" ? "Alerte" : notif.notification_type}
-                          size="small"
-                          sx={{ height: 20, fontSize: "0.68rem", fontWeight: 600, bgcolor: C.accentDim, color: C.accentHi, borderRadius: "4px" }}
-                        />
-                        {notif.user && (
-                          <Typography sx={{ color: C.textMuted, fontSize: "0.75rem" }}>
-                            {notif.user.username || notif.user.email}
+
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 1, mb: 0.5 }}>
+                          <Typography sx={{ color: C.text, fontWeight: notif.is_read ? 500 : 700, fontSize: "0.9rem", lineHeight: 1.4 }} noWrap>
+                            {notif.title}
                           </Typography>
+                          <Typography sx={{ color: C.textMuted, fontSize: "0.75rem", flexShrink: 0, pt: "2px" }}>
+                            {fmt(notif.created_at)}
+                          </Typography>
+                        </Box>
+                        <Typography sx={{ color: C.textSub, fontSize: "0.82rem", lineHeight: 1.5, mb: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: "90%" }}>
+                          {notif.message}
+                        </Typography>
+                        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+                          {notif.alert && notif.alert.module && (
+                            <Chip
+                              label={getModuleERPLabel(notif.alert.module).name}
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: "0.68rem",
+                                fontWeight: 600,
+                                bgcolor: `${getModuleERPLabel(notif.alert.module).color}20`,
+                                color: getModuleERPLabel(notif.alert.module).color,
+                                borderRadius: "4px"
+                              }}
+                            />
+                          )}
+                          <Chip
+                            label={notif.notification_type === "alert_triggered" ? "Alerte" : notif.notification_type}
+                            size="small"
+                            sx={{ height: 20, fontSize: "0.68rem", fontWeight: 600, bgcolor: C.accentDim, color: C.accentHi, borderRadius: "4px" }}
+                          />
+                          {notif.priority && (
+                            <Chip
+                              label={notif.priority === "critical" ? "Critique" : notif.priority === "high" ? "Haute" : notif.priority === "medium" ? "Moyenne" : "Basse"}
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: "0.68rem",
+                                fontWeight: 600,
+                                borderRadius: "4px",
+                                bgcolor: notif.priority === "critical" ? "rgba(239,68,68,0.15)" : notif.priority === "high" ? "rgba(249,115,22,0.15)" : notif.priority === "medium" ? "rgba(234,179,8,0.15)" : "rgba(34,197,94,0.15)",
+                                color: notif.priority === "critical" ? "#ef4444" : notif.priority === "high" ? "#f97316" : notif.priority === "medium" ? "#eab308" : "#22c55e",
+                              }}
+                            />
+                          )}
+                          {notif.user && (
+                            <Typography sx={{ color: C.textMuted, fontSize: "0.75rem" }}>
+                              {notif.user.username || notif.user.email}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+
+                      <Box sx={{ flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
+                        {!notif.is_read ? (
+                          <Tooltip title="Marquer comme lue" placement="left">
+                            <IconButton size="small" onClick={(e) => handleMarkAsRead(notif.id, e)}
+                              sx={{ color: C.textMuted, "&:hover": { color: C.success, bgcolor: C.successDim }, borderRadius: "6px", p: "5px" }}
+                            >
+                              <MarkEmailReadIcon sx={{ fontSize: "1rem" }} />
+                            </IconButton>
+                          </Tooltip>
+                        ) : (
+                          <Tooltip title="Marquer comme non lue" placement="left">
+                            <IconButton size="small" onClick={(e) => handleMarkAsUnread(notif.id, e)}
+                              sx={{ color: C.textMuted, "&:hover": { color: C.accent, bgcolor: C.accentDim }, borderRadius: "6px", p: "5px" }}
+                            >
+                              <MarkEmailUnreadIcon sx={{ fontSize: "1rem" }} />
+                            </IconButton>
+                          </Tooltip>
                         )}
                       </Box>
                     </Box>
-
-                    <Box sx={{ flexShrink: 0 }} onClick={(e) => e.stopPropagation()}>
-                      {!notif.is_read ? (
-                        <Tooltip title="Marquer comme lue" placement="left">
-                          <IconButton size="small" onClick={(e) => handleMarkAsRead(notif.id, e)}
-                            sx={{ color: C.textMuted, "&:hover": { color: C.success, bgcolor: C.successDim }, borderRadius: "6px", p: "5px" }}
-                          >
-                            <MarkEmailReadIcon sx={{ fontSize: "1rem" }} />
-                          </IconButton>
-                        </Tooltip>
-                      ) : (
-                        <Tooltip title="Marquer comme non lue" placement="left">
-                          <IconButton size="small" onClick={(e) => handleMarkAsUnread(notif.id, e)}
-                            sx={{ color: C.textMuted, "&:hover": { color: C.accent, bgcolor: C.accentDim }, borderRadius: "6px", p: "5px" }}
-                          >
-                            <MarkEmailUnreadIcon sx={{ fontSize: "1rem" }} />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </Box>
-                  </Box>
-                ))}
-              </Box>
-              {empNotifTotalPages > 1 && (
-                <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 1.5, mt: 3, pt: 2, borderTop: `1px solid ${C.border}` }}>
-                  <Button size="small" disabled={empNotifPage === 0} onClick={() => setEmpNotifPage(empNotifPage - 1)}
-                    sx={{ textTransform: "none", color: C.accent, fontSize: "0.8rem" }}>
-                    ← Précédent
-                  </Button>
-                  <Typography sx={{ color: C.textMuted, fontSize: "0.8rem" }}>
-                    Page <strong style={{ color: C.text }}>{empNotifPage + 1}</strong> / {empNotifTotalPages}
-                  </Typography>
-                  <Button size="small" disabled={empNotifPage >= empNotifTotalPages - 1} onClick={() => setEmpNotifPage(empNotifPage + 1)}
-                    sx={{ textTransform: "none", color: C.accent, fontSize: "0.8rem" }}>
-                    Suivant →
-                  </Button>
+                  ))}
                 </Box>
-              )}
+                {empNotifTotalPages > 1 && (
+                  <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 1.5, mt: 3, pt: 2, borderTop: `1px solid ${C.border}` }}>
+                    <Button size="small" disabled={empNotifPage === 0} onClick={() => setEmpNotifPage(empNotifPage - 1)}
+                      sx={{ textTransform: "none", color: C.accent, fontSize: "0.8rem" }}>
+                      ← Précédent
+                    </Button>
+                    <Typography sx={{ color: C.textMuted, fontSize: "0.8rem" }}>
+                      Page <strong style={{ color: C.text }}>{empNotifPage + 1}</strong> / {empNotifTotalPages}
+                    </Typography>
+                    <Button size="small" disabled={empNotifPage >= empNotifTotalPages - 1} onClick={() => setEmpNotifPage(empNotifPage + 1)}
+                      sx={{ textTransform: "none", color: C.accent, fontSize: "0.8rem" }}>
+                      Suivant →
+                    </Button>
+                  </Box>
+                )}
               </>
             ) : (
               <Box sx={{ textAlign: "center", py: 10, bgcolor: C.surface, border: `1px solid ${C.border}`, borderRadius: "12px" }}>
@@ -1354,7 +1400,7 @@ const Notifications = () => {
                   <IconButton
                     onClick={(e) => setAlertFilterAnchorEl(e.currentTarget)}
                     sx={{
-                      color:  activeAlertFiltersCount > 0 ? C.accent : C.textMuted,
+                      color: activeAlertFiltersCount > 0 ? C.accent : C.textMuted,
                       bgcolor: activeAlertFiltersCount > 0 ? C.accentDim : "rgba(59,130,246,0.05)",
                       border: `1px solid ${activeAlertFiltersCount > 0 ? "rgba(59,130,246,0.4)" : "rgba(59,130,246,0.15)"}`,
                       borderRadius: "10px", width: 44, height: 44, flexShrink: 0,
@@ -1380,8 +1426,8 @@ const Notifications = () => {
                     borderRadius: "10px", color: "#94a3b8", fontSize: "0.875rem",
                     outline: "none", boxSizing: "border-box",
                   }}
-                  onFocus={(e)  => (e.target.style.borderColor = "rgba(59,130,246,0.5)")}
-                  onBlur={(e)   => (e.target.style.borderColor = "rgba(59,130,246,0.18)")}
+                  onFocus={(e) => (e.target.style.borderColor = "rgba(59,130,246,0.5)")}
+                  onBlur={(e) => (e.target.style.borderColor = "rgba(59,130,246,0.18)")}
                 />
               </Box>
             </Box>
@@ -1465,13 +1511,13 @@ const Notifications = () => {
                     </TableHead>
                     <TableBody>
                       {paginatedAlerts.map((alert, i) => (
-                        <TableRow 
-                          key={alert.id} 
-                          onClick={() => handleOpenNotificationForm(alert)} 
-                          sx={{ 
-                            bgcolor: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.012)", 
-                            "&:hover": { bgcolor: C.surfaceHi, cursor: "pointer" }, 
-                            "& td": { borderColor: C.border, py: "12px", px: 2 } 
+                        <TableRow
+                          key={alert.id}
+                          onClick={() => handleOpenNotificationForm(alert)}
+                          sx={{
+                            bgcolor: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.012)",
+                            "&:hover": { bgcolor: C.surfaceHi, cursor: "pointer" },
+                            "& td": { borderColor: C.border, py: "12px", px: 2 }
                           }}
                         >
                           <TableCell>
@@ -1486,13 +1532,13 @@ const Notifications = () => {
                             <Chip label={alert.module} size="small" sx={{ height: 22, fontSize: "0.7rem", fontWeight: 600, bgcolor: C.accentDim, color: C.accentHi, borderRadius: "5px" }} />
                           </TableCell>
                           <TableCell>
-                            <Chip 
-                              label={alert.is_active ? "Actif" : "Inactif"} 
+                            <Chip
+                              label={alert.is_active ? "Actif" : "Inactif"}
                               size="small"
-                              sx={{ 
-                                height: 22, fontSize: "0.7rem", fontWeight: 700, borderRadius: "5px", 
-                                bgcolor: alert.is_active ? C.successDim : C.dangerDim, 
-                                color: alert.is_active ? C.success : C.danger 
+                              sx={{
+                                height: 22, fontSize: "0.7rem", fontWeight: 700, borderRadius: "5px",
+                                bgcolor: alert.is_active ? C.successDim : C.dangerDim,
+                                color: alert.is_active ? C.success : C.danger
                               }}
                             />
                           </TableCell>
@@ -1525,12 +1571,12 @@ const Notifications = () => {
                 <Typography sx={{ color: C.textMuted, fontSize: "0.85rem" }}>
                   {searchTerm || activeAlertFiltersCount > 0
                     ? "Aucun résultat pour cette recherche ou ces filtres"
-                    : user?.is_superuser 
-                      ? "Vous n'avez pas encore créé d'alerte" 
+                    : user?.is_superuser
+                      ? "Vous n'avez pas encore créé d'alerte"
                       : "Vous n'avez pas encore créé d'alerte"}
                 </Typography>
-                <Button 
-                  variant="contained" 
+                <Button
+                  variant="contained"
                   onClick={() => navigate("/new-alert")}
                   sx={{ mt: 2, bgcolor: C.accent, color: "white", textTransform: "none", fontWeight: 600 }}
                 >
@@ -1556,7 +1602,7 @@ const Notifications = () => {
                   <IconButton
                     onClick={(e) => setAlertFilterAnchorEl(e.currentTarget)}
                     sx={{
-                      color:  activeAlertFiltersCount > 0 ? C.accent : C.textMuted,
+                      color: activeAlertFiltersCount > 0 ? C.accent : C.textMuted,
                       bgcolor: activeAlertFiltersCount > 0 ? C.accentDim : "rgba(59,130,246,0.05)",
                       border: `1px solid ${activeAlertFiltersCount > 0 ? "rgba(59,130,246,0.4)" : "rgba(59,130,246,0.15)"}`,
                       borderRadius: "10px", width: 44, height: 44, flexShrink: 0,
@@ -1582,8 +1628,8 @@ const Notifications = () => {
                     borderRadius: "10px", color: "#94a3b8", fontSize: "0.875rem",
                     outline: "none", boxSizing: "border-box",
                   }}
-                  onFocus={(e)  => (e.target.style.borderColor = "rgba(59,130,246,0.5)")}
-                  onBlur={(e)   => (e.target.style.borderColor = "rgba(59,130,246,0.18)")}
+                  onFocus={(e) => (e.target.style.borderColor = "rgba(59,130,246,0.5)")}
+                  onBlur={(e) => (e.target.style.borderColor = "rgba(59,130,246,0.18)")}
                 />
               </Box>
             </Box>
@@ -1627,13 +1673,13 @@ const Notifications = () => {
                     </TableHead>
                     <TableBody>
                       {paginatedEmployeeAlerts.map((alert, i) => (
-                        <TableRow 
-                          key={alert.id} 
-                          onClick={() => handleOpenNotificationForm(alert)} 
-                          sx={{ 
-                            bgcolor: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.012)", 
-                            "&:hover": { bgcolor: C.surfaceHi, cursor: "pointer" }, 
-                            "& td": { borderColor: C.border, py: "12px", px: 2 } 
+                        <TableRow
+                          key={alert.id}
+                          onClick={() => handleOpenNotificationForm(alert)}
+                          sx={{
+                            bgcolor: i % 2 === 0 ? "transparent" : "rgba(255,255,255,0.012)",
+                            "&:hover": { bgcolor: C.surfaceHi, cursor: "pointer" },
+                            "& td": { borderColor: C.border, py: "12px", px: 2 }
                           }}
                         >
                           <TableCell>
@@ -1648,13 +1694,13 @@ const Notifications = () => {
                             <Chip label={alert.module} size="small" sx={{ height: 22, fontSize: "0.7rem", fontWeight: 600, bgcolor: C.accentDim, color: C.accentHi, borderRadius: "5px" }} />
                           </TableCell>
                           <TableCell>
-                            <Chip 
-                              label={alert.is_active ? "Actif" : "Inactif"} 
+                            <Chip
+                              label={alert.is_active ? "Actif" : "Inactif"}
                               size="small"
-                              sx={{ 
-                                height: 22, fontSize: "0.7rem", fontWeight: 700, borderRadius: "5px", 
-                                bgcolor: alert.is_active ? C.successDim : C.dangerDim, 
-                                color: alert.is_active ? C.success : C.danger 
+                              sx={{
+                                height: 22, fontSize: "0.7rem", fontWeight: 700, borderRadius: "5px",
+                                bgcolor: alert.is_active ? C.successDim : C.dangerDim,
+                                color: alert.is_active ? C.success : C.danger
                               }}
                             />
                           </TableCell>
@@ -1706,7 +1752,7 @@ const Notifications = () => {
                 <Typography sx={{ color: C.text, fontWeight: 700, fontSize: "1.1rem" }}>Canaux de notification</Typography>
               </Box>
               <Typography sx={{ color: C.textMuted, fontSize: "0.85rem", mb: 2 }}>Choisissez les canaux par lesquels vous souhaitez recevoir les notifications</Typography>
-              
+
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
                 {notificationChannels.map((channel) => (
                   <Box
@@ -1720,23 +1766,27 @@ const Notifications = () => {
                     }}
                   >
                     <Box sx={{ display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      {channel.value === 'email' ? (
-                        <EmailIcon sx={{ fontSize: 28, color: channel.color }} />
-                      ) : (
-                        <NotificationsIcon sx={{ fontSize: 28, color: channel.color }} />
-                      )}
+                      {channel.value === 'email' && <EmailIcon sx={{ fontSize: 28, color: channel.color }} />}
+                      {channel.value === 'in-app' && <NotificationsIcon sx={{ fontSize: 28, color: channel.color }} />}
+                      {channel.value === 'telegram' && <TelegramIcon sx={{ fontSize: 28, color: channel.color }} />}
                     </Box>
                     <Box sx={{ flex: 1 }}>
                       <Typography sx={{ color: C.text, fontWeight: 600, fontSize: "0.95rem" }}>{channel.label}</Typography>
                       <Typography sx={{ color: C.textMuted, fontSize: "0.75rem", mt: 0.25 }}>
-                        {channel.value === 'email' ? 'Recevoir les notifications par email' : 'Recevoir les notifications dans l\'application'}
+                        {channel.value === 'email' && 'Recevoir les notifications par email'}
+                        {channel.value === 'in-app' && 'Recevoir les notifications dans l\'application'}
+                        {channel.value === 'telegram' && 'Recevoir les notifications sur Telegram'}
                       </Typography>
                     </Box>
                     <Box
                       sx={{
                         width: 48, height: 28, borderRadius: "14px", flexShrink: 0,
-                        bgcolor: channel.value === 'email' ? (notificationSettings.emailEnabled ? C.success : C.textMuted) : (notificationSettings.inAppEnabled ? C.success : C.textMuted),
-                        display: "flex", alignItems: "center", justifyContent: channel.value === 'email' ? (notificationSettings.emailEnabled ? "flex-end" : "flex-start") : (notificationSettings.inAppEnabled ? "flex-end" : "flex-start"),
+                        bgcolor: channel.value === 'email' ? (notificationSettings.emailEnabled ? C.success : C.textMuted) : 
+                                 channel.value === 'in-app' ? (notificationSettings.inAppEnabled ? C.success : C.textMuted) :
+                                 (notificationSettings.telegramEnabled ? C.success : C.textMuted),
+                        display: "flex", alignItems: "center", justifyContent: channel.value === 'email' ? (notificationSettings.emailEnabled ? "flex-end" : "flex-start") : 
+                                 channel.value === 'in-app' ? (notificationSettings.inAppEnabled ? "flex-end" : "flex-start") :
+                                 (notificationSettings.telegramEnabled ? "flex-end" : "flex-start"),
                         p: "2px",
                       }}
                     >
@@ -1754,7 +1804,7 @@ const Notifications = () => {
                 <Typography sx={{ color: C.text, fontWeight: 700, fontSize: "1.1rem" }}>Fréquence de vérification</Typography>
               </Box>
               <Typography sx={{ color: C.textMuted, fontSize: "0.85rem", mb: 2 }}>Définissez la fréquence à laquelle les alertes sont vérifiées</Typography>
-              
+
               <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", sm: "1fr 1fr" }, gap: 2 }}>
                 {scheduleOptions.map((option) => (
                   <Box
@@ -1785,7 +1835,7 @@ const Notifications = () => {
                   <Typography sx={{ color: C.text, fontWeight: 700, fontSize: "1.1rem" }}>Configuration email</Typography>
                 </Box>
                 <Typography sx={{ color: C.textMuted, fontSize: "0.85rem", mb: 3 }}>Ajoutez une ou plusieurs adresses email pour recevoir les notifications</Typography>
-                
+
                 <Box sx={{ display: "flex", gap: 1.5, alignItems: "flex-start" }}>
                   <TextField
                     fullWidth
@@ -1796,8 +1846,8 @@ const Notifications = () => {
                     placeholder="admin@example.com, manager@example.com"
                     helperText="Séparez par une virgule, un point-virgule ou un retour à la ligne."
                     sx={{
-                      "& .MuiOutlinedInput-root": { 
-                        color: C.text, 
+                      "& .MuiOutlinedInput-root": {
+                        color: C.text,
                         borderColor: C.border,
                         "& fieldset": { borderColor: C.border },
                         "&:hover fieldset": { borderColor: C.borderHi },
@@ -1847,16 +1897,65 @@ const Notifications = () => {
               </Box>
             )}
 
+            {/* Section Telegram */}
+            {notificationSettings.telegramEnabled && (
+              <Box sx={{ mb: 4, p: 3, bgcolor: C.surface, border: `1px solid ${C.borderHi}`, borderRadius: "12px", borderLeft: `3px solid #26A5E4` }}>
+                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: 2 }}>
+                  <TelegramIcon sx={{ color: '#26A5E4', fontSize: 24 }} />
+                  <Typography sx={{ color: C.text, fontWeight: 700, fontSize: "1.1rem" }}>Configuration Telegram</Typography>
+                </Box>
+                <Typography sx={{ color: C.textMuted, fontSize: "0.85rem", mb: 3 }}>
+                  Configurez votre bot Telegram pour recevoir les notifications
+                </Typography>
+
+                <TextField
+                  fullWidth
+                  label="ID du Chat Telegram"
+                  type="text"
+                  value={notificationSettings.telegramChatId}
+                  onChange={(e) => setNotificationSettings({ ...notificationSettings, telegramChatId: e.target.value })}
+                  placeholder="Ex: 123456789 ou @username"
+                  helperText="L'ID de votre chat Telegram pour recevoir les notifications"
+                  sx={{
+                    "& .MuiOutlinedInput-root": {
+                      color: C.text,
+                      borderColor: C.border,
+                      "& fieldset": { borderColor: C.border },
+                      "&:hover fieldset": { borderColor: C.borderHi },
+                      "&.Mui-focused fieldset": { borderColor: '#26A5E4' },
+                    },
+                    "& .MuiInputLabel-root": { color: C.textMuted },
+                  }}
+                  variant="outlined"
+                />
+
+                <Alert 
+                  severity="info" 
+                  sx={{ 
+                    mt: 2, 
+                    bgcolor: 'rgba(38,165,228,0.1)', 
+                    color: '#26A5E4',
+                    border: `1px solid rgba(38,165,228,0.3)`
+                  }}
+                >
+                  <Typography variant="caption">
+                    Pour obtenir votre ID de chat Telegram, envoyez un message à @BotFather pour créer un bot, 
+                    puis à @userinfobot pour obtenir votre ID utilisateur.
+                  </Typography>
+                </Alert>
+              </Box>
+            )}
+
             {/* Action buttons */}
             <Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end" }}>
               <Button
                 variant="outlined"
-                sx={{ 
-                  color: C.textMuted, 
-                  borderColor: C.border, 
-                  textTransform: "none", 
-                  fontWeight: 600, 
-                  fontSize: "0.85rem", 
+                sx={{
+                  color: C.textMuted,
+                  borderColor: C.border,
+                  textTransform: "none",
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
                   px: 3,
                   "&:hover": { borderColor: C.borderHi, bgcolor: C.accentDim }
                 }}
@@ -1867,16 +1966,16 @@ const Notifications = () => {
                 variant="contained"
                 startIcon={<SaveIcon sx={{ fontSize: "1rem" }} />}
                 onClick={handleSaveSettings}
-                sx={{ 
-                  bgcolor: C.accent, 
-                  color: "white", 
-                  textTransform: "none", 
-                  fontWeight: 600, 
-                  fontSize: "0.85rem", 
+                sx={{
+                  bgcolor: C.accent,
+                  color: "white",
+                  textTransform: "none",
+                  fontWeight: 600,
+                  fontSize: "0.85rem",
                   px: 3,
-                  borderRadius: "8px", 
-                  boxShadow: "none", 
-                  "&:hover": { bgcolor: "#2563eb", boxShadow: "none" } 
+                  borderRadius: "8px",
+                  boxShadow: "none",
+                  "&:hover": { bgcolor: "#2563eb", boxShadow: "none" }
                 }}
               >
                 Enregistrer
@@ -2026,6 +2125,35 @@ const Notifications = () => {
                       fontSize: "0.8rem",
                       fontWeight: 600,
                       "&:hover": { bgcolor: notificationForm.notification_type === opt.value ? "#2563eb" : C.borderHi },
+                    }}
+                  />
+                ))}
+              </Box>
+            </Box>
+
+            <Box>
+              <Typography sx={{ color: C.textMuted, fontSize: "0.75rem", fontWeight: 700, mb: 1, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                Niveau de priorité
+              </Typography>
+              <Box sx={{ display: "flex", gap: 1 }}>
+                {[
+                  { value: "critical", label: "Critique", color: "#ef4444" },
+                  { value: "high", label: "Haute", color: "#f97316" },
+                  { value: "medium", label: "Moyenne", color: "#3b82f6" },
+                  { value: "low", label: "Basse", color: "#10b981" },
+                ].map((opt) => (
+                  <Chip
+                    key={opt.value}
+                    label={opt.label}
+                    onClick={() => setNotificationForm({ ...notificationForm, priority: opt.value })}
+                    sx={{
+                      bgcolor: notificationForm.priority === opt.value ? opt.color : C.surfaceHi,
+                      color: notificationForm.priority === opt.value ? "white" : C.textMuted,
+                      border: `1px solid ${notificationForm.priority === opt.value ? opt.color : C.border}`,
+                      cursor: "pointer",
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      "&:hover": { bgcolor: notificationForm.priority === opt.value ? opt.color : C.borderHi },
                     }}
                   />
                 ))}

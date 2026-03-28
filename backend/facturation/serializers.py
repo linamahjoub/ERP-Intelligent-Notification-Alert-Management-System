@@ -31,11 +31,12 @@ class InvoiceSerializer(serializers.ModelSerializer):
     updated_by_name = serializers.CharField(source='updated_by.get_full_name', read_only=True)
     supplier_name = serializers.CharField(source='supplier.name', read_only=True)
     category_name = serializers.CharField(source='category.name', read_only=True)
+    order_id = serializers.IntegerField(source='order.id', read_only=True)
     
     class Meta:
         model = Invoice
         fields = [
-            'id', 'invoice_number', 'purchase_order_number', 'invoice_type', 'customer_name', 'customer_email',
+            'id', 'invoice_number', 'purchase_order_number', 'order_id', 'invoice_type', 'customer_name', 'customer_email',
             'customer_phone', 'customer_address', 'supplier', 'supplier_name', 'category', 'category_name',
             'currency', 'supplier_departure_date',
             'invoice_date', 'due_date', 'subtotal', 'tax_rate', 'tax_amount',
@@ -52,7 +53,7 @@ class InvoiceCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Invoice
         fields = [
-            'invoice_number', 'purchase_order_number', 'invoice_type', 'customer_name', 'customer_email',
+            'invoice_number', 'purchase_order_number', 'order', 'invoice_type', 'customer_name', 'customer_email',
             'customer_phone', 'customer_address', 'supplier', 'category', 'currency', 'supplier_departure_date', 'invoice_date',
             'due_date', 'subtotal', 'tax_rate', 'discount', 'status',
             'notes', 'terms', 'items'

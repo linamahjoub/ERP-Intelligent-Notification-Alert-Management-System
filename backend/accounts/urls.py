@@ -6,9 +6,16 @@ urlpatterns = [
     # ==================== AUTHENTIFICATION ====================
     path('register/', views.register_view, name='register'),
     path('login/', views.login_view, name='login'),
+    path('email-otp/verify/', views.email_otp_verify_view, name='email_otp_verify'),
+    path('email-otp/resend/', views.email_otp_resend_view, name='email_otp_resend'),
     path('logout/', views.logout_view, name='logout'),
     path('google-auth/', views.google_auth_view, name='google_auth'),
     path('google-oauth-callback/', views.google_oauth_callback_view, name='google_oauth_callback'),
+    path('telegram-auth/', views.telegram_auth_view, name='telegram_auth'),
+    path('telegram-login-init/', views.telegram_login_init, name='telegram_login_init'),
+    path('telegram-login-status/', views.telegram_login_status, name='telegram_login_status'),
+    path('telegram-send-code/', views.telegram_send_code, name='telegram_send_code'),
+    path('telegram-verify-otp/', views.telegram_verify_otp, name='telegram_verify_otp'),
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     
     # ==================== PROFIL UTILISATEUR ====================

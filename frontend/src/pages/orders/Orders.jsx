@@ -18,35 +18,29 @@ import {
   TableHead,
   TableRow,
   Chip,
-  TextField,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Alert,
   Snackbar,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Grid,
   Badge,
   Menu,
   Divider,
   Tooltip,
+  MenuItem,
+  CircularProgress,
 } from "@mui/material";
 import {
-  MoreVert as MoreVertIcon,
-  Search as SearchIcon,
   Add as AddIcon,
   Refresh as RefreshIcon,
   Menu as MenuIcon,
   ShoppingCart as ShoppingCartIcon,
-  Edit as EditIcon,
   Visibility as VisibilityIcon,
   Download as DownloadIcon,
   DescriptionOutlined as DescriptionIcon,
   Check as CheckIcon,
+  Search as SearchIcon,
 } from "@mui/icons-material";
 import { CiFilter } from "react-icons/ci";
 import SharedSidebar from "../../components/SharedSidebar";
@@ -58,7 +52,6 @@ const StatCard = ({ label, value, color, onClick }) => {
     const b = parseInt(hex.slice(5, 7), 16);
     return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   };
-
   return (
     <Card
       onClick={onClick}
@@ -78,7 +71,18 @@ const StatCard = ({ label, value, color, onClick }) => {
         },
       }}
     >
-      <CardContent sx={{ py: 2, px: 2.5, flex: 1, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center", textAlign: "center" }}>
+      <CardContent
+        sx={{
+          py: 2,
+          px: 2.5,
+          flex: 1,
+          display: "flex",
+          flexDirection: "column",
+          justifyContent: "center",
+          alignItems: "center",
+          textAlign: "center",
+        }}
+      >
         <Typography variant="body2" sx={{ color: "#94a3b8", mb: 0.5, fontSize: "0.85rem" }}>
           {label}
         </Typography>
@@ -93,12 +97,14 @@ const StatCard = ({ label, value, color, onClick }) => {
 const Orders = () => {
   const { user } = useAuth();
   const isAdmin = user?.is_staff || user?.is_superuser;
+  const canGenerateInvoice =
+    isAdmin || user?.role === "responsable_stock" || user?.role === "responsable_facturation";
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
-
   const [mobileOpen, setMobileOpen] = useState(false);
   const [orders, setOrders] = useState([]);
+  const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -110,6 +116,7 @@ const Orders = () => {
   const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
 
   const API_BASE = "http://localhost:8000/api/orders/orders/";
+  const PRODUCTS_API = "http://localhost:8000/api/stock/products/";
 
   const statusConfig = {
     pending: { label: "En attente", color: "#f59e0b" },
@@ -121,7 +128,6 @@ const Orders = () => {
     cancelled: { label: "Annulée", color: "#ef4444" },
   };
 
-  // Status filter options
   const statusOptions = [
     { value: "all", label: "Tous les statuts" },
     { value: "pending", label: "En attente" },
@@ -147,45 +153,113 @@ const Orders = () => {
     "&:hover": { bgcolor: "rgba(59,130,246,0.08)", color: "white" },
   });
 
+  // ✅ FONCTION: Calculer le stock restant
+  const getRemainingStockForProduct = (productId, currentOrderId) => {
+    const product = products.find((p) => p && p.id === productId);
+    if (!product) return 0;
+    const totalStock = Number(product.quantity) || 0;
+    const totalOrderedInAllOrders = (orders || [])
+      .filter((order) => order && order.id && order.status !== "cancelled")
+      .reduce((total, order) => {
+        const orderItems = order.items || [];
+        const productInOrder = orderItems.find(
+          (item) => item && (item.product_id === productId || item.product?.id === productId)
+        );
+        if (productInOrder) {
+          return total + (Number(productInOrder.quantity) || 0);
+        }
+        return total;
+      }, 0);
+    const remainingStock = Math.max(0, totalStock - totalOrderedInAllOrders);
+    return remainingStock;
+  };
+
   // Filtre les commandes
-  const filteredOrders = orders.filter((order) => {
+  const filteredOrders = (orders || []).filter((order) => {
     const matchesStatus = filterStatus === "all" || order.status === filterStatus;
     const matchesSearch =
       !searchQuery ||
       order.id.toString().includes(searchQuery) ||
-      (order.customer_name && order.customer_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (order.customer_email && order.customer_email.toLowerCase().includes(searchQuery.toLowerCase()));
+      (order.customer_name &&
+        order.customer_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (order.customer_email &&
+        order.customer_email.toLowerCase().includes(searchQuery.toLowerCase()));
     return matchesStatus && matchesSearch;
   });
-  const pendingOrdersCount = orders.filter((order) => order.status === "pending").length;
 
-  // Récupère les commandes
+  const pendingOrdersCount = (orders || []).filter((order) => order.status === "pending").length;
+
+  // ✅ Récupère les produits - UNITÉ FIXÉE
+  const fetchProducts = async () => {
+    try {
+      const token = localStorage.getItem("access_token");
+      const response = await fetch(PRODUCTS_API, {
+        headers: {
+          Authorization: token ? `Bearer ${token}` : undefined,
+          "Content-Type": "application/json",
+        },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        const items = Array.isArray(data) ? data : data.results || [];
+        const productsWithStock = items.map((product) => ({
+          ...product,
+          id: product.id || product.product_id,
+          quantity: Number(product.quantity) || 0,
+          sku: product.sku || product.nomenclature || "",
+          name: product.name || product.designation || "Produit",
+          // ✅ CORRECTION UNITÉ : gérer tous les noms possibles
+          unit: product.unit || product.unite || product.measurement_unit || product.unit_of_measure || "U",
+        }));
+        setProducts(productsWithStock);
+      }
+    } catch (error) {
+      console.error("Error fetching products:", error);
+    }
+  };
+
+  // ✅ Récupère les commandes
   const fetchOrders = async () => {
     try {
       setLoading(true);
       const token = localStorage.getItem("access_token");
-
-      // Si c'est un utilisateur normal, récupère ses propres commandes
       const url = isAdmin ? API_BASE : `${API_BASE}my_orders/`;
-
       const response = await fetch(url, {
         headers: {
           Authorization: token ? `Bearer ${token}` : undefined,
           "Content-Type": "application/json",
         },
       });
-
       if (!response.ok) {
         const errorText = await response.text();
         setErrorMessage(errorText || "Erreur lors du chargement des commandes");
+        setOrders([]);
         return;
       }
-
       const data = await response.json();
       const items = Array.isArray(data) ? data : data.results || [];
-      setOrders(items);
+      const ordersWithItems = items.map((order) => ({
+        ...order,
+        items: (order.items || []).map((item) => ({
+          ...item,
+          id: item.id || item.order_item_id,
+          product_id: item.product_id || item.product?.id,
+          quantity: Number(item.quantity) || 0,
+          unit_price: parseFloat(item.unit_price) || 0,
+        })),
+        customer_name:
+          order.customer?.full_name ||
+          order.customer_name ||
+          order.customer?.username ||
+          "Employé",
+        customer_email: order.customer?.email || order.customer_email || "",
+        item_count: order.items?.length || 0,
+      }));
+      setOrders(ordersWithItems);
     } catch (error) {
+      console.error("Error fetching orders:", error);
       setErrorMessage("Erreur réseau lors du chargement des commandes");
+      setOrders([]);
     } finally {
       setLoading(false);
     }
@@ -201,7 +275,6 @@ const Orders = () => {
           "Content-Type": "application/json",
         },
       });
-
       if (response.ok) {
         const data = await response.json();
         setStatistics(data);
@@ -211,9 +284,16 @@ const Orders = () => {
     }
   };
 
+  // ✅ useEffect - Charger les produits en premier
   useEffect(() => {
-    fetchOrders();
-    fetchStatistics();
+    setOrders([]);
+    setProducts([]);
+    const loadData = async () => {
+      await fetchProducts();
+      await fetchOrders();
+      await fetchStatistics();
+    };
+    loadData();
   }, []);
 
   const handleNewOrder = () => {
@@ -230,20 +310,41 @@ const Orders = () => {
           "Content-Type": "application/json",
         },
       });
-
       if (!response.ok) {
         const errorText = await response.text();
         setErrorMessage(errorText || "Erreur lors de la confirmation de la commande");
         return;
       }
-
       const updatedOrder = await response.json();
-      setOrders((prev) => prev.map((order) => (order.id === updatedOrder.id ? updatedOrder : order)));
+      setOrders((prev) =>
+        prev.map((order) =>
+          order.id === updatedOrder.id
+            ? {
+                ...updatedOrder,
+                items: (updatedOrder.items || []).map((item) => ({
+                  ...item,
+                  product_id: item.product_id || item.product?.id,
+                  quantity: Number(item.quantity) || 0,
+                })),
+                customer_name:
+                  updatedOrder.customer?.full_name || updatedOrder.customer_name,
+              }
+            : order
+        )
+      );
       if (selectedOrder?.id === updatedOrder.id) {
-        setSelectedOrder(updatedOrder);
+        setSelectedOrder({
+          ...updatedOrder,
+          items: (updatedOrder.items || []).map((item) => ({
+            ...item,
+            product_id: item.product_id || item.product?.id,
+            quantity: Number(item.quantity) || 0,
+          })),
+        });
       }
       setSuccessMessage(`Commande #${updatedOrder.id} confirmée avec succès`);
       fetchStatistics();
+      fetchOrders();
     } catch (error) {
       setErrorMessage("Erreur réseau lors de la confirmation de la commande");
     }
@@ -254,206 +355,145 @@ const Orders = () => {
     setOpenDetailsDialog(true);
   };
 
+  const handleGenerateInvoice = async (orderId) => {
+    try {
+      const token = localStorage.getItem("access_token");
+      const response = await fetch(`${API_BASE}${orderId}/generate_invoice/`, {
+        method: "POST",
+        headers: {
+          Authorization: token ? `Bearer ${token}` : undefined,
+          "Content-Type": "application/json",
+        },
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const blocked = Array.isArray(data.blocked_products) ? data.blocked_products : [];
+        if (blocked.length > 0) {
+          const details = blocked
+            .map(
+              (p) =>
+                `${p.product_name} (requis: ${p.required_quantity}, produit: ${p.produced_quantity})`
+            )
+            .join(" | ");
+          setErrorMessage(`Production incomplète: ${details}`);
+          return;
+        }
+        setErrorMessage(data.error || "Erreur lors de la génération de facture");
+        return;
+      }
+      setSuccessMessage(`Facture ${data.invoice_number} générée avec succès`);
+      navigate("/facturation");
+    } catch (error) {
+      setErrorMessage("Erreur réseau lors de la génération de facture");
+    }
+  };
+
   const handleCloseDetails = () => {
     setOpenDetailsDialog(false);
     setSelectedOrder(null);
   };
 
+  // ✅ handleExportPDF - UNITÉ FIXÉE
   const handleExportPDF = () => {
     if (!selectedOrder) return;
-
-    // Create formatted HTML for PDF
+    const orderId = selectedOrder.id ?? "-";
+    const orderDate = selectedOrder.created_at
+      ? new Date(selectedOrder.created_at).toLocaleDateString("fr-FR")
+      : "-";
+    const customerName =
+      selectedOrder.customer?.full_name || selectedOrder.customer_name || "-";
+    const items = Array.isArray(selectedOrder.items) ? selectedOrder.items : [];
     const htmlContent = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="UTF-8">
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              margin: 20px;
-              color: #333;
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 30px;
-              border-bottom: 2px solid #3b82f6;
-              padding-bottom: 20px;
-            }
-            .header h1 {
-              margin: 0;
-              color: #1976d2;
-            }
-            .order-id {
-              font-size: 14px;
-              color: #666;
-              margin-top: 5px;
-            }
-            .section {
-              margin-bottom: 25px;
-            }
-            .section-title {
-              font-weight: bold;
-              font-size: 14px;
-              color: #1976d2;
-              margin-bottom: 10px;
-              border-bottom: 1px solid #ddd;
-              padding-bottom: 5px;
-            }
-            .info-row {
-              display: flex;
-              margin-bottom: 8px;
-            }
-            .label {
-              font-weight: bold;
-              width: 150px;
-              color: #555;
-            }
-            .value {
-              flex: 1;
-              color: #333;
-            }
-            .status-badge {
-              display: inline-block;
-              padding: 4px 8px;
-              border-radius: 4px;
-              font-size: 12px;
-              font-weight: bold;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-top: 10px;
-            }
-            th {
-              background-color: #f5f5f5;
-              border: 1px solid #ddd;
-              padding: 8px;
-              text-align: left;
-              font-weight: bold;
-              color: #333;
-            }
-            td {
-              border: 1px solid #ddd;
-              padding: 8px;
-              color: #333;
-            }
-            .total-row {
-              font-weight: bold;
-              background-color: #f9f9f9;
-            }
-            .footer {
-              margin-top: 30px;
-              text-align: center;
-              font-size: 12px;
-              color: #999;
-              border-top: 1px solid #ddd;
-              padding-top: 20px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>Commande</h1>
-            <div class="order-id">Commande #${selectedOrder.id}</div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Informations de la Commande</div>
-            <div class="info-row">
-              <span class="label">Numéro de commande:</span>
-              <span class="value">${selectedOrder.id}</span>
-            </div>
-            <div class="info-row">
-              <span class="label">Client:</span>
-              <span class="value">${selectedOrder.customer_name}</span>
-            </div>
-            <div class="info-row">
-              <span class="label">Email:</span>
-              <span class="value">${selectedOrder.customer_email}</span>
-            </div>
-            <div class="info-row">
-              <span class="label">Status:</span>
-              <span class="value">
-                <span class="status-badge" style="background-color: ${statusConfig[selectedOrder.status]?.color}20; color: ${statusConfig[selectedOrder.status]?.color};">
-                  ${statusConfig[selectedOrder.status]?.label || selectedOrder.status}
-                </span>
-              </span>
-            </div>
-            <div class="info-row">
-              <span class="label">Date de création:</span>
-              <span class="value">${new Date(selectedOrder.created_at).toLocaleDateString("fr-FR", {
-                year: "numeric",
-                month: "long",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}</span>
-            </div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Adresse de Livraison</div>
-            <div class="info-row">
-              <span class="value" style="white-space: pre-wrap;">${selectedOrder.shipping_address}</span>
-            </div>
-            <div class="info-row">
-              <span class="label">Méthode de livraison:</span>
-              <span class="value">${selectedOrder.shipping_method || "Non spécifiée"}</span>
-            </div>
-          </div>
-
-          <div class="section">
-            <div class="section-title">Détail des Articles</div>
-            <table>
-              <thead>
-                <tr>
-                  <th>Produit</th>
-                  <th style="width: 80px; text-align: center;">Quantité</th>
-                  <th style="width: 100px; text-align: right;">Prix unitaire</th>
-                  <th style="width: 100px; text-align: right;">Sous-total</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${selectedOrder.items?.map((item) => `
-                  <tr>
-                    <td>${item.product?.name || "Produit supprimé"}</td>
-                    <td style="text-align: center;">${item.quantity}</td>
-                    <td style="text-align: right;">${parseFloat(item.unit_price).toFixed(2)} €</td>
-                    <td style="text-align: right;">${(item.quantity * parseFloat(item.unit_price)).toFixed(2)} €</td>
-                  </tr>
-                `).join("")}
-                <tr class="total-row">
-                  <td colspan="3" style="text-align: right;">Montant Total:</td>
-                  <td style="text-align: right;">${parseFloat(selectedOrder.total_amount).toFixed(2)} €</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          ${selectedOrder.notes ? `
-            <div class="section">
-              <div class="section-title">Notes</div>
-              <div class="info-row">
-                <span class="value" style="white-space: pre-wrap;">${selectedOrder.notes}</span>
-              </div>
-            </div>
-          ` : ""}
-
-          <div class="footer">
-            <p>Document généré le ${new Date().toLocaleDateString("fr-FR", {
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}</p>
-          </div>
-        </body>
-      </html>
-    `;
-
-    // Open in new window and print to PDF
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Bon de Commande #${orderId}</title>
+<style>
+body { font-family: 'Segoe UI', Arial, sans-serif; background: #fff; color: #222; margin: 0; padding: 0; }
+.bon-container { max-width: 900px; margin: 30px auto; background: #fff; border: 1.5px solid #e0e0e0; border-radius: 10px; box-shadow: 0 2px 12px #0001; padding: 32px 40px; }
+.bon-header { display: flex; align-items: flex-start; justify-content: space-between; border-bottom: 2px solid #3b82f6; padding-bottom: 18px; margin-bottom: 18px; }
+.bon-logo { width: 90px; height: 90px; object-fit: contain; border-radius: 50%; background: #f3f4f6; border: 1px solid #e5e7eb; }
+.bon-title { flex: 1; text-align: center; font-size: 2.1rem; font-weight: 700; color: #3b82f6; letter-spacing: 2px; margin-top: 18px; }
+.bon-info { font-size: 0.98rem; color: #374151; margin-top: 8px; }
+.bon-table { width: 100%; border-collapse: collapse; margin-top: 24px; margin-bottom: 18px; }
+.bon-table th, .bon-table td { border: 1px solid #cbd5e1; padding: 10px 8px; text-align: left; font-size: 1rem; }
+.bon-table th { background: #f1f5f9; color: #2563eb; font-weight: 600; }
+.bon-signature { margin-top: 40px; display: flex; justify-content: flex-end; align-items: center; gap: 40px; }
+.bon-signature-block { text-align: center; }
+.bon-signature-label { color: #64748b; font-size: 0.95rem; margin-bottom: 18px; display: block; }
+@media print { .bon-container { box-shadow: none; border: none; padding: 0; } }
+</style>
+</head>
+<body>
+<div class="bon-container">
+<div class="bon-header">
+<img src="${window.location.origin}/notif.png" alt="Logo" class="bon-logo" />
+<div class="bon-title">Bon de Commande</div>
+<div class="bon-info">
+<div><strong>Date :</strong> ${orderDate}</div>
+<div><strong>N° :</strong> CMD-${orderId}</div>
+<div><strong>Employé :</strong> ${customerName}</div>
+</div>
+</div>
+<table class="bon-table">
+<thead>
+<tr>
+<th>Nomenclature</th>
+<th>Désignation</th>
+<th>Unité</th>
+<th>Qté demandé</th>
+<th>Prix unitaire</th>
+<th>Qté restante</th>
+</tr>
+</thead>
+<tbody>
+${
+  items && items.length > 0
+    ? items
+        .map((item, idx) => {
+          const product = products.find(
+            (p) => p && p.id === (item.product_id || item.product?.id)
+          );
+          const nomenclature =
+            product?.sku || product?.nomenclature || `PROD-${idx + 1}`;
+          const designation = product?.name || "Produit";
+          // ✅ CORRECTION UNITÉ
+          const unite = product?.unit || product?.unite || product?.measurement_unit || "-";
+          const quantite = Number(item.quantity) || 0;
+          const prixUnitaire = parseFloat(item.unit_price) || 0;
+          const stockDisponible = product?.quantity || 0;
+          const quantiteRestante = Math.max(0, stockDisponible - quantite);
+          return `
+<tr>
+<td>${nomenclature}</td>
+<td>${designation}</td>
+<td>${unite}</td>
+<td style="text-align: center;">${quantite}</td>
+<td style="text-align: right;">${prixUnitaire.toLocaleString("fr-FR", {
+            minimumFractionDigits: 2,
+          })} €</td>
+<td style="text-align: right; color: ${
+            quantiteRestante > 0 ? "#10b981" : "#ef4444"
+          }; font-weight: 600;">${quantiteRestante}</td>
+</tr>
+`;
+        })
+        .join("")
+    : `<tr><td colspan='6' style='text-align:center;'>Aucun article</td></tr>`
+}
+</tbody>
+</table>
+<div class="bon-signature">
+<div class="bon-signature-block">
+<span class="bon-signature-label">Signature et Cachet</span>
+<div style="width:150px;height:60px;border:1px dashed #cbd5e1;border-radius:5px;"></div>
+</div>
+</div>
+</div>
+</body>
+</html>
+`;
     const printWindow = window.open("", "", "height=600,width=800");
     printWindow.document.write(htmlContent);
     printWindow.document.close();
@@ -472,26 +512,36 @@ const Orders = () => {
       ]
     : [];
 
-  const inputSx = {
-    "& .MuiOutlinedInput-root": {
-      color: "#94a3b8",
-      "& fieldset": { borderColor: "rgba(59,130,246,0.2)" },
-      "&:hover fieldset": { borderColor: "rgba(59,130,246,0.4)" },
-      "&.Mui-focused fieldset": { borderColor: "#3b82f6" },
-      bgcolor: "rgba(59,130,246,0.05)",
-      borderRadius: "10px",
-    },
-    "& .MuiInputLabel-root": { color: "#64748b" },
-    "& .MuiInputLabel-root.Mui-focused": { color: "#3b82f6" },
-  };
+  if (loading && orders.length === 0) {
+    return (
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          height: "100vh",
+          bgcolor: "black",
+        }}
+      >
+        <CircularProgress sx={{ color: "#3b82f6" }} />
+      </Box>
+    );
+  }
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "black", overflow: "hidden", position: "relative" }}>
+    <Box
+      sx={{
+        display: "flex",
+        minHeight: "100vh",
+        bgcolor: "black",
+        overflow: "hidden",
+        position: "relative",
+      }}
+    >
       <SharedSidebar
         mobileOpen={mobileOpen}
         onMobileClose={() => setMobileOpen(!mobileOpen)}
       />
-
       <Box
         component="main"
         sx={{
@@ -530,7 +580,13 @@ const Orders = () => {
                 {user?.is_superuser ? "Administrateur" : "Utilisateur"}
               </Typography>
             </Box>
-            <Avatar sx={{ width: 40, height: 40, bgcolor: user?.is_superuser ? "#ef4444" : "#3b82f6" }}>
+            <Avatar
+              sx={{
+                width: 40,
+                height: 40,
+                bgcolor: user?.is_superuser ? "#ef4444" : "#3b82f6",
+              }}
+            >
               {user?.first_name?.charAt(0) || user?.username?.charAt(0) || "U"}
             </Avatar>
           </Box>
@@ -553,9 +609,7 @@ const Orders = () => {
                 Commandes
               </Typography>
               <Typography variant="body2" sx={{ color: "#64748b" }}>
-                {isAdmin
-                  ? "Gérez toutes les commandes"
-                  : "Consultez vos commandes"}
+                {isAdmin ? "Gérez toutes les commandes" : "Consultez vos commandes"}
               </Typography>
             </Box>
             <Box sx={{ display: "flex", gap: 1.5 }}>
@@ -600,13 +654,24 @@ const Orders = () => {
             <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
               {statCards.map((s) => (
                 <Box key={s.label} sx={{ flex: "1 1 0", minWidth: 150 }}>
-                  <StatCard label={s.label} value={s.value} color={s.color} />
+                  <StatCard
+                    label={s.label}
+                    value={s.value}
+                    color={s.color}
+                    onClick={() => {
+                      if (s.label === "En attente") setFilterStatus("pending");
+                      else if (s.label === "Confirmées") setFilterStatus("confirmed");
+                      else if (s.label === "Livrées") setFilterStatus("delivered");
+                      else if (s.label === "Annulées") setFilterStatus("cancelled");
+                      else setFilterStatus("all");
+                    }}
+                  />
                 </Box>
               ))}
             </Box>
           )}
 
-          {/* Pending confirmation panel (admin) */}
+          {/* Pending confirmation panel */}
           {isAdmin && pendingOrdersCount > 0 && (
             <Card
               sx={{
@@ -616,7 +681,14 @@ const Orders = () => {
                 borderRadius: 3,
               }}
             >
-              <CardContent sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2 }}>
+              <CardContent
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 2,
+                }}
+              >
                 <Box>
                   <Typography sx={{ color: "#f59e0b", fontWeight: 700 }}>
                     Commandes en attente de confirmation
@@ -636,14 +708,21 @@ const Orders = () => {
                     "&:hover": { bgcolor: "#d97706" },
                   }}
                 >
-                  Voir les commandes à confirmer
+                  Voir les commandes
                 </Button>
               </CardContent>
             </Card>
           )}
 
-          {/* Filter icon + Search bar */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, mb: activeFiltersCount > 0 ? 1.5 : 3 }}>
+          {/* Filter + Search */}
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              gap: 1.5,
+              mb: activeFiltersCount > 0 ? 1.5 : 3,
+            }}
+          >
             <Tooltip title="Filtres avancés">
               <Badge
                 badgeContent={activeFiltersCount}
@@ -661,8 +740,14 @@ const Orders = () => {
                   onClick={(e) => setFilterAnchorEl(e.currentTarget)}
                   sx={{
                     color: activeFiltersCount > 0 ? "#3b82f6" : "#64748b",
-                    bgcolor: activeFiltersCount > 0 ? "rgba(59,130,246,0.15)" : "rgba(59,130,246,0.05)",
-                    border: activeFiltersCount > 0 ? "1px solid rgba(59,130,246,0.4)" : "1px solid rgba(59,130,246,0.15)",
+                    bgcolor:
+                      activeFiltersCount > 0
+                        ? "rgba(59,130,246,0.15)"
+                        : "rgba(59,130,246,0.05)",
+                    border:
+                      activeFiltersCount > 0
+                        ? "1px solid rgba(59,130,246,0.4)"
+                        : "1px solid rgba(59,130,246,0.15)",
                     borderRadius: "10px",
                     width: 44,
                     height: 44,
@@ -674,7 +759,6 @@ const Orders = () => {
                 </IconButton>
               </Badge>
             </Tooltip>
-
             <Box sx={{ flex: 1, position: "relative" }}>
               <SearchIcon
                 sx={{
@@ -688,7 +772,7 @@ const Orders = () => {
               />
               <input
                 type="text"
-                placeholder="Rechercher par ID, client..."
+                placeholder="Rechercher par ID, Employé..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
@@ -708,7 +792,15 @@ const Orders = () => {
 
           {/* Active filter chips */}
           {activeFiltersCount > 0 && (
-            <Box sx={{ display: "flex", gap: 1, mb: 2.5, flexWrap: "wrap", alignItems: "center" }}>
+            <Box
+              sx={{
+                display: "flex",
+                gap: 1,
+                mb: 2.5,
+                flexWrap: "wrap",
+                alignItems: "center",
+              }}
+            >
               {filterStatus !== "all" && (
                 <Chip
                   label={statusOptions.find((s) => s.value === filterStatus)?.label}
@@ -745,10 +837,11 @@ const Orders = () => {
               bgcolor: "rgba(30,41,59,0.5)",
               border: "1px solid rgba(59,130,246,0.1)",
               borderRadius: 3,
+              overflow: "auto",
             }}
           >
             <TableContainer>
-              <Table>
+              <Table stickyHeader>
                 <TableHead>
                   <TableRow
                     sx={{
@@ -756,91 +849,220 @@ const Orders = () => {
                       borderBottom: "1px solid rgba(59,130,246,0.1)",
                     }}
                   >
-                    {["ID", "Client", "Email", "Statut", "Montant", "Articles", "Date", "Actions"].map((h, i) => (
-                      <TableCell
-                        key={h}
-                        align={i >= 3 && i <= 5 ? "center" : "left"}
-                        sx={{
-                          color: "#94a3b8",
-                          fontWeight: 600,
-                          borderBottom: "none",
-                          fontSize: "0.85rem",
-                        }}
-                      >
-                        {h}
-                      </TableCell>
-                    ))}
+                    <TableCell
+                      sx={{
+                        color: "#94a3b8",
+                        fontWeight: 600,
+                        borderBottom: "none",
+                        fontSize: "0.85rem",
+                        backgroundColor: "rgba(30,41,59,0.9)",
+                      }}
+                    >
+                      Nomenclature
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color: "#94a3b8",
+                        fontWeight: 600,
+                        borderBottom: "none",
+                        fontSize: "0.85rem",
+                        backgroundColor: "rgba(30,41,59,0.9)",
+                      }}
+                    >
+                      Désignation
+                    </TableCell>
+                    <TableCell
+                      sx={{
+                        color: "#94a3b8",
+                        fontWeight: 600,
+                        borderBottom: "none",
+                        fontSize: "0.85rem",
+                        backgroundColor: "rgba(30,41,59,0.9)",
+                      }}
+                    >
+                      Unité
+                    </TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{
+                        color: "#94a3b8",
+                        fontWeight: 600,
+                        borderBottom: "none",
+                        fontSize: "0.85rem",
+                        backgroundColor: "rgba(30,41,59,0.9)",
+                      }}
+                    >
+                      Qté demandé
+                    </TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{
+                        color: "#94a3b8",
+                        fontWeight: 600,
+                        borderBottom: "none",
+                        fontSize: "0.85rem",
+                        backgroundColor: "rgba(30,41,59,0.9)",
+                      }}
+                    >
+                      Prix unitaire
+                    </TableCell>
+                    <TableCell
+                      align="right"
+                      sx={{
+                        color: "#94a3b8",
+                        fontWeight: 600,
+                        borderBottom: "none",
+                        fontSize: "0.85rem",
+                        backgroundColor: "rgba(30,41,59,0.9)",
+                      }}
+                    >
+                      Qté restante
+                    </TableCell>
+                    <TableCell
+                      align="center"
+                      sx={{
+                        color: "#94a3b8",
+                        fontWeight: 600,
+                        borderBottom: "none",
+                        fontSize: "0.85rem",
+                        backgroundColor: "rgba(30,41,59,0.9)",
+                      }}
+                    >
+                      Actions
+                    </TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {filteredOrders.length > 0 ? (
-                    filteredOrders.map((order) => (
-                      <TableRow
-                        key={order.id}
-                        sx={{
-                          borderBottom: "1px solid rgba(59,130,246,0.1)",
-                          "&:hover": { bgcolor: "rgba(59,130,246,0.05)" },
-                        }}
-                      >
-                        <TableCell sx={{ color: "white", fontWeight: 600 }}>
-                          #{order.id}
-                        </TableCell>
-                        <TableCell sx={{ color: "#94a3b8", fontSize: "0.875rem" }}>
-                          {order.customer_name}
-                        </TableCell>
-                        <TableCell sx={{ color: "#64748b", fontSize: "0.875rem" }}>
-                          {order.customer_email}
-                        </TableCell>
-                        <TableCell align="center">
-                          <Chip
-                            label={statusConfig[order.status]?.label || order.status}
-                            size="small"
-                            sx={{
-                              bgcolor: `${statusConfig[order.status]?.color || "#94a3b8"}20`,
-                              color: statusConfig[order.status]?.color || "#94a3b8",
-                              fontWeight: 600,
-                              fontSize: "0.75rem",
-                              border: `1px solid ${statusConfig[order.status]?.color || "#94a3b8"}40`,
-                            }}
-                          />
-                        </TableCell>
-                        <TableCell align="center" sx={{ color: "white", fontWeight: 600 }}>
-                          {parseFloat(order.total_amount).toFixed(2)} €
-                        </TableCell>
-                        <TableCell align="center" sx={{ color: "#94a3b8" }}>
-                          {order.item_count}
-                        </TableCell>
-                        <TableCell sx={{ color: "#64748b", fontSize: "0.875rem" }}>
-                          {new Date(order.created_at).toLocaleDateString("fr-FR")}
-                        </TableCell>
-                        <TableCell align="center">
-                          {isAdmin && order.status === "pending" && (
-                            <IconButton
-                              size="small"
-                              onClick={() => handleConfirmOrder(order.id)}
-                              sx={{ color: "#10b981", mr: 0.5, "&:hover": { color: "#059669" } }}
-                              title="Confirmer la commande"
-                            >
-                              <CheckIcon fontSize="small" />
-                            </IconButton>
-                          )}
-                          <IconButton
-                            size="small"
-                            onClick={() => handleViewOrder(order)}
-                            sx={{ color: "#3b82f6", "&:hover": { color: "#2563eb" } }}
-                          >
-                            <VisibilityIcon fontSize="small" />
-                          </IconButton>
-                        </TableCell>
-                      </TableRow>
-                    ))
+                  {(orders || []).length > 0 && filteredOrders.length > 0 ? (
+                    filteredOrders.flatMap((order) =>
+                      order.items && order.items.length > 0
+                        ? order.items.map((item, itemIndex) => {
+                            const productId = item.product_id || item.product?.id;
+                            const product = products.find((p) => p && p.id === productId);
+                            const nomenclature =
+                              product?.sku ||
+                              product?.nomenclature ||
+                              `PROD-${item.id || itemIndex + 1}`;
+                            const designation = product?.name || "Produit";
+                            // ✅ CORRECTION UNITÉ
+                            const unite = product?.unit || product?.unite || product?.measurement_unit || "-";
+                            const quantite = Number(item.quantity) || 0;
+                            const prixUnitaire = parseFloat(item.unit_price) || 0;
+                            const quantiteRestante = getRemainingStockForProduct(
+                              productId,
+                              order.id
+                            );
+                            return (
+                              <TableRow
+                                key={`${order.id}-${item.id || itemIndex}`}
+                                sx={{
+                                  borderBottom: "1px solid rgba(59,130,246,0.1)",
+                                  "&:hover": { bgcolor: "rgba(59,130,246,0.05)" },
+                                }}
+                              >
+                                <TableCell sx={{ color: "#94a3b8", fontSize: "0.85rem" }}>
+                                  <Box>
+                                    <Typography
+                                      sx={{
+                                        color: "white",
+                                        fontWeight: 600,
+                                        fontSize: "0.85rem",
+                                      }}
+                                    >
+                                      {nomenclature}
+                                    </Typography>
+                                    <Typography
+                                      sx={{ color: "#64748b", fontSize: "0.75rem" }}
+                                    >
+                                      Cmd #{order.id}
+                                    </Typography>
+                                  </Box>
+                                </TableCell>
+                                <TableCell
+                                  sx={{
+                                    color: "white",
+                                    fontSize: "0.85rem",
+                                    fontWeight: 500,
+                                  }}
+                                >
+                                  {designation}
+                                </TableCell>
+                                <TableCell
+                                  sx={{ color: "#64748b", fontSize: "0.85rem" }}
+                                >
+                                  {unite}
+                                </TableCell>
+                                <TableCell
+                                  align="right"
+                                  sx={{ color: "#94a3b8", fontSize: "0.85rem" }}
+                                >
+                                  {quantite}
+                                </TableCell>
+                                <TableCell
+                                  align="right"
+                                  sx={{ color: "#94a3b8", fontSize: "0.85rem" }}
+                                >
+                                  {prixUnitaire.toLocaleString("fr-FR", {
+                                    minimumFractionDigits: 2,
+                                  })}{" "}
+                                  €
+                                </TableCell>
+                                <TableCell
+                                  align="right"
+                                  sx={{
+                                    color: quantiteRestante > 0 ? "#10b981" : "#ef4444",
+                                    fontSize: "0.85rem",
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  {quantiteRestante}
+                                </TableCell>
+                                <TableCell align="center">
+                                  <Tooltip title="Voir détails">
+                                    <IconButton
+                                      size="small"
+                                      onClick={() => handleViewOrder(order)}
+                                      sx={{ color: "#3b82f6" }}
+                                    >
+                                      <VisibilityIcon fontSize="small" />
+                                    </IconButton>
+                                  </Tooltip>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })
+                        : [
+                            <TableRow key={order.id}>
+                              <TableCell colSpan={7} sx={{ border: "none" }}>
+                                <Box sx={{ textAlign: "center", py: 2 }}>
+                                  <Typography sx={{ color: "#64748b" }}>
+                                    Commande #{order.id} - Aucun article
+                                  </Typography>
+                                  <Button
+                                    size="small"
+                                    onClick={() => handleViewOrder(order)}
+                                    sx={{ mt: 1, color: "#3b82f6" }}
+                                  >
+                                    Voir détails
+                                  </Button>
+                                </Box>
+                              </TableCell>
+                            </TableRow>,
+                          ]
+                    )
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={8} sx={{ border: "none" }}>
+                      <TableCell colSpan={7} sx={{ border: "none" }}>
                         <Box sx={{ textAlign: "center", py: 6 }}>
-                          <ShoppingCartIcon sx={{ fontSize: 64, color: "rgba(255,255,255,0.1)", mb: 2 }} />
+                          <ShoppingCartIcon
+                            sx={{
+                              fontSize: 64,
+                              color: "rgba(255,255,255,0.1)",
+                              mb: 2,
+                            }}
+                          />
                           <Typography variant="h6" sx={{ color: "white", mb: 1 }}>
-                            Aucune commande trouvée
+                            {loading ? "Chargement..." : "Aucune commande trouvée"}
                           </Typography>
                           <Typography sx={{ color: "#64748b" }}>
                             {searchQuery || filterStatus !== "all"
@@ -862,7 +1084,7 @@ const Orders = () => {
       <Dialog
         open={openDetailsDialog}
         onClose={handleCloseDetails}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
         PaperProps={{
           sx: {
@@ -872,91 +1094,252 @@ const Orders = () => {
           },
         }}
       >
-        <DialogTitle sx={{ color: "white", fontWeight: 700, borderBottom: "1px solid rgba(59,130,246,0.1)" }}>
+        <DialogTitle
+          sx={{
+            color: "white",
+            fontWeight: 700,
+            borderBottom: "1px solid rgba(59,130,246,0.1)",
+          }}
+        >
           Détails Commande #{selectedOrder?.id}
         </DialogTitle>
-        <DialogContent sx={{ pt: 3, display: "flex", flexDirection: "column", gap: 2 }}>
+        <DialogContent
+          sx={{
+            pt: 3,
+            display: "flex",
+            flexDirection: "column",
+            gap: 2,
+          }}
+        >
           {selectedOrder && (
             <>
-              <div>
-                <Typography variant="body2" sx={{ color: "#64748b", mb: 1 }}>
-                  Client
-                </Typography>
-                <Typography sx={{ color: "white", fontWeight: 600 }}>
-                  {selectedOrder.customer_name}
-                </Typography>
-              </div>
-
-              <div>
-                <Typography variant="body2" sx={{ color: "#64748b", mb: 1 }}>
-                  Statut
-                </Typography>
-                <Chip
-                  label={statusConfig[selectedOrder.status]?.label}
-                  sx={{
-                    bgcolor: `${statusConfig[selectedOrder.status]?.color}20`,
-                    color: statusConfig[selectedOrder.status]?.color,
-                    fontWeight: 600,
-                  }}
-                />
-              </div>
-
-              <div>
-                <Typography variant="body2" sx={{ color: "#64748b", mb: 1 }}>
-                  Montant Total
-                </Typography>
-                <Typography sx={{ color: "white", fontWeight: 600, fontSize: "1.2rem" }}>
-                  {parseFloat(selectedOrder.total_amount).toFixed(2)} €
-                </Typography>
-              </div>
-
-              <div>
-                <Typography variant="body2" sx={{ color: "#64748b", mb: 1 }}>
-                  Adresse de livraison
-                </Typography>
-                <Typography sx={{ color: "#94a3b8", fontSize: "0.85rem" }}>
-                  {selectedOrder.shipping_address || "Non spécifiée"}
-                </Typography>
-              </div>
-
-              <div>
-                <Typography variant="body2" sx={{ color: "#64748b", mb: 1 }}>
-                  Articles ({selectedOrder.item_count})
-                </Typography>
-                <Box sx={{ bgcolor: "rgba(59,130,246,0.05)", p: 1.5, borderRadius: 1 }}>
-                  {selectedOrder.items && selectedOrder.items.length > 0 ? (
-                    selectedOrder.items.map((item) => (
-                      <Box key={item.id} sx={{ display: "flex", justifyContent: "space-between", color: "#94a3b8", fontSize: "0.85rem", mb: 1 }}>
-                        <span>
-                          {item.product.name} x{item.quantity}
-                        </span>
-                        <span>{(Number(item.subtotal) || 0).toFixed(2)} €</span>
-                      </Box>
-                    ))
-                  ) : (
-                    <Typography sx={{ color: "#64748b" }}>Aucun article</Typography>
-                  )}
+              <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="body2" sx={{ color: "#64748b", mb: 1 }}>
+                    Employé
+                  </Typography>
+                  <Typography sx={{ color: "white", fontWeight: 600 }}>
+                    {selectedOrder.customer?.full_name ||
+                      selectedOrder.customer_name ||
+                      "N/A"}
+                  </Typography>
                 </Box>
-              </div>
-
-              <div>
-                <Typography variant="body2" sx={{ color: "#64748b", mb: 1 }}>
-                  Date de création
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="body2" sx={{ color: "#64748b", mb: 1 }}>
+                    Statut
+                  </Typography>
+                  <Chip
+                    label={
+                      statusConfig[selectedOrder.status]?.label ||
+                      selectedOrder.status
+                    }
+                    sx={{
+                      bgcolor: `${
+                        statusConfig[selectedOrder.status]?.color || "#64748b"
+                      }20`,
+                      color: statusConfig[selectedOrder.status]?.color || "#64748b",
+                      fontWeight: 600,
+                    }}
+                  />
+                </Box>
+              </Box>
+              <Box>
+                <Typography
+                  variant="body2"
+                  sx={{ color: "#64748b", mb: 2, fontWeight: 600 }}
+                >
+                  Articles de la commande ({selectedOrder.items?.length || 0})
                 </Typography>
-                <Typography sx={{ color: "#94a3b8", fontSize: "0.85rem" }}>
-                  {new Date(selectedOrder.created_at).toLocaleDateString("fr-FR", {
-                    year: "numeric",
-                    month: "long",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </Typography>
-              </div>
+                <TableContainer
+                  sx={{
+                    bgcolor: "rgba(59,130,246,0.05)",
+                    borderRadius: 1,
+                    border: "1px solid rgba(59,130,246,0.1)",
+                  }}
+                >
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: "rgba(59,130,246,0.1)" }}>
+                        <TableCell
+                          sx={{
+                            color: "#3b82f6",
+                            fontWeight: 600,
+                            fontSize: "0.85rem",
+                          }}
+                        >
+                          Nomenclature
+                        </TableCell>
+                        <TableCell
+                          sx={{
+                            color: "#3b82f6",
+                            fontWeight: 600,
+                            fontSize: "0.85rem",
+                          }}
+                        >
+                          Désignation
+                        </TableCell>
+                        <TableCell
+                          align="center"
+                          sx={{
+                            color: "#3b82f6",
+                            fontWeight: 600,
+                            fontSize: "0.85rem",
+                          }}
+                        >
+                          Unité
+                        </TableCell>
+                        <TableCell
+                          align="center"
+                          sx={{
+                            color: "#3b82f6",
+                            fontWeight: 600,
+                            fontSize: "0.85rem",
+                          }}
+                        >
+                          Qté demandé
+                        </TableCell>
+                        <TableCell
+                          align="right"
+                          sx={{
+                            color: "#3b82f6",
+                            fontWeight: 600,
+                            fontSize: "0.85rem",
+                          }}
+                        >
+                          Prix unitaire
+                        </TableCell>
+                        <TableCell
+                          align="right"
+                          sx={{
+                            color: "#3b82f6",
+                            fontWeight: 600,
+                            fontSize: "0.85rem",
+                          }}
+                        >
+                          Qté restante
+                        </TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {selectedOrder.items && selectedOrder.items.length > 0 ? (
+                        selectedOrder.items.map((item, idx) => {
+                          const productId = item.product_id || item.product?.id;
+                          const product = products.find((p) => p && p.id === productId);
+                          const nomenclature =
+                            product?.sku ||
+                            product?.nomenclature ||
+                            `PROD-${idx + 1}`;
+                          const designation = product?.name || "Produit";
+                          // ✅ CORRECTION UNITÉ
+                          const unite = product?.unit || product?.unite || product?.measurement_unit || "-";
+                          const quantite = Number(item.quantity) || 0;
+                          const prixUnitaire = parseFloat(item.unit_price) || 0;
+                          const quantiteRestante = getRemainingStockForProduct(
+                            productId,
+                            selectedOrder.id
+                          );
+                          return (
+                            <TableRow
+                              key={item.id || idx}
+                              sx={{ "&:hover": { bgcolor: "rgba(59,130,246,0.05)" } }}
+                            >
+                              <TableCell
+                                sx={{ color: "#94a3b8", fontSize: "0.85rem" }}
+                              >
+                                {nomenclature}
+                              </TableCell>
+                              <TableCell
+                                sx={{
+                                  color: "white",
+                                  fontSize: "0.85rem",
+                                  fontWeight: 500,
+                                }}
+                              >
+                                {designation}
+                              </TableCell>
+                              <TableCell
+                                align="center"
+                                sx={{ color: "#64748b", fontSize: "0.85rem" }}
+                              >
+                                {unite}
+                              </TableCell>
+                              <TableCell
+                                align="center"
+                                sx={{ color: "#94a3b8", fontSize: "0.85rem" }}
+                              >
+                                {quantite}
+                              </TableCell>
+                              <TableCell
+                                align="right"
+                                sx={{ color: "#94a3b8", fontSize: "0.85rem" }}
+                              >
+                                {prixUnitaire.toLocaleString("fr-FR", {
+                                  minimumFractionDigits: 2,
+                                })}{" "}
+                                €
+                              </TableCell>
+                              <TableCell
+                                align="right"
+                                sx={{
+                                  color:
+                                    quantiteRestante > 0 ? "#10b981" : "#ef4444",
+                                  fontSize: "0.85rem",
+                                  fontWeight: 600,
+                                }}
+                              >
+                                {quantiteRestante}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      ) : (
+                        <TableRow>
+                          <TableCell
+                            colSpan={6}
+                            align="center"
+                            sx={{ color: "#64748b", py: 3 }}
+                          >
+                            Aucun article dans cette commande
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+              <Box sx={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+                <Box sx={{ flex: 1 }}>
+                  <Typography variant="body2" sx={{ color: "#64748b", mb: 1 }}>
+                    Date de création
+                  </Typography>
+                  <Typography sx={{ color: "#94a3b8", fontSize: "0.85rem" }}>
+                    {selectedOrder.created_at
+                      ? new Date(selectedOrder.created_at).toLocaleDateString(
+                          "fr-FR",
+                          {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }
+                        )
+                      : "N/A"}
+                  </Typography>
+                </Box>
+              </Box>
             </>
           )}
         </DialogContent>
-        <DialogActions sx={{ p: 3, borderTop: "1px solid rgba(59,130,246,0.1)", display: "flex", gap: 1, justifyContent: "space-between" }}>
+        <DialogActions
+          sx={{
+            p: 3,
+            borderTop: "1px solid rgba(59,130,246,0.1)",
+            display: "flex",
+            gap: 1,
+            justifyContent: "space-between",
+          }}
+        >
           <Box sx={{ display: "flex", gap: 1 }}>
             {isAdmin && selectedOrder?.status === "pending" && (
               <Button
@@ -971,7 +1354,23 @@ const Orders = () => {
                   "&:hover": { bgcolor: "#2563eb" },
                 }}
               >
-                Confirmer la commande
+                Confirmer
+              </Button>
+            )}
+            {canGenerateInvoice && selectedOrder?.status !== "cancelled" && (
+              <Button
+                onClick={() => handleGenerateInvoice(selectedOrder.id)}
+                startIcon={<DescriptionIcon />}
+                sx={{
+                  color: "white",
+                  bgcolor: "#8b5cf6",
+                  fontWeight: 600,
+                  textTransform: "none",
+                  borderRadius: 2,
+                  "&:hover": { bgcolor: "#7c3aed" },
+                }}
+              >
+                Facture
               </Button>
             )}
             <Button
@@ -986,7 +1385,7 @@ const Orders = () => {
                 "&:hover": { bgcolor: "#059669" },
               }}
             >
-              Exporter en PDF
+              PDF
             </Button>
           </Box>
           <Button onClick={handleCloseDetails} sx={{ color: "#94a3b8" }}>
@@ -1012,8 +1411,16 @@ const Orders = () => {
           },
         }}
       >
-        {/* Status section */}
-        <Box sx={{ px: 2, pt: 1.5, pb: 0.5, display: "flex", alignItems: "center", gap: 1 }}>
+        <Box
+          sx={{
+            px: 2,
+            pt: 1.5,
+            pb: 0.5,
+            display: "flex",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
           <Typography
             variant="caption"
             sx={{
@@ -1030,14 +1437,18 @@ const Orders = () => {
         {statusOptions.map((opt) => (
           <MenuItem
             key={opt.value}
-            onClick={() => setFilterStatus(opt.value)}
+            onClick={() => {
+              setFilterStatus(opt.value);
+              setFilterAnchorEl(null);
+            }}
             sx={menuItemSx(filterStatus === opt.value)}
           >
             {opt.label}
-            {filterStatus === opt.value && <CheckIcon sx={{ fontSize: 16, color: "#3b82f6" }} />}
+            {filterStatus === opt.value && (
+              <CheckIcon sx={{ fontSize: 16, color: "#3b82f6" }} />
+            )}
           </MenuItem>
         ))}
-
         {activeFiltersCount > 0 && (
           <>
             <Divider sx={{ borderColor: "rgba(59,130,246,0.15)", mt: 1 }} />
@@ -1075,6 +1486,7 @@ const Orders = () => {
           {successMessage}
         </Alert>
       </Snackbar>
+
       <Snackbar
         open={!!errorMessage}
         autoHideDuration={3000}

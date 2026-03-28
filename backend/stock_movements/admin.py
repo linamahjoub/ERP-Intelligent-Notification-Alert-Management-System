@@ -1,5 +1,108 @@
 from django.contrib import admin
-from .models import StockMovement
+from .models import StockEntry, StockExit, StockMovement
+
+
+@admin.register(StockEntry)
+class StockEntryAdmin(admin.ModelAdmin):
+    list_display = (
+        'reference',
+        'product',
+        'quantity',
+        'supplier',
+        'warehouse',
+        'reason',
+        'received_by',
+        'entry_date',
+    )
+    list_filter = (
+        'receipt_type',
+        'reason',
+        'entry_date',
+        'supplier',
+        'warehouse',
+    )
+    search_fields = (
+        'reference',
+        'product__name',
+        'product__sku',
+        'supplier__name',
+        'notes',
+    )
+    readonly_fields = (
+        'entry_date',
+        'updated_at',
+    )
+    fieldsets = (
+        ('Référence', {
+            'fields': ('reference', 'receipt_type')
+        }),
+        ('Produit et Quantité', {
+            'fields': ('product', 'quantity')
+        }),
+        ('Contexte', {
+            'fields': ('supplier', 'warehouse', 'reason')
+        }),
+        ('Responsabilité', {
+            'fields': ('received_by',)
+        }),
+        ('Détails', {
+            'fields': ('notes',)
+        }),
+        ('Audit', {
+            'fields': ('entry_date', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+
+@admin.register(StockExit)
+class StockExitAdmin(admin.ModelAdmin):
+    list_display = (
+        'reference',
+        'product',
+        'quantity',
+        'warehouse',
+        'reason',
+        'prepared_by',
+        'exit_date',
+    )
+    list_filter = (
+        'exit_type',
+        'reason',
+        'exit_date',
+        'warehouse',
+    )
+    search_fields = (
+        'reference',
+        'product__name',
+        'product__sku',
+        'notes',
+    )
+    readonly_fields = (
+        'exit_date',
+        'updated_at',
+    )
+    fieldsets = (
+        ('Référence', {
+            'fields': ('reference', 'exit_type')
+        }),
+        ('Produit et Quantité', {
+            'fields': ('product', 'quantity')
+        }),
+        ('Contexte', {
+            'fields': ('warehouse', 'reason')
+        }),
+        ('Responsabilité', {
+            'fields': ('prepared_by',)
+        }),
+        ('Détails', {
+            'fields': ('notes',)
+        }),
+        ('Audit', {
+            'fields': ('exit_date', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
 
 
 @admin.register(StockMovement)
@@ -9,7 +112,8 @@ class StockMovementAdmin(admin.ModelAdmin):
         'movement_type',
         'product',
         'quantity',
-        'get_reason',
+        'warehouse_from',
+        'warehouse_to',
         'responsible',
         'created_at',
     )
@@ -17,8 +121,6 @@ class StockMovementAdmin(admin.ModelAdmin):
         'movement_type',
         'created_at',
         'responsible',
-        'entry_reason',
-        'exit_reason',
     )
     search_fields = (
         'product__name',
@@ -40,18 +142,11 @@ class StockMovementAdmin(admin.ModelAdmin):
                 'reference',
             )
         }),
-        ('Raison du Mouvement', {
-            'fields': (
-                'entry_reason',
-                'exit_reason',
-            )
-        }),
-        ('Transfert d\'Entrepôt', {
+        ('Entrepôts', {
             'fields': (
                 'warehouse_from',
                 'warehouse_to',
             ),
-            'classes': ('collapse',)
         }),
         ('Responsabilité', {
             'fields': (
@@ -71,7 +166,3 @@ class StockMovementAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
-    
-    def get_reason(self, obj):
-        return obj.get_reason()
-    get_reason.short_description = 'Raison'

@@ -22,6 +22,7 @@ class Invoice(models.Model):
 
     invoice_number = models.CharField(max_length=50, unique=True, verbose_name="Numéro de facture")
     purchase_order_number = models.CharField(max_length=100, blank=True, null=True, verbose_name="Numéro commande achat")
+    order = models.ForeignKey('orders.Order', on_delete=models.SET_NULL, null=True, blank=True, related_name='invoices', verbose_name="Commande liée")
     invoice_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='sales', verbose_name="Type")
     customer_name = models.CharField(max_length=200, verbose_name="Nom du client")
     customer_email = models.EmailField(blank=True, null=True, verbose_name="Email du client")

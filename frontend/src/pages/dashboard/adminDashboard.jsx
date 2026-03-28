@@ -9,7 +9,7 @@ import {
   Card,
   CardContent,
   Avatar,
-  IconButton,
+  IconButton, 
   Button,
   useTheme,
   useMediaQuery,
@@ -944,7 +944,7 @@ const AdminDashboard = () => {
                     <table style={{ width: "100%", borderCollapse: "collapse" }}>
                       <thead>
                         <tr style={{ borderBottom: "1px solid rgba(59, 130, 246, 0.2)" }}>
-                          {["Produit", "SKU", "Catégorie", "Quantité", "Statut", "Prix"].map((h) => (
+                          {["Produit", "Nomenclature", "Catégorie", "Quantité", "Statut", "Prix"].map((h) => (
                             <th key={h} style={{ padding: "12px", textAlign: "left", color: "#94a3b8", fontSize: "0.85rem", fontWeight: 600 }}>{h}</th>
                           ))}
                         </tr>
@@ -959,8 +959,49 @@ const AdminDashboard = () => {
                               onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "transparent")}
                             >
                               <td style={{ padding: "12px", color: "white", fontSize: "0.9rem" }}>{product.name || "N/A"}</td>
-                              <td style={{ padding: "12px", color: "#94a3b8", fontSize: "0.9rem" }}>{product.sku || "N/A"}</td>
-                              <td style={{ padding: "12px", color: "#94a3b8", fontSize: "0.9rem" }}>{product.category || "N/A"}</td>
+                              <td style={{ padding: "12px", color: "#94a3b8", fontSize: "0.9rem" }}>{product.Nomenclature || "N/A"}</td>
+                              {/* Affichage du type de matière comme Chip coloré, cohérent avec Stock.jsx */}
+                              <td style={{ padding: "12px" }}>
+                                {(() => {
+                                  // Options de type de matière (copiées de Stock.jsx)
+                                  const materialTypeOptions = [
+                                    { value: "matiere_premiere", label: "Matiere premiere", color: "#082633" },
+                                    { value: "matiere_consommable", label: "Matiere consommable", color: "#082633" },
+                                    { value: "matiere_chimique", label: "Matiere chimique", color: "#082633" },
+                                    { value: "matiere_dangereuse", label: "Matiere dangereuse", color: "#082633" },
+                                    { value: "matiere_emballage", label: "Matiere emballage", color: "#082633" },
+                                    { value: "fourniture_bureau", label: "Fournitures bureau", color: "#082633" },
+                                  ];
+                                  // On récupère le type de matière du produit
+                                  const materialType = product.material_type || product.materialType;
+                                  const typeObj = materialTypeOptions.find(opt => opt.value === materialType);
+                                  const label = typeObj ? typeObj.label : materialType || "-";
+                                  const color = typeObj ? typeObj.color : "#64748b";
+                                  return label && label !== "-" ? (
+                                    <Chip
+                                      label={label}
+                                      size="small"
+                                      sx={{
+                                        bgcolor: color,
+                                        color: '#fff',
+                                        fontWeight: 600,
+                                        fontSize: '0.85rem',
+                                        borderRadius: '6px',
+                                        px: 2,
+                                        py: 0.2,
+                                        letterSpacing: 0.2,
+                                        textTransform: 'capitalize',
+                                        border: 'none',
+                                        minWidth: 0,
+                                        whiteSpace: 'normal',
+                                        overflow: 'visible',
+                                      }}
+                                    />
+                                  ) : (
+                                    <span style={{ color: '#64748b' }}>-</span>
+                                  );
+                                })()}
+                              </td>
                               <td style={{ padding: "12px", color: "#94a3b8", fontSize: "0.9rem" }}>{product.quantity || "0"}</td>
                               <td style={{ padding: "12px" }}>
                                 <Chip
@@ -1182,17 +1223,17 @@ const AdminDashboard = () => {
                           {activity.title}
                         </Typography>
 
-                        {/* Description inline (SKU · Quantité or plain text) */}
+                        {/* Description inline (Nomenclature · Quantité or plain text) */}
                         {activity.description && (() => {
                           const text = String(activity.description);
                           const parts = text.split("|").map((p) => p.trim()).filter(Boolean);
-                          const isSkuQty =
+                          const isNomenclatureQty =
                             parts.length === 2 &&
-                            /sku\s*:/i.test(parts[0]) &&
+                            /Nomenclature\s*:/i.test(parts[0]) &&
                             /quantit[eé]\s*:/i.test(parts[1]);
                           return (
                             <Typography sx={{ color: "#64748b", fontSize: "0.8rem", whiteSpace: "nowrap", flexShrink: 0 }}>
-                              {isSkuQty ? `${parts[0]}  ·  ${parts[1]}` : text}
+                              {isNomenclatureQty ? `${parts[0]}  ·  ${parts[1]}` : text}
                             </Typography>
                           );
                         })()}

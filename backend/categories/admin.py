@@ -3,13 +3,13 @@ from .models import category
 
 @admin.register(category)
 class CategoryAdmin(admin.ModelAdmin):
-    list_display = ('name', 'created_at', 'updated_at')
+    list_display = ('name', 'material_type', 'created_at', 'updated_at')
     search_fields = ('name',)
-    list_filter = ('created_at', 'updated_at')
+    list_filter = ('material_type', 'created_at', 'updated_at')
     readonly_fields = ('created_at', 'updated_at')
     fieldsets = (
         ('Informations', {
-            'fields': ('name', 'description')
+            'fields': ('name', 'description', 'material_type')
         }),
         ('Dates', {
             'fields': ('created_at', 'updated_at'),

@@ -60,19 +60,62 @@ import {
 } from '@mui/icons-material';
 import SharedSidebar from '../../components/SharedSidebar';
 
-// Options de rôles disponibles
-const roleOptions = [
+// Options de rôles disponibles (doivent correspondre au backend)
+const allRoleOptions = [
+  { value: 'super_admin', label: 'Super Administrateur' },
   { value: 'responsable_stock', label: 'Responsable Stock' },
-  { value: 'commercial', label: 'Commercial' },
-  { value: 'achats', label: 'Achats' },
+  { value: 'responsable_production', label: 'Responsable Production' },
+  { value: 'responsable_facturation', label: 'Responsable Facturation' },
+  { value: 'responsable_commandes', label: 'Responsable Commandes' },
+  { value: 'agent_stock', label: 'Agent Stock' },
+  { value: 'agent_production', label: 'Agent Production' },
   { value: 'employe', label: 'Employé' },
-  { value: 'client', label: 'Client' },
-  { value: 'fournisseur', label: 'Fournisseur' },
 ];
+
+// Rôles par module
+const MODULE_ROLES = {
+  stock: [
+    { value: 'responsable_stock', label: 'Responsable Stock' },
+    { value: 'agent_stock', label: 'Agent Stock' },
+  ],
+  production: [
+    { value: 'responsable_production', label: 'Responsable Production' },
+    { value: 'agent_production', label: 'Agent Production' },
+  ],
+  facturation: [
+    { value: 'responsable_facturation', label: 'Responsable Facturation' },
+  ],
+  commandes: [
+    { value: 'responsable_commandes', label: 'Responsable Commandes' },
+  ],
+};
+
+// Fonction pour obtenir les rôles disponibles selon l'utilisateur connecté
+const getAvailableRoles = (currentUser) => {
+  if (!currentUser) return allRoleOptions;
+  
+  // Super admin voit tous les rôles
+  if (currentUser.is_superuser || currentUser.is_staff || currentUser.is_primary_admin) {
+    return allRoleOptions;
+  }
+  
+  // Responsable de module ne voit que les rôles de son module
+  if (currentUser.role === 'responsable_stock') {
+    return MODULE_ROLES.stock;
+  } else if (currentUser.role === 'responsable_production') {
+    return MODULE_ROLES.production;
+  } else if (currentUser.role === 'responsable_facturation') {
+    return MODULE_ROLES.facturation;
+  } else if (currentUser.role === 'responsable_commandes') {
+    return MODULE_ROLES.commandes;
+  }
+  
+  return allRoleOptions;
+};
 
 // Fonction pour obtenir le libellé du rôle
 const getRoleLabel = (roleValue) => {
-  const role = roleOptions.find(opt => opt.value === roleValue);
+  const role = allRoleOptions.find(opt => opt.value === roleValue);
   return role ? role.label : (roleValue || 'Non renseigné');
 };
 
@@ -261,7 +304,8 @@ const AdminPaneau = () => {
         role: newUser.role,
       };
       
-      const endpoint = newUser.is_staff ? 'http://localhost:8000/api/auth/create-admin/' : 'http://localhost:8000/api/auth/register/';
+      // Utiliser l'endpoint de gestion des utilisateurs qui gère les permissions
+      const endpoint = 'http://localhost:8000/api/admin/users/';
       
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -275,10 +319,12 @@ const AdminPaneau = () => {
       if (response.ok) {
         setSnackbar({
           open: true,
-          message: newUser.is_staff ? 'Administrateur créé avec succès!' : 'Utilisateur créé avec succès!',
+          message: 'Utilisateur créé avec succès!',
           severity: 'success',
         });
         
+        // Réinitialiser le formulaire avec un rôle par défaut approprié
+        const defaultRole = getAvailableRoles(user)[0]?.value || 'employe';
         setNewUser({
           email: '',
           username: '',
@@ -288,7 +334,7 @@ const AdminPaneau = () => {
           password2: '',
           is_superuser: false,
           is_staff: false,
-          role: 'employe',
+          role: defaultRole,
         });
         
         setOpenAddDialog(false);
@@ -1057,15 +1103,36 @@ const AdminPaneau = () => {
             }}
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexWrap: 'wrap', gap: 2 }}>
-              <Typography
-                variant="h6"
-                sx={{
-                  color: 'white',
-                  fontWeight: 600,
-                }}
-              >
-                Liste des Utilisateurs ({filteredUsers.length})
-              </Typography>
+              <Box>
+                <Typography
+                  variant="h6"
+                  sx={{
+                    color: 'white',
+                    fontWeight: 600,
+                  }}
+                >
+                  Liste des Utilisateurs ({filteredUsers.length})
+                </Typography>
+                {user && (user.role === 'responsable_stock' || 
+                         user.role === 'responsable_production' || 
+                         user.role === 'responsable_facturation' || 
+                         user.role === 'responsable_commandes') && (
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: '#94a3b8',
+                      fontSize: '0.85rem',
+                      mt: 0.5,
+                      display: 'block',
+                    }}
+                  >
+                    {user.role === 'responsable_stock' && '📦 Affichage des utilisateurs du module Stock uniquement'}
+                    {user.role === 'responsable_production' && '🏭 Affichage des utilisateurs du module Production uniquement'}
+                    {user.role === 'responsable_facturation' && '💰 Affichage des utilisateurs du module Facturation uniquement'}
+                    {user.role === 'responsable_commandes' && '📋 Affichage des utilisateurs du module Commandes uniquement'}
+                  </Typography>
+                )}
+              </Box>
               
               <Box sx={{ display: 'flex', gap: 2 }}>
                 <Button
@@ -1439,7 +1506,7 @@ const AdminPaneau = () => {
                       },
                     }}
                   >
-                    {roleOptions.map((option) => (
+                    {getAvailableRoles(user).map((option) => (
                       <MenuItem key={option.value} value={option.value} sx={{ backgroundColor: '#1e293b', color: 'white', '&:hover': { backgroundColor: '#334155' } }}>
                         {option.label}
                       </MenuItem>
@@ -1741,7 +1808,7 @@ const AdminPaneau = () => {
                       },
                     }}
                   >
-                    {roleOptions.map((option) => (
+                    {getAvailableRoles(user).map((option) => (
                       <MenuItem key={option.value} value={option.value} sx={{ backgroundColor: '#1e293b', color: 'white', '&:hover': { backgroundColor: '#334155' } }}>
                         {option.label}
                       </MenuItem>

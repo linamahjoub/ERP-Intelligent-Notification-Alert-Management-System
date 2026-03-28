@@ -7,6 +7,7 @@ from django.conf import settings
 from django.core.mail import send_mail
 from django.utils import timezone
 from datetime import timedelta
+from smartalerte_project.telegram_utils import send_telegram_to_user
 from .models import Invoice, InvoiceItem, Payment
 from .serializers import (
     InvoiceSerializer, InvoiceCreateSerializer,
@@ -55,6 +56,13 @@ class InvoiceViewSet(viewsets.ModelViewSet):
             recipient_list=[supplier_email],
             fail_silently=False,
         )
+
+        # Telegram en miroir pour l'utilisateur qui a créé la facture
+        try:
+            if invoice.created_by:
+                send_telegram_to_user(invoice.created_by, message)
+        except Exception:
+            pass
     
     def perform_create(self, serializer):
         invoice = serializer.save(created_by=self.request.user)

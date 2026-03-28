@@ -6,6 +6,7 @@ from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from django.conf import settings
 from alerts.models import Alert
+from smartalerte_project.telegram_utils import send_telegram_to_user
 
 User = get_user_model()
 
@@ -19,6 +20,13 @@ class Notification(models.Model):
         ('system', 'Notification système'),
     ]
     
+    PRIORITY_CHOICES = [
+        ('critical', 'Critique'),
+        ('high', 'Haute'),
+        ('medium', 'Moyenne'),
+        ('low', 'Basse'),
+    ]
+    
     # Relations
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
     alert = models.ForeignKey(Alert, on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
@@ -27,6 +35,7 @@ class Notification(models.Model):
     title = models.CharField(max_length=255, blank=True, null=True)
     message = models.TextField(blank=True, null=True)
     notification_type = models.CharField(max_length=50, choices=NOTIFICATION_TYPES, default='alert_triggered')
+    priority = models.CharField(max_length=20, choices=PRIORITY_CHOICES, default='medium')
     
     # Statut de lecture
     is_read = models.BooleanField(default=False)
@@ -94,7 +103,7 @@ class Notification(models.Model):
 <body style="margin:0; padding:0; font-family: Arial, sans-serif; background-color:#f4f4f4;">
     
     <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f4f4; padding:20px 0;">
-        <tr>
+         <tr>
             <td align="center">
                 
                 <table width="600" cellpadding="0" cellspacing="0" style="background-color:#ffffff; padding:30px; border-radius:6px;">
@@ -157,8 +166,7 @@ class Notification(models.Model):
                             <p style="margin:0 0 10px 0;">
                                 Pour consulter cette notification, accédez à votre espace :
                             </p>
-                            <a href="{settings.FRONTEND_URL}/notifications"
-                              ">
+                            <a href="{settings.FRONTEND_URL}/notifications">
                                 {settings.FRONTEND_URL}/notifications
                             </a>
                         </td>
@@ -207,6 +215,23 @@ class Notification(models.Model):
             print(f"Erreur lors de l'envoi du mail: {e}")
             return False, str(e)
 
+    def send_telegram_notification(self, body_override=None):
+        """Envoyer la notification par Telegram a l'utilisateur si chat_id existe."""
+        if not self.user:
+            return False, "Aucun utilisateur"
+
+        message = body_override if body_override else self.message
+        text = (
+            f"SmartNotify\n"
+            f"{self.title or 'Notification'}\n\n"
+            f"{message or ''}"
+        )
+
+        ok = send_telegram_to_user(self.user, text)
+        if not ok:
+            return False, "Telegram non envoye"
+        return True, None
+
 
 class NotificationEmailRecipient(models.Model):
     """Adresse email additionnelle pour les notifications d'un utilisateur"""
@@ -229,3 +254,33 @@ class NotificationEmailRecipient(models.Model):
             validate_email(self.email)
         except ValidationError as exc:
             raise ValidationError({'email': exc.messages})
+
+
+class NotificationChannelPreference(models.Model):
+    """Preferences des canaux de notification par utilisateur."""
+
+    SCHEDULE_CHOICES = [
+        ('realtime', 'Temps reel'),
+        ('hourly', 'Toutes les heures'),
+        ('daily', 'Quotidien'),
+        ('weekly', 'Hebdomadaire'),
+        ('monthly', 'Mensuel'),
+    ]
+
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='notification_channel_preferences',
+    )
+    email_enabled = models.BooleanField(default=True)
+    in_app_enabled = models.BooleanField(default=True)
+    telegram_enabled = models.BooleanField(default=False)
+    schedule = models.CharField(max_length=20, choices=SCHEDULE_CHOICES, default='realtime')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Notification Channel Preference'
+        verbose_name_plural = 'Notification Channel Preferences'
+
+    def __str__(self):
+        return f"{self.user.username} preferences"

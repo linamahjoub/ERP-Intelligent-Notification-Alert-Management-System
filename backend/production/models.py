@@ -136,3 +136,36 @@ class ProductionAlert(models.Model):
 
     def __str__(self):
         return f"{self.get_alert_type_display()} - {self.order.code}"
+
+
+class FinishedProduct(models.Model):
+    """Modèle pour les produits finis issus de la production"""
+    STATUS_IN_STOCK = "in_stock"
+    STATUS_SHIPPED = "shipped"
+    STATUS_RESERVED = "reserved"
+    
+    STATUS_CHOICES = [
+        (STATUS_IN_STOCK, "En stock"),
+        (STATUS_SHIPPED, "Expédié"),
+        (STATUS_RESERVED, "Réservé"),
+    ]
+    
+    product = models.OneToOneField(Product, on_delete=models.CASCADE, related_name='finished_product_info')
+    production_order = models.ForeignKey(ProductionOrder, on_delete=models.SET_NULL, null=True, blank=True, related_name='finished_products')
+    batch_number = models.CharField(max_length=100, unique=True)
+    quantity_produced = models.PositiveIntegerField()
+    quantity_available = models.PositiveIntegerField()
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_IN_STOCK)
+    production_date = models.DateField(auto_now_add=True)
+    quality_check_passed = models.BooleanField(default=False)
+    quality_notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Produit fini"
+        verbose_name_plural = "Produits finis"
+    
+    def __str__(self):
+        return f"{self.product.name} - Batch {self.batch_number}"

@@ -1,6 +1,6 @@
 from rest_framework import serializers
-from .models import StockMovement
-from stock.models import Product
+from .models import StockMovement, StockEntry, StockExit
+from stock.models import Product, Warehouse, Supplier
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
@@ -8,7 +8,6 @@ User = get_user_model()
 
 class ProductSimpleSerializer(serializers.ModelSerializer):
     """Sérialiseur simple pour le produit dans les mouvements"""
-    
     class Meta:
         model = Product
         fields = ['id', 'name', 'sku', 'category']
@@ -16,7 +15,6 @@ class ProductSimpleSerializer(serializers.ModelSerializer):
 
 class UserSimpleSerializer(serializers.ModelSerializer):
     """Sérialiseur simple pour l'utilisateur"""
-    
     full_name = serializers.SerializerMethodField()
     
     class Meta:
@@ -27,6 +25,98 @@ class UserSimpleSerializer(serializers.ModelSerializer):
         return f"{obj.first_name} {obj.last_name}".strip() or obj.username
 
 
+class WarehouseSimpleSerializer(serializers.ModelSerializer):
+    """Sérialiseur simple pour l'entrepôt"""
+    class Meta:
+        model = Warehouse
+        fields = ['id', 'name', 'code']
+
+
+class SupplierSimpleSerializer(serializers.ModelSerializer):
+    """Sérialiseur simple pour le fournisseur"""
+    class Meta:
+        model = Supplier
+        fields = ['id', 'name', 'contact_name', 'phone']
+
+
+# ============ STOCK ENTRY SERIALIZERS ============
+class StockEntrySerializer(serializers.ModelSerializer):
+    """Sérialiseur pour les entrées de stock"""
+    product = ProductSimpleSerializer(read_only=True)
+    product_id = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.all(),
+        write_only=True,
+        source='product'
+    )
+    supplier = SupplierSimpleSerializer(read_only=True)
+    supplier_id = serializers.PrimaryKeyRelatedField(
+        queryset=Supplier.objects.all(),
+        write_only=True,
+        required=False,
+        allow_null=True,
+        source='supplier'
+    )
+    warehouse = WarehouseSimpleSerializer(read_only=True)
+    warehouse_id = serializers.PrimaryKeyRelatedField(
+        queryset=Warehouse.objects.all(),
+        write_only=True,
+        required=False,
+        allow_null=True,
+        source='warehouse'
+    )
+    received_by = UserSimpleSerializer(read_only=True)
+    receipt_type_display = serializers.CharField(source='get_receipt_type_display', read_only=True)
+    reason_display = serializers.CharField(source='get_reason_display', read_only=True)
+    
+    class Meta:
+        model = StockEntry
+        fields = [
+            'id', 'reference', 'receipt_type', 'receipt_type_display',
+            'product', 'product_id', 'quantity',
+            'supplier', 'supplier_id', 'warehouse', 'warehouse_id',
+            'reason', 'reason_display',
+            'received_by', 'notes',
+            'entry_date', 'updated_at',
+        ]
+        read_only_fields = ['id', 'entry_date', 'updated_at', 'receipt_type_display', 'reason_display']
+
+
+# ============ STOCK EXIT SERIALIZERS ============
+class StockExitSerializer(serializers.ModelSerializer):
+    """Sérialiseur pour les sorties de stock"""
+    product = ProductSimpleSerializer(read_only=True)
+    product_id = serializers.PrimaryKeyRelatedField(
+        queryset=Product.objects.all(),
+        write_only=True,
+        source='product'
+    )
+    order_id = serializers.IntegerField(source='order.id', read_only=True)
+    warehouse = WarehouseSimpleSerializer(read_only=True)
+    warehouse_id = serializers.PrimaryKeyRelatedField(
+        queryset=Warehouse.objects.all(),
+        write_only=True,
+        required=False,
+        allow_null=True,
+        source='warehouse'
+    )
+    prepared_by = UserSimpleSerializer(read_only=True)
+    exit_type_display = serializers.CharField(source='get_exit_type_display', read_only=True)
+    reason_display = serializers.CharField(source='get_reason_display', read_only=True)
+    
+    class Meta:
+        model = StockExit
+        fields = [
+            'id', 'reference', 'exit_type', 'exit_type_display',
+            'product', 'product_id', 'quantity', 'order_id',
+            'warehouse', 'warehouse_id',
+            'reason', 'reason_display',
+            'prepared_by', 'notes',
+            'exit_date', 'updated_at',
+        ]
+        read_only_fields = ['id', 'exit_date', 'updated_at', 'exit_type_display', 'reason_display', 'order_id']
+
+
+# ============ STOCK MOVEMENT SERIALIZERS ============
 class StockMovementSerializer(serializers.ModelSerializer):
     """Sérialiseur complet pour les mouvements de stock"""
     
@@ -35,6 +125,24 @@ class StockMovementSerializer(serializers.ModelSerializer):
         queryset=Product.objects.all(),
         write_only=True,
         source='product'
+    )
+    
+    warehouse_from = WarehouseSimpleSerializer(read_only=True)
+    warehouse_from_id = serializers.PrimaryKeyRelatedField(
+        queryset=Warehouse.objects.all(),
+        write_only=True,
+        required=False,
+        allow_null=True,
+        source='warehouse_from'
+    )
+    
+    warehouse_to = WarehouseSimpleSerializer(read_only=True)
+    warehouse_to_id = serializers.PrimaryKeyRelatedField(
+        queryset=Warehouse.objects.all(),
+        write_only=True,
+        required=False,
+        allow_null=True,
+        source='warehouse_to'
     )
     
     responsible = UserSimpleSerializer(read_only=True)
@@ -50,17 +158,6 @@ class StockMovementSerializer(serializers.ModelSerializer):
         source='get_movement_type_display',
         read_only=True
     )
-    entry_reason_display = serializers.CharField(
-        source='get_entry_reason_display',
-        read_only=True,
-        required=False
-    )
-    exit_reason_display = serializers.CharField(
-        source='get_exit_reason_display',
-        read_only=True,
-        required=False
-    )
-    reason = serializers.SerializerMethodField()
     
     class Meta:
         model = StockMovement
@@ -71,60 +168,25 @@ class StockMovementSerializer(serializers.ModelSerializer):
             'product',
             'product_id',
             'quantity',
-            'entry_reason',
-            'entry_reason_display',
-            'exit_reason',
-            'exit_reason_display',
-            'reason',
             'warehouse_from',
+            'warehouse_from_id',
             'warehouse_to',
+            'warehouse_to_id',
             'responsible',
             'responsible_id',
+            'recipient_name',
             'reference',
             'notes',
             'created_at',
             'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
-    
-    def get_reason(self, obj):
-        """Retourne la raison du mouvement"""
-        return obj.get_reason()
-    
-    def validate(self, data):
-        """Valide les données du mouvement"""
-        movement_type = data.get('movement_type')
-        entry_reason = data.get('entry_reason')
-        exit_reason = data.get('exit_reason')
-        warehouse_from = data.get('warehouse_from')
-        warehouse_to = data.get('warehouse_to')
-        
-        if movement_type == 'entry' and not entry_reason:
-            raise serializers.ValidationError(
-                "Une raison d'entrée doit être spécifiée pour un mouvement d'entrée."
-            )
-        
-        if movement_type == 'exit' and not exit_reason:
-            raise serializers.ValidationError(
-                "Une raison de sortie doit être spécifiée pour un mouvement de sortie."
-            )
-        
-        if movement_type == 'transfer':
-            if not warehouse_from or not warehouse_to:
-                raise serializers.ValidationError(
-                    "Les entrepôts source et destination doivent être spécifiés pour un transfert."
-                )
-            if warehouse_from == warehouse_to:
-                raise serializers.ValidationError(
-                    "L'entrepôt source et destination ne peuvent pas être les mêmes."
-                )
-        
-        return data
 
 
 class StockMovementListSerializer(serializers.ModelSerializer):
     """Sérialiseur allégé pour les listes de mouvements"""
     
+    product_id = serializers.IntegerField(source='product.id', read_only=True)
     product_name = serializers.CharField(source='product.name', read_only=True)
     product_sku = serializers.CharField(source='product.sku', read_only=True)
     responsible_name = serializers.SerializerMethodField()
@@ -140,6 +202,7 @@ class StockMovementListSerializer(serializers.ModelSerializer):
             'id',
             'movement_type',
             'movement_type_display',
+            'product_id',
             'product_name',
             'product_sku',
             'quantity',
@@ -147,6 +210,7 @@ class StockMovementListSerializer(serializers.ModelSerializer):
             'warehouse_from',
             'warehouse_to',
             'responsible_name',
+            'recipient_name',
             'reference',
             'created_at',
         ]
@@ -157,4 +221,10 @@ class StockMovementListSerializer(serializers.ModelSerializer):
         return "N/A"
     
     def get_reason(self, obj):
-        return obj.get_reason()
+        if obj.movement_type == 'entry':
+            return 'Entrée de stock'
+        if obj.movement_type == 'exit':
+            return 'Sortie de stock'
+        if obj.movement_type == 'transfer':
+            return 'Transfert entre entrepôts'
+        return 'Non spécifié'

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom"; // ✅ Ajout de useLocation
 import {
   Box,
   Typography,
@@ -12,14 +12,9 @@ import {
   useTheme,
   useMediaQuery,
   TextField,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   Alert,
   Snackbar,
   FormControl,
-  InputLabel,
   Select,
   MenuItem,
   Table,
@@ -28,21 +23,22 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Chip,
+  CircularProgress,
 } from "@mui/material";
 import {
   Menu as MenuIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
   ArrowBack as ArrowBackIcon,
+  Save as SaveIcon,
 } from "@mui/icons-material";
 import SharedSidebar from "../../components/SharedSidebar";
 import Aurora from "../../components/Aurora/Aurora";
 
 const NewOrder = () => {
   const { user } = useAuth();
-  const location = useLocation();
   const navigate = useNavigate();
+  const location = useLocation(); // ✅ Hook pour récupérer les données transmises
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("md"));
 
@@ -52,28 +48,26 @@ const NewOrder = () => {
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [loading, setLoading] = useState(false);
-
-  const [formData, setFormData] = useState({
-    shipping_address: "",
-    shipping_method: "Standard",
-    notes: "",
-  });
+  const [submitting, setSubmitting] = useState(false);
 
   const [newItem, setNewItem] = useState({
     product_id: "",
+    product_name: "",
+    sku: "",
+    unit: "",
     quantity: 1,
     unit_price: 0,
-    notes: "",
+    stock_disponible: 0,
   });
-  const [prefillApplied, setPrefillApplied] = useState(false);
 
   const PRODUCTS_API = "http://localhost:8000/api/stock/products/";
   const ORDERS_API = "http://localhost:8000/api/orders/orders/";
 
-  // Récupère les produits
+  // ✅ 1. Récupère la liste des produits depuis l'API
   useEffect(() => {
     const fetchProducts = async () => {
       try {
+        setLoading(true);
         const token = localStorage.getItem("access_token");
         const response = await fetch(PRODUCTS_API, {
           headers: {
@@ -85,48 +79,132 @@ const NewOrder = () => {
         if (response.ok) {
           const data = await response.json();
           const items = Array.isArray(data) ? data : data.results || [];
-          setProducts(items);
+          
+          // Normalisation des données pour correspondre au frontend
+          const productsWithUnit = items.map((product) => ({
+            ...product,
+            id: product.id || product.product_id,
+            quantity: Number(product.quantity) || 0,
+            sku: product.sku || product.nomenclature || "",
+            name: product.name || product.designation || "Produit",
+            unit: product.unit || product.unite || product.measurement_unit || "U",
+            price: parseFloat(product.price) || parseFloat(product.unit_price) || 0,
+          }));
+          setProducts(productsWithUnit);
+        } else {
+          setErrorMessage("Erreur lors du chargement des produits");
         }
       } catch (error) {
         console.error("Erreur lors du chargement des produits:", error);
+        setErrorMessage("Erreur réseau lors du chargement des produits");
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchProducts();
   }, []);
 
+  // ✅ 2. EFFET : Pré-remplir le produit si passé depuis Stock via location.state
   useEffect(() => {
-    const prefilledProductId = location.state?.prefilledProduct?.id;
-    if (!prefilledProductId || prefillApplied || products.length === 0) {
-      return;
+    const prefilledProduct = location.state?.prefilledProduct;
+
+    // On attend que les produits soient chargés ET qu'il y ait un produit à pré-remplir
+    if (!prefilledProduct || products.length === 0) return;
+
+    // Fonction de comparaison robuste pour trouver le produit correspondant
+    const findMatchingProduct = (prefilled, productList) => {
+      // 1. Essayer par ID (gérer string/number)
+      let found = productList.find(p => Number(p.id) === Number(prefilled.id));
+      if (found) return found;
+
+      // 2. Essayer par nomenclature/SKU
+      found = productList.find(p =>
+        String(p.nomenclature || "").toLowerCase().trim() ===
+        String(prefilled.nomenclature || prefilled.sku || "").toLowerCase().trim()
+      );
+      if (found) return found;
+
+      // 3. Essayer par nom exact
+      found = productList.find(p =>
+        String(p.name || "").toLowerCase().trim() ===
+        String(prefilled.name || "").toLowerCase().trim()
+      );
+      return found;
+    };
+
+    const product = findMatchingProduct(prefilledProduct, products);
+
+    if (product) {
+      // Petit délai pour s'assurer que le DOM est prêt
+      setTimeout(() => {
+        setNewItem({
+          product_id: String(product.id), // ✅ Important : garder en string pour le Select
+          product_name: product.name,
+          sku: product.sku || product.nomenclature || "",
+          unit: product.unit || product.unite || product.measurement_unit || "U",
+          quantity: 1,
+          unit_price: parseFloat(product.price) || parseFloat(product.unit_price) || 0,
+          stock_disponible: product.quantity || 0,
+        });
+
+        setSuccessMessage(`Produit "${product.name}" sélectionné`);
+        setTimeout(() => setSuccessMessage(""), 2000);
+      }, 100);
     }
 
-    const matchedProduct = products.find((p) => p.id === prefilledProductId);
-    if (!matchedProduct) {
-      return;
+    // ✅ Nettoyer le state APRÈS avoir traité le produit
+    setTimeout(() => {
+      navigate(location.pathname, { replace: true, state: {} });
+    }, 200);
+
+  }, [products, location, navigate]);
+
+  // ✅ 3. Gestion du changement de produit dans le Select
+  const handleProductChange = (productId) => {
+    const product = products.find((p) => p.id === parseInt(productId));
+    if (product) {
+      const alreadyOrdered = items
+        .filter((item) => Number(item.product_id) === product.id)
+        .reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+
+      const stockRestant = Math.max(0, (product.quantity || 0) - alreadyOrdered);
+
+      setNewItem({
+        ...newItem,
+        product_id: productId,
+        product_name: product.name,
+        sku: product.sku || product.nomenclature || "",
+        unit: product.unit || product.unite || product.measurement_unit || "U",
+        unit_price: parseFloat(product.price) || parseFloat(product.unit_price) || 0,
+        stock_disponible: product.quantity || 0,
+        quantity: 1,
+      });
     }
+  };
 
-    setNewItem((prev) => ({
-      ...prev,
-      product_id: String(matchedProduct.id),
-      unit_price: parseFloat(matchedProduct.price) || 0,
-    }));
-    setPrefillApplied(true);
-  }, [location.state, prefillApplied, products]);
-
+  // ✅ 4. Ajout d'un article à la commande
   const handleAddItem = () => {
-    if (!newItem.product_id || newItem.quantity <= 0) {
-      setErrorMessage("Chaque article doit avoir un produit et une quantité.");
+    if (!newItem.product_id) {
+      setErrorMessage("Veuillez sélectionner un produit");
+      setTimeout(() => setErrorMessage(""), 3000);
+      return;
+    }
+
+    if (newItem.quantity <= 0) {
+      setErrorMessage("La quantité doit être supérieure à 0");
+      setTimeout(() => setErrorMessage(""), 3000);
       return;
     }
 
     const product = products.find((p) => p.id === parseInt(newItem.product_id));
     if (!product) {
-      setErrorMessage("Produit introuvable. Veuillez recharger la liste des produits.");
+      setErrorMessage("Produit introuvable");
+      setTimeout(() => setErrorMessage(""), 3000);
       return;
     }
 
-    const requestedQuantity = Number(newItem.quantity) || 0;
+    const requestedQuantity = Number(newItem.quantity);
     const availableStock = Number(product.quantity ?? 0);
     const alreadyRequested = items
       .filter((item) => Number(item.product_id) === Number(product.id))
@@ -135,46 +213,62 @@ const NewOrder = () => {
 
     if (totalRequested > availableStock) {
       setErrorMessage(
-        `Quantite demandee depassee pour \"${product.name}\". Disponible: ${availableStock}, demandee: ${totalRequested}.`
+        `Stock insuffisant pour "${product.name}". Disponible: ${availableStock}, Demandé: ${totalRequested}`
       );
+      setTimeout(() => setErrorMessage(""), 3000);
       return;
     }
 
-    items.push({
-      product_id: newItem.product_id,
-      product,
-      quantity: newItem.quantity,
-      unit_price: newItem.unit_price || parseFloat(product.price) || 0,
-      notes: newItem.notes,
-    });
+    setItems([
+      ...items,
+      {
+        id: Date.now(),
+        product_id: newItem.product_id,
+        product_name: newItem.product_name,
+        sku: newItem.sku,
+        unit: newItem.unit || "U",
+        quantity: Number(newItem.quantity),
+        unit_price: Number(newItem.unit_price),
+        stock_disponible: newItem.stock_disponible,
+      }
+    ]);
 
-    setItems([...items]);
     setNewItem({
       product_id: "",
+      product_name: "",
+      sku: "",
+      unit: "",
       quantity: 1,
       unit_price: 0,
-      notes: "",
+      stock_disponible: 0,
     });
 
     setSuccessMessage("Article ajouté à la commande");
+    setTimeout(() => setSuccessMessage(""), 2000);
   };
 
   const handleRemoveItem = (index) => {
-    items.splice(index, 1);
-    setItems([...items]);
+    const newItems = [...items];
+    newItems.splice(index, 1);
+    setItems(newItems);
   };
 
-  const calculateTotal = () => {
-    return items.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
+  const calculateSubtotal = () => {
+    return items.reduce((sum, item) => {
+      const quantity = Number(item.quantity) || 0;
+      const unitPrice = Number(item.unit_price) || 0;
+      return sum + (quantity * unitPrice);
+    }, 0);
   };
 
   const handleSubmitOrder = async () => {
     if (items.length === 0) {
       setErrorMessage("Ajoutez au moins un article à la commande");
+      setTimeout(() => setErrorMessage(""), 3000);
       return;
     }
 
-    // Validation finale cote UI: la quantite commandee ne doit pas depasser le stock disponible.
+    // Validation finale du stock
     const totalByProduct = items.reduce((acc, item) => {
       const key = Number(item.product_id);
       acc[key] = (acc[key] || 0) + (Number(item.quantity) || 0);
@@ -186,30 +280,26 @@ const NewOrder = () => {
       const availableStock = Number(product?.quantity ?? 0);
       if (!product || Number(totalRequested) > availableStock) {
         setErrorMessage(
-          `Impossible de passer la commande: la quantite demandee pour \"${product?.name || "ce produit"}\" depasse le stock disponible (${availableStock}).`
+          `Stock insuffisant pour "${product?.name}". Disponible: ${availableStock}, Demandé: ${totalRequested}`
         );
+        setTimeout(() => setErrorMessage(""), 3000);
         return;
       }
     }
 
-    if (!formData.shipping_address) {
-      setErrorMessage("L'adresse de livraison est obligatoire");
-      return;
-    }
-
     try {
-      setLoading(true);
+      setSubmitting(true);
       const token = localStorage.getItem("access_token");
 
       const payload = {
-        shipping_address: formData.shipping_address,
-        shipping_method: formData.shipping_method,
-        notes: formData.notes,
+        shipping_address: "Adresse par défaut",
+        shipping_method: "Standard",
+        notes: "",
         items: items.map((item) => ({
-          product_id: item.product_id,
-          quantity: item.quantity,
-          unit_price: item.unit_price,
-          notes: item.notes,
+          product_id: parseInt(item.product_id),
+          quantity: Number(item.quantity),
+          unit_price: Number(item.unit_price),
+          notes: "",
         })),
       };
 
@@ -223,16 +313,9 @@ const NewOrder = () => {
       });
 
       if (!response.ok) {
-        try {
-          const errorData = await response.json();
-          console.error("Backend error:", errorData);
-          const errorMessage = errorData.detail || errorData.items?.[0] || JSON.stringify(errorData);
-          setErrorMessage(errorMessage || "Erreur lors de la création de la commande");
-        } catch {
-          const errorText = await response.text();
-          console.error("Raw error:", errorText);
-          setErrorMessage(errorText || "Erreur lors de la création de la commande");
-        }
+        const errorData = await response.json().catch(() => ({}));
+        setErrorMessage(errorData.detail || errorData.message || "Erreur lors de la création de la commande");
+        setTimeout(() => setErrorMessage(""), 3000);
         return;
       }
 
@@ -241,9 +324,11 @@ const NewOrder = () => {
         navigate("/orders");
       }, 2000);
     } catch (error) {
+      console.error("Erreur:", error);
       setErrorMessage("Erreur réseau lors de la création de la commande");
+      setTimeout(() => setErrorMessage(""), 3000);
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
@@ -260,8 +345,36 @@ const NewOrder = () => {
     "& .MuiInputLabel-root.Mui-focused": { color: "#3b82f6" },
   };
 
+  if (loading && products.length === 0) {
+    return (
+      <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "100vh", bgcolor: "black" }}>
+        <CircularProgress sx={{ color: "#3b82f6" }} />
+      </Box>
+    );
+  }
+
+  const subtotal = calculateSubtotal();
+
+  // Calculer le stock restant pour un produit donné
+  const getRemainingStock = (productId) => {
+    const product = products.find((p) => p.id === parseInt(productId));
+    if (!product) return 0;
+    const alreadyOrdered = items
+      .filter((item) => Number(item.product_id) === Number(productId))
+      .reduce((sum, item) => sum + (Number(item.quantity) || 0), 0);
+    return Math.max(0, (product.quantity || 0) - alreadyOrdered);
+  };
+
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", bgcolor: "black", overflow: "hidden", position: "relative" }}>
+    <Box
+      sx={{
+        display: "flex",
+        minHeight: "100vh",
+        bgcolor: "black",
+        overflow: "hidden",
+        position: "relative",
+      }}
+    >
       {/* Aurora Background */}
       <Box
         sx={{
@@ -283,10 +396,7 @@ const NewOrder = () => {
         />
       </Box>
 
-      <SharedSidebar
-        mobileOpen={mobileOpen}
-        onMobileClose={() => setMobileOpen(!mobileOpen)}
-      />
+      <SharedSidebar mobileOpen={mobileOpen} onMobileClose={() => setMobileOpen(!mobileOpen)} />
 
       <Box
         component="main"
@@ -295,25 +405,13 @@ const NewOrder = () => {
           minWidth: 0,
           height: "100vh",
           bgcolor: "black",
-          overflowY: "auto",
-          overflowX: "hidden",
           position: "relative",
           zIndex: 1,
+          overflowY: "auto",
+          overflowX: "hidden",
         }}
       >
-        
         {/* Header bar */}
-          {/* Back + Title */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
-            <IconButton onClick={() => navigate("/orders")} sx={{ color: "#64748b" }}>
-              <ArrowBackIcon />
-            </IconButton>
-            <Box>
-              <Typography variant="h4" sx={{ color: "white", fontWeight: 700 }}>
-                Nouvelle Commande
-              </Typography>
-            </Box>
-        
         <Box
           sx={{
             p: 1.2,
@@ -324,7 +422,6 @@ const NewOrder = () => {
             gap: 2,
           }}
         >
-              </Box>
           {isMobile && (
             <IconButton onClick={() => setMobileOpen(!mobileOpen)} sx={{ color: "white" }}>
               <MenuIcon />
@@ -346,332 +443,202 @@ const NewOrder = () => {
         </Box>
 
         <Box sx={{ p: 3 }}>
-        
-
-          <Box sx={{ display: "grid", gridTemplateColumns: { xs: "1fr", md: "2fr 1fr" }, gap: 3 }}>
-            {/* Formulaire */}
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              {/* Adresse */}
-              <Card sx={{ bgcolor: "rgba(30,41,59,0.5)", border: "1px solid rgba(59,130,246,0.1)", borderRadius: 3 }}>
-                <CardContent sx={{ pb: 2 }}>
-                  <Typography variant="h6" sx={{ color: "white", fontWeight: 600, mb: 2 }}>
-                    Informations de Livraison
-                  </Typography>
-
-                  <TextField
-                    label="Adresse de livraison"
-                    value={formData.shipping_address}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        shipping_address: e.target.value,
-                      })
-                    }
-                    fullWidth
-                    multiline
-                    rows={3}
-                    size="small"
-                    sx={inputSx}
-                    required
-                  />
-
-                  <TextField
-                    label="Méthode de livraison"
-                    value={formData.shipping_method}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        shipping_method: e.target.value,
-                      })
-                    }
-                    fullWidth
-                    size="small"
-                    sx={{ ...inputSx, mt: 2 }}
-                  />
-
-                  <TextField
-                    label="Notes"
-                    value={formData.notes}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        notes: e.target.value,
-                      })
-                    }
-                    fullWidth
-                    multiline
-                    rows={2}
-                    size="small"
-                    sx={{ ...inputSx, mt: 2 }}
-                  />
-                </CardContent>
-              </Card>
-
-              {/* Articles */}
-              <Card sx={{ bgcolor: "rgba(30,41,59,0.5)", border: "1px solid rgba(59,130,246,0.1)", borderRadius: 3 }}>
-                <CardContent sx={{ pb: 2 }}>
-                  <Typography variant="h6" sx={{ color: "white", fontWeight: 600, mb: 2 }}>
-                    Ajouter des Articles
-                  </Typography>
-
-                  <FormControl fullWidth size="small" sx={{ mb: 1.5 }}>
-                    <InputLabel sx={{ color: "#64748b" }}>Produit</InputLabel>
-                    <Select
-                      value={newItem.product_id}
-                      label="Produit"
-                      onChange={(e) => {
-                        const product = products.find((p) => p.id === parseInt(e.target.value));
-                        setNewItem({
-                          ...newItem,
-                          product_id: e.target.value,
-                          unit_price: parseFloat(product?.price) || 0,
-                        });
-                      }}
-                      sx={{
-                        ...inputSx,
-                        "& .MuiSelect-select": { color: "white" },
-                        "& .MuiSvgIcon-root": { color: "#94a3b8" },
-                      }}
-                      MenuProps={{
-                        PaperProps: {
-                          sx: {
-                            bgcolor: "#3B82F633",
-                            border: "1px solid #3B82F633",
-                            borderRadius: "10px",
-                            backdropFilter: "blur(12px)",
-                            boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
-                          },
-                        },
-                      }}
-                    >
-                      <MenuItem value="" sx={{ color: "#000000" }}>
-                        Sélectionner un produit
-                      </MenuItem>
-                      {products.map((product) => (
-                        <MenuItem key={product.id} value={product.id} sx={{ color: "white" }}>
-                          {product.name} ({product.sku}) - {parseFloat(product.price).toFixed(2)} $
-                        </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <TextField
-                    label="Quantité"
-                    type="number"
-                    value={newItem.quantity}
-                    onChange={(e) =>
-                      setNewItem({
-                        ...newItem,
-                        quantity: parseInt(e.target.value) || 1,
-                      })
-                    }
-                    fullWidth
-                    size="small"
-                    sx={{ ...inputSx, mb: 1.5 }}
-                  />
-
-                  <TextField
-                    label="Prix unitaire"
-                    type="number"
-                    value={newItem.unit_price}
-                    InputProps={{ readOnly: true }}
-                    fullWidth
-                    size="small"
-                    sx={{ ...inputSx, mb: 1.5 }}
-                  />
-
-                  <TextField
-                    label="Notes"
-                    value={newItem.notes}
-                    onChange={(e) =>
-                      setNewItem({
-                        ...newItem,
-                        notes: e.target.value,
-                      })
-                    }
-                    fullWidth
-                    size="small"
-                    sx={{ ...inputSx, mb: 1.5 }}
-                  />
-
-                  <Button
-                    variant="contained"
-                    startIcon={<AddIcon />}
-                    onClick={handleAddItem}
-                    fullWidth
-                    sx={{
-                      bgcolor: "#3b82f6",
-                      color: "white",
-                      fontWeight: 600,
-                      textTransform: "none",
-                      borderRadius: 2,
-                      "&:hover": { bgcolor: "#2563eb" },
-                    }}
-                  >
-                    Ajouter l'article
-                  </Button>
-                </CardContent>
-              </Card>
+          {/* Title */}
+          <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 3 }}>
+            <Box>
+              <Typography variant="h4" sx={{ color: "white", fontWeight: 700, mb: 0.5 }}>
+                Bon de Commande
+              </Typography>
+              <Typography variant="body2" sx={{ color: "#64748b" }}>
+                Créer un nouveau bon de commande
+              </Typography>
             </Box>
-
-            {/* Résumé */}
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-              <Card sx={{ bgcolor: "rgba(30,41,59,0.5)", border: "1px solid rgba(59,130,246,0.1)", borderRadius: 3, position: "sticky", top: 20 }}>
-                <CardContent>
-                  <Typography variant="h6" sx={{ color: "white", fontWeight: 600, mb: 2 }}>
-                    Résumé Commande
-                  </Typography>
-
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="body2" sx={{ color: "#64748b" }}>
-                      Articles ({items.length})
-                    </Typography>
-                    {items.length === 0 ? (
-                      <Typography sx={{ color: "#94a3b8", fontSize: "0.85rem", mt: 1 }}>
-                        Aucun article ajouté
-                      </Typography>
-                    ) : (
-                      <TableContainer sx={{ mt: 1 }}>
-                        <Table size="small">
-                          <TableHead>
-                            <TableRow>
-                              <TableCell sx={{ color: "#64748b", fontSize: "0.75rem" }}>
-                                Produit
-                              </TableCell>
-                              <TableCell align="center" sx={{ color: "#64748b", fontSize: "0.75rem" }}>
-                                Qty
-                              </TableCell>
-                              <TableCell align="right" sx={{ color: "#64748b", fontSize: "0.75rem" }}>
-                                Prix
-                              </TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {items.map((item, idx) => (
-                              <TableRow key={idx}>
-                                <TableCell sx={{ color: "#94a3b8", fontSize: "0.75rem", py: 0.5 }}>
-                                  {item.product?.name}
-                                  <IconButton
-                                    size="small"
-                                    onClick={() => handleRemoveItem(idx)}
-                                    sx={{ ml: 1, color: "#ef4444", display: "inline" }}
-                                  >
-                                    <DeleteIcon fontSize="small" />
-                                  </IconButton>
-                                </TableCell>
-                                <TableCell align="center" sx={{ color: "#94a3b8", fontSize: "0.75rem", py: 0.5 }}>
-                                  {item.quantity}
-                                </TableCell>
-                                <TableCell align="right" sx={{ color: "white", fontSize: "0.75rem", py: 0.5, fontWeight: 600 }}>
-                                  {(item.quantity * item.unit_price).toFixed(2)} $
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                    )}
-                  </Box>
-
-                  <Box
-                    sx={{
-                      bgcolor: "rgba(59,130,246,0.1)",
-                      p: 1.5,
-                      borderRadius: 1,
-                      my: 2,
-                    }}
-                  >
-                    <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
-                      <Typography variant="body2" sx={{ color: "#64748b" }}>
-                        Sous-total
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: "#94a3b8" }}>
-                        {calculateTotal().toFixed(2)} $
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: "flex", justifyContent: "space-between", mb: 1 }}>
-                      <Typography variant="body2" sx={{ color: "#64748b" }}>
-                        Frais de port
-                      </Typography>
-                      <Typography variant="body2" sx={{ color: "#94a3b8" }}>
-                        0,00 $
-                      </Typography>
-                    </Box>
-                    <Box
-                      sx={{
-                        display: "flex",
-                        justifyContent: "space-between",
-                        borderTop: "1px solid rgba(59,130,246,0.2)",
-                        pt: 1,
-                      }}
-                    >
-                      <Typography variant="h6" sx={{ color: "white", fontWeight: 700 }}>
-                        Total
-                      </Typography>
-                      <Typography variant="h6" sx={{ color: "white", fontWeight: 700 }}>
-                        {calculateTotal().toFixed(2)} $
-                      </Typography>
-                    </Box>
-                  </Box>
-
-                  <Button
-                    variant="contained"
-                    fullWidth
-                    onClick={handleSubmitOrder}
-                    disabled={loading || items.length === 0 || !formData.shipping_address}
-                    sx={{
-                      bgcolor: "#10b981",
-                      color: "white",
-                      fontWeight: 600,
-                      textTransform: "none",
-                      borderRadius: 2,
-                      mb: 1,
-                      "&:hover": { bgcolor: "#059669" },
-                    }}
-                  >
-                    Passer la commande
-                  </Button>
-
-                  <Button
-                    variant="outlined"
-                    fullWidth
-                    onClick={() => navigate("/orders")}
-                    sx={{
-                      color: "#64748b",
-                      borderColor: "rgba(59,130,246,0.2)",
-                      textTransform: "none",
-                      borderRadius: 2,
-                      "&:hover": { borderColor: "rgba(59,130,246,0.4)" },
-                    }}
-                  >
-                    Annuler
-                  </Button>
-                </CardContent>
-              </Card>
-            </Box>
+            <Button
+              variant="outlined"
+              startIcon={<ArrowBackIcon />}
+              onClick={() => navigate("/orders")}
+              sx={{
+                color: "#64748b",
+                borderColor: "rgba(59,130,246,0.2)",
+                textTransform: "none",
+                borderRadius: 2,
+                "&:hover": { borderColor: "rgba(59,130,246,0.4)", bgcolor: "rgba(59,130,246,0.05)" },
+              }}
+            >
+              Retour
+            </Button>
           </Box>
+
+          {/* Bon de commande */}
+          <Card sx={{ bgcolor: "rgba(30,41,59,0.5)", border: "1px solid rgba(59,130,246,0.1)", borderRadius: 3 }}>
+            <CardContent>
+              {/* En-tête du bon */}
+              <Box sx={{ display: "flex", justifyContent: "space-between", mb: 4, pb: 2, borderBottom: "2px solid #3b82f6" }}>
+                <Box>
+                  <Typography variant="h5" sx={{ color: "#3b82f6", fontWeight: 700 }}>
+                    BON DE COMMANDE
+                  </Typography>
+                </Box>
+                <Box sx={{ textAlign: "right" }}>
+                  <Typography variant="body2" sx={{ color: "#64748b" }}>
+                    Date: {new Date().toLocaleDateString("fr-FR")}
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: "#64748b" }}>
+                    N°: Nouvelle commande
+                  </Typography>
+                </Box>
+              </Box>
+
+              {/* Tableau des articles */}
+              <TableContainer sx={{ mb: 3, overflowX: "auto" }}>
+                <Table>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: "rgba(59,130,246,0.1)" }}>
+                      <TableCell sx={{ color: "#3b82f6", fontWeight: 600 }}>Nomenclature</TableCell>
+                      <TableCell sx={{ color: "#3b82f6", fontWeight: 600 }}>Désignation</TableCell>
+                      <TableCell sx={{ color: "#3b82f6", fontWeight: 600 }}>Unité</TableCell>
+                      <TableCell align="center" sx={{ color: "#3b82f6", fontWeight: 600 }}>Qté demandé</TableCell>
+                      <TableCell align="right" sx={{ color: "#3b82f6", fontWeight: 600 }}>Prix unitaire</TableCell>
+                      <TableCell align="right" sx={{ color: "#3b82f6", fontWeight: 600 }}>Qté restante</TableCell>
+                      <TableCell align="center" sx={{ color: "#3b82f6", fontWeight: 600 }}>Action</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {/* Ligne d'ajout */}
+                    <TableRow sx={{ bgcolor: "rgba(59,130,246,0.05)" }}>
+                      <TableCell>
+                        <FormControl fullWidth size="small">
+                          <Select
+                            key={`product-select-${newItem.product_id}`} // ✅ Force le re-render quand product_id change
+                            value={newItem.product_id}
+                            onChange={(e) => handleProductChange(e.target.value)}
+                            displayEmpty
+                            sx={{ color: "white" }}
+                          >
+                            <MenuItem value="">Sélectionner</MenuItem>
+                            {products.map((product) => (
+                              <MenuItem key={product.id} value={String(product.id)}>
+                                {product.sku || product.nomenclature}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </TableCell>
+                      <TableCell>
+                        <Typography sx={{ color: "#94a3b8", fontSize: "0.875rem" }}>
+                          {newItem.product_name}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography sx={{ color: "#94a3b8", fontSize: "0.875rem" }}>
+                          {newItem.unit}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <TextField
+                          type="number"
+                          value={newItem.quantity}
+                          onChange={(e) => setNewItem({ ...newItem, quantity: parseInt(e.target.value) || 1 })}
+                          size="small"
+                          sx={{ width: 80, ...inputSx }}
+                          inputProps={{ min: 1, max: newItem.stock_disponible }}
+                        />
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography sx={{ color: "#94a3b8", fontSize: "0.875rem" }}>
+                          {newItem.unit_price.toFixed(2)} €
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography sx={{ color: newItem.stock_disponible > 0 ? "#10b981" : "#ef4444", fontWeight: 600 }}>
+                          {newItem.stock_disponible}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="center">
+                        <IconButton size="small" onClick={handleAddItem} sx={{ color: "#10b981" }}>
+                          <AddIcon />
+                        </IconButton>
+                      </TableCell>
+                    </TableRow>
+
+                    {/* Articles ajoutés */}
+                    {items.map((item, idx) => {
+                      const remainingStock = getRemainingStock(item.product_id);
+                      return (
+                        <TableRow key={item.id}>
+                          <TableCell sx={{ color: "white", fontSize: "0.875rem" }}>
+                            {item.sku}
+                          </TableCell>
+                          <TableCell sx={{ color: "white", fontSize: "0.875rem" }}>
+                            {item.product_name}
+                          </TableCell>
+                          <TableCell sx={{ color: "#94a3b8", fontSize: "0.875rem" }}>
+                            {item.unit}
+                          </TableCell>
+                          <TableCell align="center" sx={{ color: "#94a3b8", fontSize: "0.875rem" }}>
+                            {item.quantity}
+                          </TableCell>
+                          <TableCell align="right" sx={{ color: "#94a3b8", fontSize: "0.875rem" }}>
+                            {item.unit_price.toFixed(2)} €
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography sx={{ color: remainingStock > 0 ? "#10b981" : "#ef4444", fontWeight: 600 }}>
+                              {remainingStock}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="center">
+                            <IconButton size="small" onClick={() => handleRemoveItem(idx)} sx={{ color: "#ef4444" }}>
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+
+                    {items.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={7} align="center" sx={{ color: "#64748b", py: 4 }}>
+                          Aucun article ajouté
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+
+              {/* Boutons d'action */}
+              <Box sx={{ display: "flex", gap: 2, justifyContent: "flex-end", mt: 3 }}>
+                <Button
+                  variant="outlined"
+                  onClick={() => navigate("/orders")}
+                  sx={{ color: "#64748b", borderColor: "rgba(59,130,246,0.2)" }}
+                >
+                  Annuler
+                </Button>
+                <Button
+                  variant="contained"
+                  startIcon={<SaveIcon />}
+                  onClick={handleSubmitOrder}
+                  disabled={submitting || items.length === 0}
+                  sx={{
+                    bgcolor: "#10b981",
+                    "&:hover": { bgcolor: "#059669" },
+                    "&.Mui-disabled": { bgcolor: "rgba(16,185,129,0.3)" }
+                  }}
+                >
+                  {submitting ? "Création..." : "Créer le bon de commande"}
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
         </Box>
       </Box>
 
-      <Snackbar
-        open={!!successMessage}
-        autoHideDuration={3000}
-        onClose={() => setSuccessMessage("")}
-        anchorOrigin={{ vertical: "top", horizontal: "right" }}
-      >
-        <Alert severity="success" sx={{ width: "100%" }}>
-          {successMessage}
-        </Alert>
+      <Snackbar open={!!successMessage} autoHideDuration={3000} onClose={() => setSuccessMessage("")} anchorOrigin={{ vertical: "top", horizontal: "right" }}>
+        <Alert severity="success" sx={{ bgcolor: "#1e293b", color: "white" }}>{successMessage}</Alert>
       </Snackbar>
-      <Snackbar
-        open={!!errorMessage}
-        autoHideDuration={3000}
-        onClose={() => setErrorMessage("")}
-        anchorOrigin={{ vertical: "top", horizontal: "right" }}
-      >
-        <Alert severity="error" sx={{ width: "100%" }}>
-          {errorMessage}
-        </Alert>
+      <Snackbar open={!!errorMessage} autoHideDuration={3000} onClose={() => setErrorMessage("")} anchorOrigin={{ vertical: "top", horizontal: "right" }}>
+        <Alert severity="error">{errorMessage}</Alert>
       </Snackbar>
     </Box>
   );

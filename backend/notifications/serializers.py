@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Notification, NotificationEmailRecipient
+from .models import Notification, NotificationEmailRecipient, NotificationChannelPreference
 from accounts.serializers import UserSerializer
 from alerts.serializers import AlertSerializer
 
@@ -18,6 +18,7 @@ class NotificationSerializer(serializers.ModelSerializer):
             'title',
             'message',
             'notification_type',
+            'priority',
             'is_read',
             'read_at',
             'created_at',
@@ -40,6 +41,7 @@ class CreateNotificationSerializer(serializers.ModelSerializer):
             'title',
             'message',
             'notification_type',
+            'priority',
             'email_subject',
             'email_body',
         ]
@@ -48,6 +50,7 @@ class CreateNotificationSerializer(serializers.ModelSerializer):
             'alert': {'required': False, 'allow_null': True},
             'title': {'required': False, 'allow_blank': True, 'allow_null': True},
             'message': {'required': False, 'allow_blank': True, 'allow_null': True},
+            'priority': {'required': False},
         }
     
     def create(self, validated_data):
@@ -60,15 +63,30 @@ class CreateNotificationSerializer(serializers.ModelSerializer):
             validated_data['user'] = alert.user
         
         notification = super().create(validated_data)
+
+        prefs, _ = NotificationChannelPreference.objects.get_or_create(user=notification.user)
+        email_success = False
+        telegram_success = False
+        email_error_message = None
         
-        # Envoyer l'email après création
-        success, error_message = notification.send_email_notification(
-            subject_override=email_subject,
-            body_override=email_body,
-        )
-        if not success:
+        if prefs.email_enabled:
+            email_success, email_error_message = notification.send_email_notification(
+                subject_override=email_subject,
+                body_override=email_body,
+            )
+
+        if prefs.telegram_enabled:
+            telegram_success, _ = notification.send_telegram_notification(
+                body_override=email_body,
+            )
+
+        has_external_channel = prefs.email_enabled or prefs.telegram_enabled
+        if has_external_channel and not email_success and not telegram_success:
             raise serializers.ValidationError({
-                'email': f"Erreur lors de l'envoi de l'email: {error_message}"
+                'notification': (
+                    "Erreur lors de l'envoi des notifications email/telegram: "
+                    f"{email_error_message or 'Aucun canal disponible'}"
+                )
             })
         
         return notification

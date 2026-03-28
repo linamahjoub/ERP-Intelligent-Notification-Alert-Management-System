@@ -2,11 +2,17 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
 from django.utils import timezone
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
-from .models import Notification, NotificationEmailRecipient
+from django.core.mail import send_mail
+from django.conf import settings
+from .models import Notification, NotificationEmailRecipient, NotificationChannelPreference
 from .serializers import NotificationSerializer, CreateNotificationSerializer
+import random
+import string
+from datetime import timedelta
 
 
 class NotificationViewSet(viewsets.ModelViewSet):
@@ -15,25 +21,18 @@ class NotificationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
     
     def get_queryset(self):
-        """Retourner les notifications de l'utilisateur connecté"""
         user = self.request.user
-        
-        # Si l'utilisateur est superuser, afficher toutes les notifications
         if user.is_superuser:
             return Notification.objects.all()
-        
-        # Sinon, afficher seulement les notifications de l'utilisateur
         return Notification.objects.filter(user=user)
     
     def get_serializer_class(self):
-        """Utiliser le bon serializer selon l'action"""
         if self.action == 'create':
             return CreateNotificationSerializer
         return NotificationSerializer
     
     @action(detail=True, methods=['post'])
     def mark_as_read(self, request, pk=None):
-        """Marquer une notification comme lue"""
         notification = self.get_object()
         notification.mark_as_read()
         serializer = self.get_serializer(notification)
@@ -41,7 +40,6 @@ class NotificationViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def mark_as_unread(self, request, pk=None):
-        """Marquer une notification comme non lue"""
         notification = self.get_object()
         notification.mark_as_unread()
         serializer = self.get_serializer(notification)
@@ -49,7 +47,6 @@ class NotificationViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['post'])
     def mark_all_as_read(self, request):
-        """Marquer toutes les notifications comme lues"""
         notifications = self.get_queryset().filter(is_read=False)
         count = 0
         for notification in notifications:
@@ -62,14 +59,11 @@ class NotificationViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'])
     def unread_count(self, request):
-        """Obtenir le nombre de notifications non lues"""
         count = self.get_queryset().filter(is_read=False).count()
         return Response({'unread_count': count})
     
     @action(detail=False, methods=['post'])
     def delete_old(self, request):
-        """Supprimer les notifications lues de plus de 30 jours"""
-        from datetime import timedelta
         threshold_date = timezone.now() - timedelta(days=30)
         deleted_count, _ = self.get_queryset().filter(
             is_read=True,
@@ -82,17 +76,13 @@ class NotificationViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get', 'put'])
     def email_recipients(self, request):
-        """Lister ou remplacer les emails de notification de l'utilisateur"""
         user = request.user
-
         if request.method == 'GET':
             emails = list(NotificationEmailRecipient.objects.filter(user=user).values_list('email', flat=True))
             return Response({'emails': emails})
-
         emails = request.data.get('emails', [])
         if not isinstance(emails, list):
             return Response({'detail': 'Le champ emails doit être une liste.'}, status=status.HTTP_400_BAD_REQUEST)
-
         cleaned = []
         for raw in emails:
             if not isinstance(raw, str):
@@ -105,10 +95,349 @@ class NotificationViewSet(viewsets.ModelViewSet):
             except ValidationError:
                 return Response({'detail': f'Adresse email invalide: {email}'}, status=status.HTTP_400_BAD_REQUEST)
             cleaned.append(email)
-
         NotificationEmailRecipient.objects.filter(user=user).delete()
         NotificationEmailRecipient.objects.bulk_create([
             NotificationEmailRecipient(user=user, email=email) for email in sorted(set(cleaned))
         ])
-
         return Response({'emails': cleaned})
+
+    @action(detail=False, methods=['get', 'put'])
+    def channel_preferences(self, request):
+        user = request.user
+        prefs, _ = NotificationChannelPreference.objects.get_or_create(user=user)
+        if request.method == 'GET':
+            return Response({
+                'email_enabled': prefs.email_enabled,
+                'in_app_enabled': prefs.in_app_enabled,
+                'telegram_enabled': prefs.telegram_enabled,
+                'schedule': prefs.schedule,
+            })
+        email_enabled = request.data.get('email_enabled', prefs.email_enabled)
+        in_app_enabled = request.data.get('in_app_enabled', prefs.in_app_enabled)
+        telegram_enabled = request.data.get('telegram_enabled', prefs.telegram_enabled)
+        schedule = request.data.get('schedule', prefs.schedule)
+        if schedule not in {'realtime', 'hourly', 'daily', 'weekly', 'monthly'}:
+            return Response({'detail': 'Frequence invalide.'}, status=status.HTTP_400_BAD_REQUEST)
+        prefs.email_enabled = bool(email_enabled)
+        prefs.in_app_enabled = bool(in_app_enabled)
+        prefs.telegram_enabled = bool(telegram_enabled)
+        prefs.schedule = schedule
+        prefs.save()
+        return Response({
+            'email_enabled': prefs.email_enabled,
+            'in_app_enabled': prefs.in_app_enabled,
+            'telegram_enabled': prefs.telegram_enabled,
+            'schedule': prefs.schedule,
+        })
+
+
+class SendOTPEmailView(APIView):
+    """Envoyer un code OTP par email"""
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        email = request.data.get('email')
+        if not email:
+            return Response({'error': 'Email requis'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        otp_code = ''.join(random.choices(string.digits, k=6))
+        
+        request.session[f'otp_email_{email}'] = {
+            'code': otp_code,
+            'created_at': timezone.now().isoformat(),
+            'channel': 'email'
+        }
+        request.session.modified = True
+        
+        print(f"\n{'='*50}")
+        print(f"📧 CODE OTP EMAIL pour {email}: {otp_code}")
+        print(f"{'='*50}\n")
+        
+        try:
+            subject = 'Code de vérification - Activation Email SmartNotify'
+            message = f"""
+Bonjour,
+Votre code de vérification pour activer les notifications par email est : {otp_code}
+Ce code est valable 5 minutes.
+Cordialement, L'équipe SmartNotify
+"""
+            send_mail(
+                subject=subject,
+                message=message,
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[email],
+                fail_silently=False,
+            )
+            return Response({'message': 'Code OTP envoyé par email'}, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(f"❌ Erreur envoi email: {e}")
+            return Response({
+                'message': 'Code OTP généré (mode développement)',
+                'dev_code': otp_code
+            }, status=status.HTTP_200_OK)
+
+
+class SendOTPTelegramView(APIView):
+    """Envoyer un code OTP par Telegram"""
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        telegram_username = request.data.get('telegram_username')
+        if not telegram_username:
+            return Response({'error': 'Nom d\'utilisateur Telegram requis'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        telegram_username = telegram_username.lstrip('@').lower()
+        
+        print(f"\n{'='*60}")
+        print(f"📱 ACTIVATION TELEGRAM - DEMANDE OTP")
+        print(f"   Utilisateur ID: {request.user.id}")
+        print(f"   Username Telegram: @{telegram_username}")
+        print(f"{'='*60}\n")
+        
+        if not request.user.telegram_chat_id:
+            return Response({
+                'error': 'Votre compte Telegram n\'est pas lié.',
+                'telegram_username': request.user.telegram_username
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        otp_code = ''.join(random.choices(string.digits, k=6))
+        
+        session_key = f'otp_telegram_{request.user.id}'
+        request.session[session_key] = {
+            'code': otp_code,
+            'created_at': timezone.now().isoformat(),
+            'channel': 'telegram',
+            'username': telegram_username
+        }
+        request.session.modified = True
+        
+        print(f"🔑 CODE OTP TELEGRAM: {otp_code} (clé session: {session_key})")
+        
+        try:
+            from smartalerte_project.telegram_utils import send_telegram_to_user
+            
+            message = f"""🔐 *SmartNotify - Vérification Telegram*
+Votre code de vérification pour activer les notifications Telegram est :
+`{otp_code}`
+⏱️ Ce code est valable 5 minutes."""
+            
+            success = send_telegram_to_user(request.user, message)
+            
+            if success:
+                return Response({
+                    'message': 'Code OTP envoyé par Telegram',
+                    'channel': 'telegram'
+                }, status=status.HTTP_200_OK)
+            else:
+                return Response({
+                    'message': '⚠️ Impossible d\'envoyer le message Telegram',
+                    'dev_code': otp_code
+                }, status=status.HTTP_200_OK)
+        except Exception as e:
+            print(f"❌ Erreur envoi Telegram: {e}")
+            return Response({
+                'message': '⚠️ Erreur technique',
+                'dev_code': otp_code
+            }, status=status.HTTP_200_OK)
+
+
+class VerifyOTPEmailView(APIView):
+    """Vérifier le code OTP pour activer les notifications email"""
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        otp_code = request.data.get('otp_code')
+        if not otp_code:
+            return Response({'error': 'Code OTP requis'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        user_email = request.user.email
+        session_key = f'otp_email_{user_email}'
+        otp_data = request.session.get(session_key)
+        
+        if not otp_data:
+            return Response({'error': 'Aucun code OTP en attente'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        created_at = timezone.datetime.fromisoformat(otp_data['created_at'])
+        if timezone.now() - created_at > timedelta(minutes=5):
+            del request.session[session_key]
+            return Response({'error': 'Code OTP expiré'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if otp_data['code'] != otp_code:
+            return Response({'error': 'Code OTP invalide'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        del request.session[session_key]
+        
+        prefs, _ = NotificationChannelPreference.objects.get_or_create(user=request.user)
+        prefs.email_enabled = True
+        prefs.save()
+        
+        return Response({'verified': True, 'message': 'Email activé avec succès'}, status=status.HTTP_200_OK)
+
+
+class VerifyOTPTelegramView(APIView):
+    """Vérifier le code OTP pour activer les notifications Telegram"""
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        otp_code = request.data.get('otp_code')
+        if not otp_code:
+            return Response({'error': 'Code OTP requis'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        session_key = f'otp_telegram_{request.user.id}'
+        otp_data = request.session.get(session_key)
+        
+        if not otp_data:
+            print(f"❌ Session non trouvée pour clé: {session_key}")
+            print(f"   Clés disponibles: {list(request.session.keys())}")
+            return Response({'error': 'Aucun code OTP en attente'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        created_at = timezone.datetime.fromisoformat(otp_data['created_at'])
+        if timezone.now() - created_at > timedelta(minutes=5):
+            del request.session[session_key]
+            return Response({'error': 'Code OTP expiré'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if otp_data['code'] != otp_code:
+            return Response({'error': 'Code OTP invalide'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        del request.session[session_key]
+        
+        prefs, _ = NotificationChannelPreference.objects.get_or_create(user=request.user)
+        prefs.telegram_enabled = True
+        prefs.save()
+        
+        return Response({'verified': True, 'message': 'Telegram activé avec succès'}, status=status.HTTP_200_OK)
+
+
+class SendOTPLoginView(APIView):
+    """Envoyer un code OTP lors du login pour vérification de sécurité"""
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        user = request.user
+        prefs, _ = NotificationChannelPreference.objects.get_or_create(user=user)
+        
+        otp_channel = None
+        otp_destination = None
+        
+        if not prefs.email_enabled and prefs.telegram_enabled:
+            otp_channel = 'telegram'
+            otp_destination = user.telegram_username
+            if not user.telegram_chat_id:
+                return Response({
+                    'error': 'Telegram non configuré. Activez d\'abord les notifications Telegram.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        elif not prefs.telegram_enabled and prefs.email_enabled:
+            otp_channel = 'email'
+            otp_destination = user.email
+            if not otp_destination:
+                return Response({
+                    'error': 'Email non configuré.'
+                }, status=status.HTTP_400_BAD_REQUEST)
+        
+        elif prefs.email_enabled and prefs.telegram_enabled:
+            otp_channel = 'email'
+            otp_destination = user.email
+        
+        else:
+            return Response({
+                'error': 'Au moins un canal de notification doit être activé (Email ou Telegram).'
+            }, status=status.HTTP_400_BAD_REQUEST)
+        
+        otp_code = ''.join(random.choices(string.digits, k=6))
+        
+        session_key = f'otp_login_{user.id}'
+        request.session[session_key] = {
+            'code': otp_code,
+            'created_at': timezone.now().isoformat(),
+            'channel': otp_channel,
+            'destination': otp_destination
+        }
+        request.session.modified = True
+        
+        print(f"\n{'='*60}")
+        print(f"🔐 OTP LOGIN - Utilisateur: {user.username}")
+        print(f"   Canal: {otp_channel}")
+        print(f"   Destination: {otp_destination}")
+        print(f"   Code: {otp_code}")
+        print(f"{'='*60}\n")
+        
+        try:
+            if otp_channel == 'email':
+                subject = 'Code de vérification - Connexion SmartNotify'
+                message = f"""
+Bonjour {user.first_name},
+
+Votre code de vérification pour la connexion est : {otp_code}
+
+Ce code est valable 5 minutes.
+
+Cordialement,
+L'équipe SmartNotify
+"""
+                send_mail(
+                    subject=subject,
+                    message=message,
+                    from_email=settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[otp_destination],
+                    fail_silently=False,
+                )
+            else:
+                from smartalerte_project.telegram_utils import send_telegram_to_user
+                message = f"""🔐 *SmartNotify - Vérification de Connexion*
+
+Votre code de vérification pour la connexion est :
+
+`{otp_code}`
+
+⏱️ Ce code est valable 5 minutes.
+
+Si vous n'êtes pas à l'origine de cette connexion, ignorez ce message."""
+                send_telegram_to_user(user, message)
+            
+            return Response({
+                'message': f'Code OTP envoyé par {otp_channel}',
+                'channel': otp_channel,
+                'destination': otp_destination
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            print(f"❌ Erreur envoi OTP login: {e}")
+            return Response({
+                'message': 'Erreur lors de l\'envoi du code OTP',
+                'dev_code': otp_code
+            }, status=status.HTTP_200_OK)
+
+
+class VerifyOTPLoginView(APIView):
+    """Vérifier le code OTP lors du login"""
+    permission_classes = [IsAuthenticated]
+    
+    def post(self, request):
+        otp_code = request.data.get('otp_code')
+        if not otp_code:
+            return Response({'error': 'Code OTP requis'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        session_key = f'otp_login_{request.user.id}'
+        otp_data = request.session.get(session_key)
+        
+        if not otp_data:
+            return Response({'error': 'Aucun code OTP en attente'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        created_at = timezone.datetime.fromisoformat(otp_data['created_at'])
+        if timezone.now() - created_at > timedelta(minutes=5):
+            del request.session[session_key]
+            return Response({'error': 'Code OTP expiré'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        if otp_data['code'] != otp_code:
+            return Response({'error': 'Code OTP invalide'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        del request.session[session_key]
+        
+        request.session['login_verified'] = True
+        request.session.modified = True
+        
+        return Response({
+            'verified': True,
+            'message': 'Connexion vérifiée avec succès'
+        }, status=status.HTTP_200_OK)

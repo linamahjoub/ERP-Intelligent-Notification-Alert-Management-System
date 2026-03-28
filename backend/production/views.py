@@ -8,12 +8,13 @@ from rest_framework.exceptions import PermissionDenied
 from activity.models import ActivityLog
 from notifications.models import Notification
 
-from .models import ProductionAlert, ProductionOrder, RawMaterial
+from .models import ProductionAlert, ProductionOrder, RawMaterial, FinishedProduct
 from .serializers import (
     ProductionAlertResolveSerializer,
     ProductionAlertSerializer,
     ProductionOrderSerializer,
     RawMaterialSerializer,
+    FinishedProductSerializer,
 )
 
 
@@ -205,3 +206,61 @@ class ProductionAlertViewSet(AdminWriteMixin, viewsets.ReadOnlyModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(ProductionAlertSerializer(alert).data)
+
+
+class FinishedProductViewSet(AdminWriteMixin, viewsets.ModelViewSet):
+    """ViewSet pour gérer les produits finis"""
+    queryset = FinishedProduct.objects.select_related('product', 'production_order')
+    serializer_class = FinishedProductSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['status', 'quality_check_passed', 'production_date']
+    search_fields = ['product__name', 'product__sku', 'batch_number']
+    ordering_fields = ['production_date', 'quantity_produced', 'created_at']
+    ordering = ['-production_date']
+    
+    def perform_create(self, serializer):
+        self._ensure_admin_for_write()
+        finished_product = serializer.save()
+        ActivityLog.objects.create(
+            actor=self.request.user,
+            action_type=ActivityLog.ACTION_PRODUCT_CREATED,
+            title=f"Produit fini créé: {finished_product.product.name}",
+            description=f"Batch: {finished_product.batch_number} | Quantité: {finished_product.quantity_produced}",
+        )
+    
+    def perform_update(self, serializer):
+        self._ensure_admin_for_write()
+        finished_product = serializer.save()
+        ActivityLog.objects.create(
+            actor=self.request.user,
+            action_type=ActivityLog.ACTION_PRODUCT_UPDATED,
+            title=f"Produit fini mis à jour: {finished_product.product.name}",
+            description=f"Batch: {finished_product.batch_number} | Statut: {finished_product.get_status_display()}",
+        )
+    
+    def perform_destroy(self, instance):
+        self._ensure_admin_for_write()
+        ActivityLog.objects.create(
+            actor=self.request.user,
+            action_type=ActivityLog.ACTION_PRODUCT_DELETED,
+            title=f"Produit fini supprimé: {instance.product.name}",
+            description=f"Batch: {instance.batch_number}",
+        )
+        instance.delete()
+    
+    @action(detail=True, methods=['patch'])
+    def pass_quality_check(self, request, pk=None):
+        """Marquer un produit fini comme passant le contrôle qualité"""
+        finished_product = self.get_object()
+        finished_product.quality_check_passed = True
+        finished_product.quality_notes = request.data.get('quality_notes', '')
+        finished_product.save()
+        
+        ActivityLog.objects.create(
+            actor=request.user,
+            action_type=ActivityLog.ACTION_PRODUCT_UPDATED,
+            title=f"Contrôle qualité réussi: {finished_product.product.name}",
+            description=f"Batch: {finished_product.batch_number}",
+        )
+        
+        return Response(FinishedProductSerializer(finished_product).data)

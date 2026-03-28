@@ -29,6 +29,7 @@ import {
   Security as SecurityIcon,
   ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
+import { FaTelegramPlane } from "react-icons/fa";
 import notif from '../../assets/notif.png';
 
 const Login = () => {
@@ -39,7 +40,7 @@ const Login = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [emailChecking, setEmailChecking] = useState(false);
-  const { login, checkEmailExists } = useAuth();
+  const { login, checkEmailExists, logout } = useAuth();
   const navigate = useNavigate();
   const emailInputRef = useRef(null);
 
@@ -49,6 +50,10 @@ const Login = () => {
       emailInputRef.current.focus();
     }
   }, []);
+
+  const handleTelegramSignIn = () => {
+    navigate('/telegram-login');
+  };
 
   const handleEmailCheck = async (emailToCheck) => {
     if (!emailToCheck || !emailToCheck.includes('@')) {
@@ -89,18 +94,28 @@ const Login = () => {
       const result = await login(email, password);
       
       if (result.success) {
-        // Récupérer l'utilisateur depuis le résultat de la connexion
-        const userData = result.user || JSON.parse(localStorage.getItem('user') || '{}');
-        
-        // Vérifier si le compte est actif
-        if (!userData.is_active) {
-          navigate('/verification-pending', { replace: true });
+        if (result.verificationRequired) {
+          const pendingPayload = {
+            challengeId: result.challengeId,
+            email: result.email,
+            purpose: result.purpose,
+            message: result.message,
+          };
+          localStorage.setItem('pending_otp', JSON.stringify(pendingPayload));
+          navigate('/login-otp', { replace: true, state: pendingPayload });
           return;
         }
-        
+
+        const userData = result.user || JSON.parse(localStorage.getItem('user') || '{}');
+
+        if (!userData.is_active) {
+          await logout();
+          setError('Compte en attente de validation. Merci de patienter avant votre premiere connexion.');
+          return;
+        }
+
         const isAdmin = userData?.is_superuser || userData?.is_staff;
-        
-        // Redirection immédiate et unique
+
         if (isAdmin) {
           navigate('/admin_dashboard', { replace: true });
         } else {
@@ -254,7 +269,7 @@ const Login = () => {
                 WebkitTextFillColor: 'transparent',
               }}
             >
-              ERP Alert System
+              ERP Management & Alert System
             </Typography>
 
             <Typography 
@@ -928,6 +943,53 @@ const Login = () => {
                   </Box>
                 ) : (
                   'Continuer avec Google'
+                )}
+              </Button>
+
+              {/* Bouton Telegram avec icône personnalisée */}
+              <Button
+                fullWidth
+                variant="outlined"
+                startIcon={<FaTelegramPlane size={20} />}
+                onClick={handleTelegramSignIn}
+                disabled={loading}
+                sx={{
+                  mt: 1.5,
+                  py: 1.5,
+                  borderRadius: 2,
+                  borderColor: '#e2e8f0',
+                  borderWidth: '2px',
+                  color: '#1e293b',
+                  fontWeight: 600,
+                  textTransform: 'none',
+                  fontSize: '0.95rem',
+                  bgcolor: 'white',
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    borderColor: '#26A5E4',
+                    borderWidth: '2px',
+                    bgcolor: '#eff6ff',
+                    color: '#26A5E4',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 4px 12px rgba(38,165,228,0.12)',
+                  },
+                  '&:active': {
+                    transform: 'translateY(0)',
+                  },
+                  '&:disabled': {
+                    bgcolor: '#e2e8f0',
+                    borderColor: '#cbd5e1',
+                    color: '#94a3b8',
+                  }
+                }}
+              >
+                {loading ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CircularProgress size={18} sx={{ color: '#26A5E4' }} />
+                    <span>Connexion en cours...</span>
+                  </Box>
+                ) : (
+                  'Continuer avec Telegram'
                 )}
               </Button>
             </Box>

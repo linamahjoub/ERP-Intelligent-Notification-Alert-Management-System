@@ -87,7 +87,7 @@ const Categories = () => {
 
   const emptyForm = useMemo(() => ({
     id: null, name: "", description: "", color: "#3b82f6", is_active: true,
-    created_at: null, updated_at: null, supplier_id: null,
+    created_at: null, updated_at: null, supplier_id: null, material_type: "matiere_premiere",
   }), []);
 
   const [formData, setFormData] = useState(emptyForm);
@@ -175,6 +175,7 @@ const Categories = () => {
       const payload = {
         name: formData.name.trim(),
         description: formData.description.trim(),
+        material_type: formData.material_type || "matiere_premiere",
         is_active: formData.is_active,
         supplier_id: formData.supplier_id || null,
       };
@@ -222,6 +223,7 @@ const Categories = () => {
       const payload = {
         name: category.name,
         description: category.description,
+        material_type: category.material_type || "matiere_premiere",
         is_active: newStatus,
         supplier_id: category.supplier_id || null,
       };
@@ -330,6 +332,18 @@ const Categories = () => {
     fontSize: "0.875rem", display: "flex", justifyContent: "space-between", alignItems: "center",
     "&:hover": { bgcolor: "rgba(59,130,246,0.08)", color: "white" },
   });
+
+  const materialTypeOptions = [
+    { value: "matiere_premiere", label: "Matiere premiere" },
+    { value: "matiere_consommable", label: "Matiere consommable" },
+    { value: "matiere_emballage", label: "Matiere emballage" },
+    { value: "matiere_chimique", label: "Matiere chimique" },
+    { value: "matiere_dangereuse", label: "Matiere dangereuse" },
+    { value: "fourniture_bureau", label: "Fournitures bureau" },
+  ];
+
+  const getMaterialTypeLabel = (value) =>
+    materialTypeOptions.find((opt) => opt.value === value)?.label || "Matiere premiere";
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
@@ -453,8 +467,8 @@ const Categories = () => {
               <Table>
                 <TableHead>
                   <TableRow sx={{ backgroundColor: "rgba(59,130,246,0.05)", borderBottom: "1px solid rgba(59,130,246,0.1)" }}>
-                    {["Catégorie", "Description", "Fournisseur", "Statut", "Date de création", "Actions"].map((h, i) => (
-                      <TableCell key={h} align={i >= 4 ? "center" : "left"} sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>
+                    {["Catégorie", "Type matière", "Description", "Fournisseur", "Statut", "Date de création", "Actions"].map((h, i) => (
+                      <TableCell key={h} align={i >= 5 ? "center" : "left"} sx={{ color: "#94a3b8", fontWeight: 600, borderBottom: "none" }}>
                         {h}
                       </TableCell>
                     ))}
@@ -471,6 +485,20 @@ const Categories = () => {
                           </Avatar>
                           <Typography variant="body2" sx={{ color: "white", fontWeight: 600 }}>{cat.name}</Typography>
                         </Box>
+                      </TableCell>
+
+                      {/* Material type */}
+                      <TableCell sx={{ color: "#64748b", fontSize: "0.875rem" }}>
+                        <Chip
+                          size="small"
+                          label={getMaterialTypeLabel(cat.material_type)}
+                          sx={{
+                            bgcolor: "rgba(59,130,246,0.15)",
+                            color: "#93c5fd",
+                            border: "1px solid rgba(59,130,246,0.35)",
+                            fontWeight: 600,
+                          }}
+                        />
                       </TableCell>
 
                       {/* Description */}
@@ -541,7 +569,7 @@ const Categories = () => {
                     </TableRow>
                   )) : (
                     <TableRow>
-                      <TableCell colSpan={6} sx={{ border: "none" }}>
+                      <TableCell colSpan={7} sx={{ border: "none" }}>
                         <Box sx={{ textAlign: "center", py: 6 }}>
                           <CategoryIcon sx={{ fontSize: 64, color: "rgba(255,255,255,0.1)", mb: 2 }} />
                           <Typography variant="h6" sx={{ color: "white", mb: 1 }}>Aucune catégorie trouvée</Typography>
@@ -632,32 +660,11 @@ const Categories = () => {
           <TextField label="Description" value={formData.description} fullWidth size="small" sx={inputSx} multiline rows={2}
             onChange={(e) => setFormData({ ...formData, description: e.target.value })}
           />
+
+
+     
           
-          <FormControl fullWidth size="small">
-            <InputLabel sx={{ color: '#64748b', '&.Mui-focused': { color: '#3b82f6' } }}>Fournisseur</InputLabel>
-            <Select
-              value={formData.supplier_id || ""}
-              label="Fournisseur"
-              onChange={(e) => setFormData({ ...formData, supplier_id: e.target.value || null })}
-              sx={{
-                color: '#94a3b8',
-                '& .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(59,130,246,0.2)' },
-                '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: 'rgba(59,130,246,0.4)' },
-                '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: '#3b82f6' },
-                bgcolor: 'rgba(59,130,246,0.05)',
-                borderRadius: '10px',
-              }}
-            >
-              <MenuItem value="">
-                <Typography sx={{ color: '#94a3b8' }}>Aucun</Typography>
-              </MenuItem>
-              {suppliers.map((supplier) => (
-                <MenuItem key={supplier.id} value={supplier.id}>
-                  <Typography sx={{ color: 'white' }}>{supplier.name || supplier.company_name}</Typography>
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+       
       
           <FormControlLabel
             control={

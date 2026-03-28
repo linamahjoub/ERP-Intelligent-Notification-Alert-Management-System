@@ -119,6 +119,7 @@ const EditAlert = () => {
 
   const notificationChannels = [
     { value: 'email', label: 'Email' },
+    { value: 'telegram', label: 'Telegram' },
     { value: 'in-app', label: 'in-app' },
   
   ];
@@ -705,113 +706,7 @@ const EditAlert = () => {
 
           <Divider sx={{ my: 4, bgcolor: C.border }} />
 
-          {/* Notifications */}
-          <Box sx={{ mb: 4 }}>
-            <Typography variant="h6" sx={{ color: 'white', mb: 3, fontSize: '1rem' }}>
-              Configuration des notifications
-            </Typography>
-
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 2, fontSize: '0.85rem' }}>
-                Canaux de notification
-              </Typography>
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5 }}>
-                {notificationChannels.map((channel) => (
-                  <Chip
-                    key={channel.value}
-                    label={channel.label}
-                    clickable
-                    onClick={() => handleChannelToggle(channel.value)}
-                    sx={{
-                      color: formData.notificationChannels.includes(channel.value) ? 'white' : 'rgba(255,255,255,0.6)',
-                      bgcolor: formData.notificationChannels.includes(channel.value) ? '#3b82f6' : 'rgba(255,255,255,0.08)',
-                      borderRadius: '6px',
-                      fontSize: '0.85rem',
-                      '&:hover': {
-                        bgcolor: formData.notificationChannels.includes(channel.value) ? '#2563eb' : 'rgba(255,255,255,0.12)',
-                      },
-                    }}
-                  />
-                ))}
-              </Box>
-            </Box>
-
-            <Box>
-              <Typography variant="subtitle2" sx={{ color: 'rgba(255,255,255,0.7)', mb: 2, fontSize: '0.85rem' }}>
-                Destinataires
-              </Typography>
-              <Box sx={{ display: 'flex', gap: 1.5, mb: 2 }}>
-                <TextField
-                  fullWidth
-                  variant="outlined"
-                  placeholder="Ajouter un email ou identifiant"
-                  value={customRecipient}
-                  onChange={(e) => setCustomRecipient(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddRecipient()}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      bgcolor: '#0a0e27',
-                      color: 'white',
-                      fontSize: '0.9rem',
-                      '& fieldset': {
-                        borderColor: 'rgba(255,255,255,0.1)',
-                      },
-                      '&:hover fieldset': {
-                        borderColor: 'rgba(255,255,255,0.2)',
-                      },
-                    },
-                    '& .MuiInputBase-input::placeholder': {
-                      color: 'rgba(255,255,255,0.3)',
-                      opacity: 1,
-                    },
-                  }}
-                />
-                <Button
-                  variant="contained"
-                  onClick={handleAddRecipient}
-                  startIcon={<AddIcon />}
-                  sx={{
-                    bgcolor: '#3b82f6',
-                    color: 'white',
-                    textTransform: 'none',
-                    fontSize: '0.9rem',
-                    px: 3,
-                    '&:hover': {
-                      bgcolor: '#2563eb',
-                    },
-                  }}
-                >
-                  Ajouter
-                </Button>
-              </Box>
-
-              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, minHeight: 40 }}>
-                {formData.recipients.map((recipient) => (
-                  <Chip
-                    key={recipient}
-                    label={recipient}
-                    onDelete={() => handleRemoveRecipient(recipient)}
-                    deleteIcon={<DeleteIcon />}
-                    sx={{
-                      color: 'white',
-                      bgcolor: 'rgba(59, 130, 246, 0.2)',
-                      borderRadius: '6px',
-                      fontSize: '0.85rem',
-                      '& .MuiChip-deleteIcon': {
-                        color: 'rgba(255,255,255,0.7)',
-                        '&:hover': {
-                          color: 'white',
-                        },
-                      },
-                    }}
-                  />
-                ))}
-              </Box>
-            </Box>
-          </Box>
-
-          <Divider sx={{ my: 4, bgcolor: C.border }} />
-
+     
           {/* Planification */}
           <Box>
             <Typography variant="h6" sx={{ color: 'white', mb: 3, fontSize: '1rem' }}>

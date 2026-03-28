@@ -5,9 +5,11 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import { ActivityProvider } from './context/ActivityContext';
 import PrivateRoute from './components/PrivateRoute';
 import VerificationPending from './pages/auth/VerificationPending';
+import LoginOtpVerification from './pages/auth/LoginOtpVerification';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import GoogleCallback from './pages/auth/GoogleCallback';
+import TelegramLoginPage from './pages/auth/TelegramLoginPage';
 import ForgotPassword from './pages/profile/ForgotPassword';
 import ResetPassword from './pages/auth/ResetPassword';
 import ChangePassword from './pages/profile/ChangePassword';
@@ -26,6 +28,9 @@ import Categories from './pages/stock/categories';
 import Entrepots from './pages/stock/Entrepots';
 import Facturation from './pages/stock/Facturation';
 import Production from './pages/production/Production';
+import MatierePremiere from './pages/production/MatierePremiere';
+import OrdreProduction from './pages/production/OrdreProduction';
+import ProduitFini from './pages/production/ProduitFini';
 import History from './pages/History';
 import AlertRules from './pages/alerts/AlertRules';
 import EditAlert from './pages/alerts/EditAlert';
@@ -45,6 +50,52 @@ const theme = createTheme({
     },
     secondary: {
       main: '#dc004e',
+    },
+  },
+  components: {
+    MuiSelect: {
+      defaultProps: {
+        MenuProps: {
+          PaperProps: {
+            sx: {
+              bgcolor: '#3B82F633',
+              border: '1px solid #3B82F633',
+              borderRadius: '10px',
+              backdropFilter: 'blur(12px)',
+              boxShadow: '0 8px 32px rgba(0,0,0,0.4)',
+              '& .MuiMenuItem-root': {
+                color: '#ffffff',
+              },
+              '& .MuiMenuItem-root.Mui-disabled': {
+                color: '#94a3b8',
+                opacity: 1,
+              },
+              '& .MuiTypography-root': {
+                color: 'inherit',
+              },
+            },
+          },
+        },
+      },
+      styleOverrides: {
+        select: {
+          color: '#f1f5f9',
+        },
+        icon: {
+          color: '#94a3b8',
+        },
+      },
+    },
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          color: '#ffffff',
+          '&.Mui-disabled': {
+            color: '#94a3b8',
+            opacity: 1,
+          },
+        },
+      },
     },
   },
 });
@@ -91,9 +142,8 @@ const RoleBasedRedirect = () => {
     return <Navigate to="/login" replace />;
   }
 
-  // Si l'utilisateur est inactif, aller à la page d'attente
   if (!user.is_active) {
-    return <Navigate to="/verification-pending" replace />;
+    return <Navigate to="/login" replace />;
   }
 
   const isAdmin = user.is_superuser || user.is_staff;
@@ -165,7 +215,9 @@ const InnerRoutes = () => {
         <Routes>
         {/* Routes publiques */}
         <Route path="/login" element={<Login />} />
+        <Route path="/login-otp" element={<LoginOtpVerification />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/telegram-login" element={<TelegramLoginPage />} />
         <Route path="/auth/google/callback" element={<GoogleCallback />} />
         <Route path="/verification-pending" element={<VerificationPending />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -178,9 +230,6 @@ const InnerRoutes = () => {
         
         {/* Route racine */}
         <Route path="/" element={<RoleBasedRedirect />} />
-
-        {/* Route en attente de vérification */}
-        <Route path="/verification-pending" element={<VerificationPending />} />
 
         {/* Routes protégées - Dashboard utilisateur */}
         <Route path="/dashboard" element={
@@ -300,14 +349,37 @@ const InnerRoutes = () => {
             <Facturation />
           </PrivateRoute>
         } />
-        <Route path="/production" element={
+        {/* Routes pour Matière Première */}
+        <Route path="/matiere-premiere" element={
           <PrivateRoute>
-            <Production />
+            <MatierePremiere />
           </PrivateRoute>
         } />
-        <Route path="/production/new" element={
+        <Route path="/matiere-premiere/new" element={
           <PrivateRoute>
-            <Production />
+            <MatierePremiere />
+          </PrivateRoute>
+        } />
+        {/* Routes pour Ordre de Production */}
+        <Route path="/ordre-production" element={
+          <PrivateRoute>
+            <OrdreProduction />
+          </PrivateRoute>
+        } />
+        <Route path="/ordre-production/new" element={
+          <PrivateRoute>
+            <OrdreProduction />
+          </PrivateRoute>
+        } />
+        {/* Routes pour Produit Fini */}
+        <Route path="/produit-fini" element={
+          <PrivateRoute>
+            <ProduitFini />
+          </PrivateRoute>
+        } />
+        <Route path="/produit-fini/new" element={
+          <PrivateRoute>
+            <ProduitFini />
           </PrivateRoute>
         } />
         {/* Route pour créer une nouvelle alerte */}

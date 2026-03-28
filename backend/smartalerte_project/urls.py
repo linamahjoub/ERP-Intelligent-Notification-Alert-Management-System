@@ -1,12 +1,13 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.views.generic import RedirectView
 from django.conf import settings
 from django.conf.urls.static import static
 
 urlpatterns = [
+    path('', RedirectView.as_view(url='/api/', permanent=False)),
     path('admin/', admin.site.urls),
     path('api/auth/', include('accounts.urls')),
-    # Expose the same account admin endpoints under /api/admin/ for the frontend admin panel
     path('api/admin/', include('accounts.urls')),
     path('api/alerts/', include('alerts.urls')),
     path('api/stock/', include('stock.urls')),
@@ -18,7 +19,7 @@ urlpatterns = [
     path('api/facturation/', include('facturation.urls')),
     path('api/production/', include('production.urls')),
     path('api/activity/', include('activity.urls')),
-    path('api/', include('notifications.urls')),
+    path('api/notifications/', include('notifications.urls')),
 ]
 
 # Servir les fichiers media en développement

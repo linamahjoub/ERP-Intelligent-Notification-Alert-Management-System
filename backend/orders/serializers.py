@@ -2,7 +2,9 @@ from rest_framework import serializers
 from django.db import transaction
 from .models import Order, OrderItem
 from stock.models import Product
+from stock_movements.models import StockExit
 from django.contrib.auth import get_user_model
+from uuid import uuid4
 
 User = get_user_model()
 
@@ -213,11 +215,23 @@ class OrderCreateSerializer(serializers.Serializer):
                 # Décrémenter le stock du produit.
                 product.quantity -= requested_quantity
                 if product.quantity == 0:
-                    product.status = Product.STATUS_OUT_OF_STOCK
+                    product.status = Product.STATUS_RUPTURE
                 elif product.quantity < product.min_quantity:
                     product.status = Product.STATUS_LOW
                 else:
                     product.status = Product.STATUS_OPTIMAL
                 product.save(update_fields=['quantity', 'status', 'updated_at'])
+
+                # Enregistrer la sortie de stock liée à la commande.
+                StockExit.objects.create(
+                    reference=f"ORD-{order.id}-{uuid4().hex[:8].upper()}",
+                    exit_type='customer_delivery',
+                    product=product,
+                    quantity=requested_quantity,
+                    order=order,
+                    reason='sale',
+                    prepared_by=request.user,
+                    notes=f"Sortie automatique liée à la commande #{order.id}",
+                )
 
             return order

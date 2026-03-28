@@ -13,11 +13,17 @@ from django.utils.encoding import force_bytes, force_str
 from django.template.loader import render_to_string
 from django.utils.html import strip_tags
 from django.utils import timezone
+from datetime import timedelta
+import random
 import requests
 import json
 import base64
+import hashlib
+import hmac
 
 from activity.models import ActivityLog
+from smartalerte_project.telegram_utils import send_telegram_to_user
+from .models import EmailOTPChallenge
 
 from .serializers import (
     UserSerializer, RegisterSerializer, LoginSerializer,
@@ -61,6 +67,13 @@ def send_welcome_email(user):
             recipient_list=[user.email],
             fail_silently=False,
         )
+        send_telegram_to_user(
+            user,
+            (
+                f"Bienvenue {user.username} sur SmartNotify.\n"
+                "Votre compte est en attente de validation par un administrateur."
+            ),
+        )
         print(f" Email de bienvenue envoyé à {user.email}")
         return True
     except Exception as e:
@@ -97,6 +110,13 @@ L'équipe SmartNotify
             from_email=settings.DEFAULT_FROM_EMAIL,
             recipient_list=[user.email],
             fail_silently=False,
+        )
+        send_telegram_to_user(
+            user,
+            (
+                f"Compte approuve: {user.username}\n"
+                "Votre compte SmartNotify est maintenant actif."
+            ),
         )
         print(f" Email d'activation envoyé avec succès à {user.email} (résultat: {result})")
         return True
@@ -163,6 +183,14 @@ L'équipe SmartNotify
             recipient_list=[user.email],
             fail_silently=False,  # Mettre à False pour voir les erreurs
         )
+
+        send_telegram_to_user(
+            user,
+            (
+                f"Demande non retenue: {user.username}\n"
+                "Votre demande d'inscription SmartNotify n'a pas ete approuvee."
+            ),
+        )
         
         print(f" Résultat send_mail: {result}")
         
@@ -180,81 +208,242 @@ L'équipe SmartNotify
         return False
 
 
+def _generate_otp_code():
+    return ''.join(str(random.randint(0, 9)) for _ in range(6))
+
+
+def _send_email_otp(user, otp_code, purpose):
+    if purpose == EmailOTPChallenge.PURPOSE_REGISTER:
+        subject = 'Code de verification - Inscription SmartNotify'
+        message = (
+            f"Bonjour {user.username},\n\n"
+            "Voici votre code de verification pour activer votre compte SmartNotify:\n"
+            f"{otp_code}\n\n"
+            "Ce code expire dans 10 minutes.\n\n"
+            "Si vous n etes pas a l origine de cette demande, ignorez cet email."
+        )
+    else:
+        subject = 'Code de verification - Connexion SmartNotify'
+        message = (
+            f"Bonjour {user.username},\n\n"
+            "Voici votre code 2FA de connexion:\n"
+            f"{otp_code}\n\n"
+            "Ce code expire dans 10 minutes.\n\n"
+            "Si vous n etes pas a l origine de cette demande, changez votre mot de passe."
+        )
+
+    send_mail(
+        subject=subject,
+        message=message,
+        from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'no-reply@smartnotify.local'),
+        recipient_list=[user.email],
+        fail_silently=False,
+    )
+
+
+def _create_email_otp_challenge(user, purpose):
+    EmailOTPChallenge.objects.filter(
+        user=user,
+        purpose=purpose,
+        is_consumed=False,
+    ).update(is_consumed=True)
+
+    otp_code = _generate_otp_code()
+    challenge = EmailOTPChallenge.objects.create(
+        user=user,
+        otp_code=otp_code,
+        purpose=purpose,
+        expires_at=timezone.now() + timedelta(minutes=10),
+    )
+
+    _send_email_otp(user, otp_code, purpose)
+    return challenge
+
+
 # ==================== AUTHENTIFICATION ====================
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def register_view(request):
-    """Inscription d'un nouvel utilisateur"""
+    """Inscription d'un nouvel utilisateur. Envoi d'un email de bienvenue.
+    Le compte reste inactif jusqu'à validation admin."""
     serializer = RegisterSerializer(data=request.data)
-    
+
     if serializer.is_valid():
         user = serializer.save()
-        
-        # Désactiver le compte jusqu'à validation admin
         user.is_active = False
-        user.save()
-        
-        # Envoyer l'email de bienvenue
-        email_sent = send_welcome_email(user)
-        
-        # Générer les tokens JWT
-        refresh = RefreshToken.for_user(user)
-        
-        response_data = {
-            'message': 'Inscription réussie. Votre compte est en attente de validation.',
+        user.is_email_verified = False
+        user.save(update_fields=['is_active', 'is_email_verified'])
+
+        send_welcome_email(user)
+
+        return Response({
+            'message': 'Inscription réussie. Votre compte est en attente de validation par notre équipe administrative.',
             'user': UserSerializer(user).data,
-            'access': str(refresh.access_token),
-            'refresh': str(refresh),
-            'email_sent': email_sent
-        }
-        
-        return Response(response_data, status=status.HTTP_201_CREATED)
-    
+        }, status=status.HTTP_201_CREATED)
+
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def login_view(request):
-    """Connexion d'un utilisateur"""
+    """Connexion utilisateur avec verification OTP email (2FA)."""
     serializer = LoginSerializer(data=request.data)
-    
+
     if not serializer.is_valid():
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-    
+
     email = serializer.validated_data['email']
     password = serializer.validated_data['password']
-    
-    # Chercher l'utilisateur par email
+
     try:
         user = User.objects.get(email=email)
     except User.DoesNotExist:
         return Response({
             'error': 'Email ou mot de passe incorrect'
         }, status=status.HTTP_401_UNAUTHORIZED)
-    
-    # Vérifier le mot de passe (même pour les utilisateurs inactifs)
+
     if not user.check_password(password):
         return Response({
             'error': 'Email ou mot de passe incorrect'
         }, status=status.HTTP_401_UNAUTHORIZED)
-    
-    # L'utilisateur peut se connecter même s'il est inactif
-    # Le frontend affichera une page "En attente d'approbation"
-    
-    # Créer une session Django pour tracker l'utilisateur en ligne
-    # Spécifier le backend explicitement car nous avons plusieurs backends configurés
+
+    # Compte en attente de validation admin → pas d'OTP, juste un message
+    if not user.is_active:
+        return Response({
+            'error': 'Votre compte est en attente de validation par un administrateur.',
+            'pending_approval': True,
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    # Compte actif → envoyer OTP si 2FA activé ou email non encore vérifié
+    if user.two_factor_enabled or not user.is_email_verified:
+        try:
+            challenge = _create_email_otp_challenge(user, EmailOTPChallenge.PURPOSE_LOGIN)
+        except Exception:
+            return Response({
+                'error': "Erreur lors de l envoi du code de verification."
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        return Response({
+            'message': 'Code OTP envoye par email.',
+            'verification_required': True,
+            'challenge_id': str(challenge.challenge_id),
+            'email': user.email,
+            'purpose': EmailOTPChallenge.PURPOSE_LOGIN,
+        }, status=status.HTTP_200_OK)
+
     login(request, user, backend='accounts.authentication.EmailBackend')
-    
-    # Générer les tokens JWT
     refresh = RefreshToken.for_user(user)
-    
+
     return Response({
         'message': 'Connexion réussie',
         'user': UserSerializer(user).data,
         'access': str(refresh.access_token),
         'refresh': str(refresh),
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def email_otp_verify_view(request):
+    """Valide un challenge OTP email et ouvre la session utilisateur."""
+    challenge_id = (request.data.get('challenge_id') or '').strip()
+    otp_input = (request.data.get('otp') or '').strip()
+
+    if not challenge_id or not otp_input:
+        return Response({
+            'error': 'challenge_id et otp sont requis.'
+        }, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        challenge = EmailOTPChallenge.objects.select_related('user').get(challenge_id=challenge_id)
+    except EmailOTPChallenge.DoesNotExist:
+        return Response({'error': 'Challenge OTP invalide.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if challenge.is_consumed:
+        return Response({'error': 'Ce code a deja ete utilise.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if challenge.is_expired:
+        challenge.is_consumed = True
+        challenge.save(update_fields=['is_consumed'])
+        return Response({'error': 'Code expire. Demandez un nouveau code.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if challenge.attempts >= challenge.max_attempts:
+        challenge.is_consumed = True
+        challenge.save(update_fields=['is_consumed'])
+        return Response({'error': 'Trop de tentatives. Demandez un nouveau code.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if challenge.otp_code != otp_input:
+        challenge.attempts += 1
+        challenge.save(update_fields=['attempts'])
+        return Response({'error': 'Code incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user = challenge.user
+    challenge.is_consumed = True
+    challenge.save(update_fields=['is_consumed'])
+
+    # Marquer l'email comme vérifié si ce n'est pas déjà fait
+    if not user.is_email_verified:
+        user.is_email_verified = True
+        user.save(update_fields=['is_email_verified'])
+
+    # OTP de vérification d'email à l'inscription :
+    # ne pas émettre de JWT — le compte reste inactif jusqu'à validation admin
+    if challenge.purpose == EmailOTPChallenge.PURPOSE_REGISTER:
+        return Response({
+            'message': 'Email vérifié avec succès. Votre compte est en attente de validation par un administrateur.',
+            'email_verified': True,
+            'pending_approval': True,
+        }, status=status.HTTP_200_OK)
+
+    # OTP de connexion (2FA) : le compte doit être actif (approuvé par l'admin)
+    if not user.is_active:
+        return Response({
+            'error': 'Votre compte est en attente de validation par un administrateur.',
+            'pending_approval': True,
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    login(request, user, backend='accounts.authentication.EmailBackend')
+    refresh = RefreshToken.for_user(user)
+
+    return Response({
+        'message': 'Verification reussie.',
+        'user': UserSerializer(user).data,
+        'access': str(refresh.access_token),
+        'refresh': str(refresh),
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def email_otp_resend_view(request):
+    """Renvoie un nouveau code OTP sur le meme challenge utilisateur."""
+    challenge_id = (request.data.get('challenge_id') or '').strip()
+
+    if not challenge_id:
+        return Response({'error': 'challenge_id requis.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        previous = EmailOTPChallenge.objects.select_related('user').get(challenge_id=challenge_id)
+    except EmailOTPChallenge.DoesNotExist:
+        return Response({'error': 'Challenge OTP invalide.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user = previous.user
+    purpose = previous.purpose
+    previous.is_consumed = True
+    previous.save(update_fields=['is_consumed'])
+
+    try:
+        new_challenge = _create_email_otp_challenge(user, purpose)
+    except Exception:
+        return Response({'error': "Erreur lors de l envoi du nouveau code."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    return Response({
+        'message': 'Nouveau code OTP envoye.',
+        'challenge_id': str(new_challenge.challenge_id),
+        'email': user.email,
+        'purpose': purpose,
     }, status=status.HTTP_200_OK)
 
 
@@ -362,6 +551,14 @@ def password_reset_request_view(request):
             fail_silently=False,
         )
 
+        send_telegram_to_user(
+            user,
+            (
+                "Demande de reinitialisation de mot de passe.\n"
+                f"Lien: {reset_link}"
+            ),
+        )
+
     return Response({
         'message': 'Si cet email existe, un lien de réinitialisation a été envoyé.'
     }, status=status.HTTP_200_OK)
@@ -410,13 +607,46 @@ class IsAdminOrReadOnly(permissions.BasePermission):
         )
 
 
+class IsAdminOrModuleResponsable(permissions.BasePermission):
+    """
+    Permission permettant aux admins et aux responsables de module (responsable_stock, etc.)
+    d'accéder à la gestion des utilisateurs
+    """
+    def has_permission(self, request, view):
+        if not request.user or not request.user.is_authenticated:
+            return False
+        
+        # Super admins ont tous les droits
+        if request.user.is_superuser or request.user.is_staff or request.user.is_primary_admin:
+            return True
+        
+        # Responsables de module peuvent gérer les utilisateurs de leur module
+        module_responsable_roles = [
+            'responsable_stock',
+            'responsable_production',
+            'responsable_facturation',
+            'responsable_commandes'
+        ]
+        
+        if request.user.role in module_responsable_roles:
+            # Les responsables ont tous les droits sur les utilisateurs de leur module
+            return True
+        
+        return False
+
+
 class UserListCreateView(generics.ListCreateAPIView):
     """
     GET: Liste tous les utilisateurs (Admin uniquement)
     POST: Créer un nouvel utilisateur (Admin uniquement)
+    
+    Les responsables de module ne voient que les utilisateurs de leur module:
+    - responsable_stock: voit uniquement responsable_stock et agent_stock
+    - responsable_production: voit uniquement responsable_production et agent_production
+    - etc.
     """
     queryset = User.objects.all()
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    permission_classes = [IsAuthenticated, IsAdminOrModuleResponsable]
     
     def get_serializer_class(self):
         if self.request.method == 'POST':
@@ -425,6 +655,31 @@ class UserListCreateView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         queryset = User.objects.all()
+        
+        # Filtrer par module selon le rôle de l'utilisateur
+        requesting_user = self.request.user
+        
+        # Définir les rôles par module
+        MODULE_ROLES = {
+            'stock': ['responsable_stock', 'agent_stock'],
+            'production': ['responsable_production', 'agent_production'],
+            'facturation': ['responsable_facturation'],
+            'commandes': ['responsable_commandes'],
+        }
+        
+        # Si l'utilisateur est responsable_stock, il ne voit que les utilisateurs du module stock
+        if requesting_user.role == 'responsable_stock':
+            queryset = queryset.filter(role__in=MODULE_ROLES['stock'])
+        # Si l'utilisateur est responsable_production, il ne voit que les utilisateurs du module production
+        elif requesting_user.role == 'responsable_production':
+            queryset = queryset.filter(role__in=MODULE_ROLES['production'])
+        # Si l'utilisateur est responsable_facturation, il ne voit que les utilisateurs du module facturation
+        elif requesting_user.role == 'responsable_facturation':
+            queryset = queryset.filter(role__in=MODULE_ROLES['facturation'])
+        # Si l'utilisateur est responsable_commandes, il ne voit que les utilisateurs du module commandes
+        elif requesting_user.role == 'responsable_commandes':
+            queryset = queryset.filter(role__in=MODULE_ROLES['commandes'])
+        # Les super_admin voient tout (pas de filtre)
         
         # Filtres optionnels
         search = self.request.query_params.get('search', None)
@@ -453,6 +708,34 @@ class UserListCreateView(generics.ListCreateAPIView):
         return queryset.order_by('-date_joined')
     
     def create(self, request, *args, **kwargs):
+        # Définir les rôles par module
+        MODULE_ROLES = {
+            'stock': ['responsable_stock', 'agent_stock'],
+            'production': ['responsable_production', 'agent_production'],
+            'facturation': ['responsable_facturation'],
+            'commandes': ['responsable_commandes'],
+        }
+        
+        # Vérifier que le responsable de module ne crée que des utilisateurs de son module
+        requesting_user = request.user
+        if requesting_user.role in MODULE_ROLES:
+            # Récupérer le rôle de l'utilisateur à créer
+            new_user_role = request.data.get('role')
+            
+            # Déterminer le module du responsable
+            user_module = None
+            for module, roles in MODULE_ROLES.items():
+                if requesting_user.role in roles:
+                    user_module = module
+                    break
+            
+            # Vérifier que le nouveau rôle appartient au même module
+            if user_module and new_user_role not in MODULE_ROLES.get(user_module, []):
+                return Response({
+                    'error': f'Vous ne pouvez créer que des utilisateurs du module {user_module}',
+                    'allowed_roles': MODULE_ROLES.get(user_module, [])
+                }, status=status.HTTP_403_FORBIDDEN)
+        
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
@@ -473,11 +756,37 @@ class UserListCreateView(generics.ListCreateAPIView):
 class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
     GET: Détails d'un utilisateur
-    PUT/PATCH: Modifier un utilisateur (Admin uniquement)
-    DELETE: Supprimer un utilisateur (Admin uniquement)
+    PUT/PATCH: Modifier un utilisateur (Admin ou responsable de module)
+    DELETE: Supprimer un utilisateur (Admin ou responsable de module)
+    
+    Les responsables de module ne peuvent accéder qu'aux utilisateurs de leur module
     """
     queryset = User.objects.all()
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdminOrModuleResponsable]
+    
+    def get_queryset(self):
+        queryset = User.objects.all()
+        requesting_user = self.request.user
+        
+        # Appliquer le même filtre que dans UserListCreateView
+        MODULE_ROLES = {
+            'stock': ['responsable_stock', 'agent_stock'],
+            'production': ['responsable_production', 'agent_production'],
+            'facturation': ['responsable_facturation'],
+            'commandes': ['responsable_commandes'],
+        }
+        
+        # Si l'utilisateur est responsable de module, filtrer par module
+        if requesting_user.role == 'responsable_stock':
+            queryset = queryset.filter(role__in=MODULE_ROLES['stock'])
+        elif requesting_user.role == 'responsable_production':
+            queryset = queryset.filter(role__in=MODULE_ROLES['production'])
+        elif requesting_user.role == 'responsable_facturation':
+            queryset = queryset.filter(role__in=MODULE_ROLES['facturation'])
+        elif requesting_user.role == 'responsable_commandes':
+            queryset = queryset.filter(role__in=MODULE_ROLES['commandes'])
+        
+        return queryset
     
     def get_serializer_class(self):
         if self.request.method in ['PUT', 'PATCH']:
@@ -487,13 +796,36 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
             return UserUpdateSerializer
         return UserSerializer
     
-    def get_permissions(self):
-        # Tout le monde peut voir, seuls les admins peuvent modifier/supprimer
-        if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [IsAuthenticated(), IsAdminUser()]
-        return [IsAuthenticated()]
-    
     def update(self, request, *args, **kwargs):
+        # Définir les rôles par module
+        MODULE_ROLES = {
+            'stock': ['responsable_stock', 'agent_stock'],
+            'production': ['responsable_production', 'agent_production'],
+            'facturation': ['responsable_facturation'],
+            'commandes': ['responsable_commandes'],
+        }
+        
+        # Vérifier que le responsable de module ne modifie que des utilisateurs de son module
+        requesting_user = request.user
+        if requesting_user.role in ['responsable_stock', 'responsable_production', 'responsable_facturation', 'responsable_commandes']:
+            # Si le rôle est modifié, vérifier qu'il reste dans le même module
+            if 'role' in request.data:
+                new_role = request.data.get('role')
+                
+                # Déterminer le module du responsable
+                user_module = None
+                for module, roles in MODULE_ROLES.items():
+                    if requesting_user.role in roles:
+                        user_module = module
+                        break
+                
+                # Vérifier que le nouveau rôle appartient au même module
+                if user_module and new_role not in MODULE_ROLES.get(user_module, []):
+                    return Response({
+                        'error': f'Vous ne pouvez affecter que des rôles du module {user_module}',
+                        'allowed_roles': MODULE_ROLES.get(user_module, [])
+                    }, status=status.HTTP_403_FORBIDDEN)
+        
         partial = kwargs.pop('partial', False)
         instance = self.get_object()
         serializer = self.get_serializer(
@@ -960,6 +1292,345 @@ def _handle_google_user_auth(email, first_name='', last_name='', is_dev_mode=Fal
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
+def _build_unique_username(base_username):
+    base = (base_username or 'telegram_user').strip()[:120] or 'telegram_user'
+    candidate = base
+    index = 1
+    while User.objects.filter(username=candidate).exists():
+        candidate = f"{base}_{index}"
+        index += 1
+    return candidate
+
+
+def _verify_telegram_auth_payload(payload):
+    required = ['id', 'first_name', 'auth_date', 'hash']
+    for key in required:
+        if not payload.get(key):
+            return False, f"Champ Telegram manquant: {key}"
+
+    bot_token = getattr(settings, 'TELEGRAM_BOT_TOKEN', '')
+    if not bot_token:
+        return False, 'Telegram n\'est pas configuré (TELEGRAM_BOT_TOKEN manquant).'
+
+    payload_hash = str(payload.get('hash'))
+
+    items = []
+    for key, value in payload.items():
+        if key == 'hash':
+            continue
+        if value is None:
+            continue
+        items.append(f"{key}={value}")
+
+    data_check_string = '\n'.join(sorted(items))
+    secret_key = hashlib.sha256(bot_token.encode('utf-8')).digest()
+    computed_hash = hmac.new(
+        secret_key,
+        msg=data_check_string.encode('utf-8'),
+        digestmod=hashlib.sha256,
+    ).hexdigest()
+
+    if not hmac.compare_digest(computed_hash, payload_hash):
+        return False, 'Signature Telegram invalide.'
+
+    try:
+        auth_date = int(payload.get('auth_date'))
+    except (TypeError, ValueError):
+        return False, 'auth_date Telegram invalide.'
+
+    now_ts = int(timezone.now().timestamp())
+    if now_ts - auth_date > 86400:
+        return False, 'Session Telegram expirée. Recommencez la connexion.'
+
+    return True, None
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def telegram_auth_view(request):
+    """
+    Authentification via Telegram Login Widget.
+    Le frontend envoie le payload signé (id, first_name, username, auth_date, hash...).
+    """
+    payload = request.data or {}
+
+    is_valid, error = _verify_telegram_auth_payload(payload)
+    if not is_valid:
+        return Response({'error': error}, status=status.HTTP_400_BAD_REQUEST)
+
+    telegram_id = str(payload.get('id')).strip()
+    first_name = (payload.get('first_name') or '').strip()
+    last_name = (payload.get('last_name') or '').strip()
+    telegram_username = (payload.get('username') or '').strip()
+
+    if telegram_username:
+        synthetic_email = f"{telegram_username.lower()}@telegram.local"
+        base_username = telegram_username
+    else:
+        synthetic_email = f"telegram_{telegram_id}@telegram.local"
+        base_username = f"telegram_{telegram_id}"
+
+    user = User.objects.filter(telegram_user_id=telegram_id).first()
+
+    if not user:
+        user = User.objects.filter(email=synthetic_email).first()
+
+    if not user:
+        username = _build_unique_username(base_username)
+        user = User.objects.create_user(
+            email=synthetic_email,
+            username=username,
+            first_name=first_name or username,
+            last_name=last_name,
+            is_active=True,
+        )
+        user.set_unusable_password()
+        user.telegram_user_id = telegram_id
+        user.telegram_chat_id = telegram_id
+        user.telegram_username = telegram_username or None
+        user.save()
+    else:
+        if first_name:
+            user.first_name = first_name
+        if last_name:
+            user.last_name = last_name
+        user.telegram_user_id = telegram_id
+        user.telegram_chat_id = telegram_id
+        if telegram_username:
+            user.telegram_username = telegram_username
+        user.is_active = True
+        user.save()
+
+    refresh = RefreshToken.for_user(user)
+    login(request, user, backend='accounts.authentication.EmailBackend')
+
+    return Response({
+        'message': 'Authentification Telegram réussie',
+        'user': UserSerializer(user).data,
+        'token': str(refresh.access_token),
+        'refresh_token': str(refresh),
+    }, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def telegram_login_init(request):
+    """
+    Generate a one-time auth code for Telegram bot login.
+    Returns the code and the bot deep-link URL.
+    """
+    import secrets
+    import string
+    from .models import TelegramAuthSession
+    from django.utils import timezone
+    from datetime import timedelta
+
+    # Clean up sessions older than 10 minutes
+    TelegramAuthSession.objects.filter(
+        created_at__lt=timezone.now() - timedelta(minutes=10)
+    ).delete()
+
+    alphabet = string.ascii_uppercase + string.digits
+    code = ''.join(secrets.choice(alphabet) for _ in range(8))
+    TelegramAuthSession.objects.create(code=code)
+
+    bot_username = getattr(settings, 'TELEGRAM_BOT_USERNAME', 'ERP_notif_Bot')
+    bot_url = f'https://t.me/{bot_username}?start=auth_{code}'
+
+    return Response({'code': code, 'bot_url': bot_url})
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def telegram_login_status(request):
+    """
+    Poll for Telegram bot auth completion.
+    Returns status: 'pending', 'authenticated', or 'expired'.
+    """
+    from .models import TelegramAuthSession
+    from django.utils import timezone
+    from datetime import timedelta
+
+    code = request.query_params.get('code')
+    if not code:
+        return Response({'error': 'Code requis'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        session = TelegramAuthSession.objects.get(code=code)
+    except TelegramAuthSession.DoesNotExist:
+        return Response({'status': 'expired'})
+
+    if timezone.now() - session.created_at > timedelta(minutes=5):
+        session.delete()
+        return Response({'status': 'expired'})
+
+    if session.telegram_data is None:
+        return Response({'status': 'pending'})
+
+    # Confirmed — create or update user and return JWT
+    telegram_data = session.telegram_data
+    session.delete()
+
+    telegram_id = str(telegram_data.get('id', '')).strip()
+    telegram_username = (telegram_data.get('username') or '').strip()
+    first_name = (telegram_data.get('first_name') or '').strip()
+    last_name = (telegram_data.get('last_name') or '').strip()
+
+    if telegram_username:
+        synthetic_email = f"{telegram_username.lower()}@telegram.local"
+        base_username = telegram_username
+    else:
+        synthetic_email = f"telegram_{telegram_id}@telegram.local"
+        base_username = f"telegram_{telegram_id}"
+
+    user = User.objects.filter(telegram_user_id=telegram_id).first()
+    if not user:
+        user = User.objects.filter(email=synthetic_email).first()
+    if not user:
+        username = _build_unique_username(base_username)
+        user = User.objects.create_user(
+            email=synthetic_email,
+            username=username,
+            first_name=first_name or username,
+            last_name=last_name,
+            is_active=True,
+        )
+        user.set_unusable_password()
+
+    user.telegram_user_id = telegram_id
+    user.telegram_chat_id = telegram_id
+    if telegram_username:
+        user.telegram_username = telegram_username
+    if first_name:
+        user.first_name = first_name
+    if last_name:
+        user.last_name = last_name
+    user.is_active = True
+    user.save()
+
+    refresh = RefreshToken.for_user(user)
+
+    return Response({
+        'status': 'authenticated',
+        'user': UserSerializer(user).data,
+        'token': str(refresh.access_token),
+        'refresh_token': str(refresh),
+    })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def telegram_send_code(request):
+    """
+    Step 1 of the Telegram OTP flow.
+    Creates a session and returns a deep-link so the user opens the bot.
+    The bot will then send them a 6-digit OTP code.
+    """
+    import secrets
+    import string
+    from .models import TelegramAuthSession
+    from django.utils import timezone
+    from datetime import timedelta
+
+    # Clean up stale sessions
+    TelegramAuthSession.objects.filter(
+        created_at__lt=timezone.now() - timedelta(minutes=10)
+    ).delete()
+
+    alphabet = string.ascii_uppercase + string.digits
+    session_code = ''.join(secrets.choice(alphabet) for _ in range(10))
+    TelegramAuthSession.objects.create(code=session_code)
+
+    bot_username = getattr(settings, 'TELEGRAM_BOT_USERNAME', 'ERP_notif_Bot')
+    bot_url = f'https://t.me/{bot_username}?start=auth_{session_code}'
+
+    return Response({'session_code': session_code, 'bot_url': bot_url})
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def telegram_verify_otp(request):
+    """
+    Step 2 of the Telegram OTP flow.
+    Takes {session_code, otp} → verifies → returns JWT.
+    """
+    from .models import TelegramAuthSession
+    from django.utils import timezone
+    from datetime import timedelta
+
+    session_code = (request.data.get('session_code') or '').strip()
+    otp_input = (request.data.get('otp') or '').strip()
+
+    if not session_code or not otp_input:
+        return Response({'error': 'session_code et otp requis'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        session = TelegramAuthSession.objects.get(code=session_code)
+    except TelegramAuthSession.DoesNotExist:
+        return Response({'error': 'Session invalide ou expirée.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if timezone.now() - session.created_at > timedelta(minutes=10):
+        session.delete()
+        return Response({'error': 'Session expirée. Recommencez.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if session.otp is None:
+        return Response({'error': 'Code pas encore généré. Ouvrez le bot Telegram d\'abord.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if session.otp != otp_input:
+        return Response({'error': 'Code incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if session.telegram_data is None:
+        return Response({'error': 'Données Telegram manquantes. Réessayez depuis le bot.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    telegram_data = session.telegram_data
+    session.delete()
+
+    telegram_id = str(telegram_data.get('id', '')).strip()
+    telegram_username = (telegram_data.get('username') or '').strip()
+    first_name = (telegram_data.get('first_name') or '').strip()
+    last_name = (telegram_data.get('last_name') or '').strip()
+
+    if telegram_username:
+        synthetic_email = f"{telegram_username.lower()}@telegram.local"
+        base_username = telegram_username
+    else:
+        synthetic_email = f"telegram_{telegram_id}@telegram.local"
+        base_username = f"telegram_{telegram_id}"
+
+    user = User.objects.filter(telegram_user_id=telegram_id).first()
+    if not user:
+        user = User.objects.filter(email=synthetic_email).first()
+    if not user:
+        username = _build_unique_username(base_username)
+        user = User.objects.create_user(
+            email=synthetic_email,
+            username=username,
+            first_name=first_name or username,
+            last_name=last_name,
+            is_active=True,
+        )
+        user.set_unusable_password()
+
+    user.telegram_user_id = telegram_id
+    user.telegram_chat_id = telegram_id
+    if telegram_username:
+        user.telegram_username = telegram_username
+    if first_name:
+        user.first_name = first_name
+    if last_name:
+        user.last_name = last_name
+    user.is_active = True
+    user.save()
+
+    refresh = RefreshToken.for_user(user)
+
+    return Response({
+        'user': UserSerializer(user).data,
+        'token': str(refresh.access_token),
+        'refresh_token': str(refresh),
+    })
+
+
 @api_view(['POST'])
 @permission_classes([AllowAny])
 def google_auth_view(request):
@@ -986,7 +1657,7 @@ def google_auth_view(request):
         # Mode développement uniquement
         if token.startswith('dev-mock-token-'):
             is_dev_mode = True
-            print(f"⚠️  Mode développement - Authentification simple")
+            print(f" ️  Mode développement - Authentification simple")
         else:
             is_dev_mode = False
         

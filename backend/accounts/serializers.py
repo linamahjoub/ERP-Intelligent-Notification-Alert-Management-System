@@ -10,14 +10,22 @@ class UserSerializer(serializers.ModelSerializer):
     """Serializer pour afficher les informations utilisateur"""
     full_name = serializers.ReadOnlyField()
     is_admin = serializers.ReadOnlyField()
+    is_super_admin = serializers.ReadOnlyField()
+    is_responsable = serializers.ReadOnlyField()
+    accessible_modules = serializers.SerializerMethodField()
+    
+    def get_accessible_modules(self, obj):
+        return obj.get_accessible_modules()
     
     class Meta:
         model = User
         fields = [
             'id', 'email', 'username', 'first_name', 'last_name',
-            'full_name', 'phone_number', 'role', 'company', 'profile_picture',
+            'full_name', 'phone_number', 'telegram_username', 'telegram_chat_id', 'role', 'company', 'profile_picture',
             'authorized_pages', 'is_active', 'is_staff', 'is_superuser', 'is_primary_admin',
-            'is_admin', 'date_joined', 'last_login', 'created_at', 'updated_at'
+            'is_email_verified', 'two_factor_enabled',
+            'is_admin', 'is_super_admin', 'is_responsable', 'accessible_modules',
+            'date_joined', 'last_login', 'created_at', 'updated_at'
         ]
         read_only_fields = [
             'id', 'date_joined', 'last_login', 'created_at', 'updated_at'
@@ -102,7 +110,8 @@ class UserUpdateSerializer(serializers.ModelSerializer):
         model = User
         fields = [
             'first_name', 'last_name', 'username',
-            'phone_number', 'company', 'profile_picture'
+            'phone_number', 'telegram_username', 'telegram_chat_id', 'company', 'profile_picture',
+            'two_factor_enabled'
         ]
     
     def validate_username(self, value):

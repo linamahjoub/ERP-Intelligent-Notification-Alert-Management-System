@@ -19,7 +19,11 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-change-this-in-prod
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+allowed_hosts_env = os.getenv('DJANGO_ALLOWED_HOSTS') or os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1,10.0.2.2,172.20.10.10')
+ALLOWED_HOSTS = [host.strip() for host in allowed_hosts_env.split(',') if host.strip()]
+# Allow all hosts in DEBUG mode for local network access (emulator + physical devices)
+if DEBUG:
+    ALLOWED_HOSTS = ['*']
 
 # Application definition
 INSTALLED_APPS = [
@@ -141,12 +145,18 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
     "http://localhost:3004",
     "http://localhost:3005",
     "http://127.0.0.1:3005",
     "http://localhost:3006",
     "http://127.0.0.1:3006",
 ]
+
+if DEBUG:
+    # VS Code mobile preview/webview can use dynamic localhost origins.
+    CORS_ALLOW_ALL_ORIGINS = True
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -172,8 +182,8 @@ CORS_ALLOW_HEADERS = [
 ]
 
 # Session Settings (pour le suivi des utilisateurs en ligne)
-SESSION_COOKIE_SAMESITE = 'None'  # Permet les cookies cross-origin
-SESSION_COOKIE_SECURE = False  # False en développement (HTTP), True en production (HTTPS)
+SESSION_COOKIE_SAMESITE = 'Lax'  # ← Change 'None' en 'Lax'
+SESSION_COOKIE_SECURE = False   # False en développement (HTTP), True en production (HTTPS)
 SESSION_COOKIE_HTTPONLY = True  # Sécurité: le cookie n'est pas accessible via JavaScript
 SESSION_COOKIE_AGE = 86400  # 24 heures (en secondes)
 SESSION_SAVE_EVERY_REQUEST = True  # Met à jour l'expiration à chaque requête
@@ -222,10 +232,14 @@ EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'mahjoublina1010@gmail.com')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')  # À configurer dans .env
 DEFAULT_FROM_EMAIL = f'SmartNotify <{EMAIL_HOST_USER}>'
-FRONTEND_URL = 'http://localhost:3004'
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 
 # ==================== GOOGLE OAUTH 2.0 CONFIGURATION ====================
 GOOGLE_OAUTH_CLIENT_ID = os.getenv('GOOGLE_OAUTH_CLIENT_ID', '')
 GOOGLE_OAUTH_CLIENT_SECRET = os.getenv('GOOGLE_OAUTH_CLIENT_SECRET', '')
 GOOGLE_OAUTH_REDIRECT_URI = os.getenv('GOOGLE_OAUTH_REDIRECT_URI', 'http://localhost:3000/auth/google/callback')
+
+# ==================== TELEGRAM AUTH / ALERTS CONFIGURATION ====================
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN', '')
+TELEGRAM_BOT_USERNAME = os.getenv('TELEGRAM_BOT_USERNAME', 'ERP_notif_Bot')
 

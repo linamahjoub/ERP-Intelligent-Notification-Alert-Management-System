@@ -40,6 +40,7 @@ import {
   Search as SearchIcon,
   Add as AddIcon,
   Delete as DeleteIcon,
+  Visibility as VisibilityIcon,
   Refresh as RefreshIcon,
   Menu as MenuIcon,
   ArrowUpward as ArrowUpwardIcon,
@@ -105,11 +106,17 @@ const StockMovements = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState("all");
   const [filterAnchorEl, setFilterAnchorEl] = useState(null);
+  const [actionAnchorEl, setActionAnchorEl] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
   const [openAddDialog, setOpenAddDialog] = useState(false);
+  const [openDetailsDialog, setOpenDetailsDialog] = useState(false);
+  const [openExitDialog, setOpenExitDialog] = useState(false);
   const [statistics, setStatistics] = useState(null);
   const [availableProducts, setAvailableProducts] = useState([]);
+  const [selectedMovement, setSelectedMovement] = useState(null);
+  const [exitQuantity, setExitQuantity] = useState(1);
+  const [exitRecipient, setExitRecipient] = useState("");
 
   const [formData, setFormData] = useState({
     movement_type: "entry",
@@ -117,6 +124,7 @@ const StockMovements = () => {
     quantity: 0,
     entry_reason: "purchase",
     exit_reason: "sale",
+    recipient_name: "",
     warehouse_from: "",
     warehouse_to: "",
     reference: "",
@@ -172,15 +180,67 @@ const StockMovements = () => {
     },
   };
 
+  const normalizeMovement = (movement) => {
+    const productFromCatalog = availableProducts.find((product) => {
+      if (String(product.id) === String(movement.product_id || movement.product?.id)) {
+        return true;
+      }
+
+      if (movement.product_sku && product.sku === movement.product_sku) {
+        return true;
+      }
+
+      return movement.product_name && product.name === movement.product_name;
+    });
+    const responsible = movement.responsible;
+    const responsibleFullName = [
+      responsible?.first_name,
+      responsible?.last_name,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+
+    return {
+      ...movement,
+      product_id:
+        movement.product_id ||
+        movement.product?.id ||
+        productFromCatalog?.id ||
+        "",
+      product_name:
+        movement.product_name ||
+        movement.product?.name ||
+        productFromCatalog?.name ||
+        "-",
+      product_sku:
+        movement.product_sku ||
+        movement.product?.sku ||
+        productFromCatalog?.sku ||
+        "-",
+      responsible_name:
+        movement.responsible_name ||
+        responsible?.full_name ||
+        responsibleFullName ||
+        responsible?.username ||
+        "-",
+      recipient_name: movement.recipient_name || "-",
+      reason: movement.reason || "-",
+      reference: movement.reference || "-",
+    };
+  };
+
+  const normalizedMovements = movements.map(normalizeMovement);
+
   // ── Filtered movements ─────────────────────────────────────────────────
-  const filteredMovements = movements.filter((m) => {
+  const filteredMovements = normalizedMovements.filter((m) => {
     const matchesType = filterType === "all" || m.movement_type === filterType;
     const q = searchQuery.toLowerCase();
     const matchesSearch =
       !q ||
-      m.product_name.toLowerCase().includes(q) ||
-      m.product_sku.toLowerCase().includes(q) ||
-      m.reference.toLowerCase().includes(q);
+      (m.product_name || "").toLowerCase().includes(q) ||
+      (m.product_sku || "").toLowerCase().includes(q) ||
+      (m.reference || "").toLowerCase().includes(q);
     return matchesType && matchesSearch;
   });
 
@@ -259,6 +319,12 @@ const StockMovements = () => {
     fetchProducts();
   }, []);
 
+  useEffect(() => {
+    if (location.pathname === "/stock-movements/new") {
+      handleOpenAddDialog();
+    }
+  }, [location.pathname]);
+
   // ── Form handlers ────────────────────────────────────────────────────
   const handleOpenAddDialog = () => {
     setFormData({
@@ -267,6 +333,7 @@ const StockMovements = () => {
       quantity: 0,
       entry_reason: "purchase",
       exit_reason: "sale",
+      recipient_name: "",
       warehouse_from: "",
       warehouse_to: "",
       reference: "",
@@ -277,6 +344,9 @@ const StockMovements = () => {
 
   const handleCloseAddDialog = () => {
     setOpenAddDialog(false);
+    if (location.pathname === "/stock-movements/new") {
+      navigate("/stock-movements");
+    }
   };
 
   const handleSaveMovement = async () => {
@@ -292,6 +362,7 @@ const StockMovements = () => {
         movement_type: formData.movement_type,
         product_id: formData.product_id,
         quantity: parseInt(formData.quantity),
+        recipient_name: formData.recipient_name,
         reference: formData.reference,
         notes: formData.notes,
       };
@@ -358,9 +429,139 @@ const StockMovements = () => {
       setMovements(movements.filter((m) => m.id !== id));
       setSuccessMessage("Mouvement supprimé avec succès");
       fetchStatistics();
+      setSelectedMovement(null);
     } catch (error) {
       setErrorMessage("Erreur réseau lors de la suppression");
     }
+  };
+
+  const handleOpenExitDialog = () => {
+    if (!selectedMovement?.id || selectedMovement.movement_type !== "entry") {
+      return;
+    }
+
+    setExitQuantity(1);
+    setExitRecipient("");
+    setOpenExitDialog(true);
+    handleActionMenuClose();
+  };
+
+  const handleCloseExitDialog = () => {
+    setOpenExitDialog(false);
+    setExitRecipient("");
+  };
+
+  const handleConvertToExit = async () => {
+    if (!selectedMovement?.id || selectedMovement.movement_type !== "entry") {
+      return;
+    }
+
+    const parsedExitQuantity = parseInt(exitQuantity, 10);
+
+    if (
+      !parsedExitQuantity ||
+      parsedExitQuantity <= 0 ||
+      parsedExitQuantity > selectedMovement.quantity
+    ) {
+      setErrorMessage("La quantité de sortie doit être comprise entre 1 et la quantité disponible");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("access_token");
+      const createExitResponse = await fetch(API_BASE, {
+        method: "POST",
+        headers: {
+          Authorization: token ? `Bearer ${token}` : undefined,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          movement_type: "exit",
+          product_id: selectedMovement.product_id,
+          quantity: parsedExitQuantity,
+          recipient_name: exitRecipient,
+          reference: selectedMovement.reference === "-" ? "" : selectedMovement.reference,
+          notes: `Sortie créée depuis le mouvement #${selectedMovement.id}`,
+        }),
+      });
+
+      if (!createExitResponse.ok) {
+        const errorText = await createExitResponse.text();
+        setErrorMessage(
+          errorText || "Erreur lors de la création de la sortie"
+        );
+        return;
+      }
+
+      const remainingQuantity = selectedMovement.quantity - parsedExitQuantity;
+
+      if (remainingQuantity > 0) {
+        const updateEntryResponse = await fetch(`${API_BASE}${selectedMovement.id}/`, {
+          method: "PATCH",
+          headers: {
+            Authorization: token ? `Bearer ${token}` : undefined,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ quantity: remainingQuantity }),
+        });
+
+        if (!updateEntryResponse.ok) {
+          const errorText = await updateEntryResponse.text();
+          setErrorMessage(
+            errorText || "Erreur lors de la mise à jour de la quantité restante"
+          );
+          return;
+        }
+      } else {
+        const deleteEntryResponse = await fetch(`${API_BASE}${selectedMovement.id}/`, {
+          method: "DELETE",
+          headers: {
+            Authorization: token ? `Bearer ${token}` : undefined,
+          },
+        });
+
+        if (!deleteEntryResponse.ok) {
+          const errorText = await deleteEntryResponse.text();
+          setErrorMessage(
+            errorText || "Erreur lors de la suppression du mouvement d'origine"
+          );
+          return;
+        }
+      }
+
+      await fetchMovements();
+      await fetchStatistics();
+      setFilterType("exit");
+      setSuccessMessage("La quantité sélectionnée a été ajoutée aux sorties");
+      setSelectedMovement(null);
+      setOpenExitDialog(false);
+      setOpenDetailsDialog(false);
+    } catch (error) {
+      setErrorMessage("Erreur réseau lors du transfert partiel en sortie");
+    }
+  };
+
+  const handleActionMenuOpen = (event, movement) => {
+    setActionAnchorEl(event.currentTarget);
+    setSelectedMovement(movement);
+  };
+
+  const handleActionMenuClose = () => {
+    setActionAnchorEl(null);
+  };
+
+  const handleOpenDetailsDialog = () => {
+    setOpenDetailsDialog(true);
+    handleActionMenuClose();
+  };
+
+  const handleCloseDetailsDialog = () => {
+    setOpenDetailsDialog(false);
+  };
+
+  const handleFilterByMovementType = (movementType) => {
+    setFilterType(movementType);
+    setOpenDetailsDialog(false);
   };
 
   const inputSx = {
@@ -374,6 +575,18 @@ const StockMovements = () => {
     },
     "& .MuiInputLabel-root": { color: "#64748b" },
     "& .MuiInputLabel-root.Mui-focused": { color: "#3b82f6" },
+  };
+
+  const selectMenuProps = {
+    PaperProps: {
+      sx: {
+        bgcolor: "#3B82F633",
+        border: "1px solid #3B82F633",
+        borderRadius: "10px",
+        backdropFilter: "blur(12px)",
+        boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+      },
+    },
   };
 
   const statCards = statistics
@@ -787,20 +1000,16 @@ const StockMovements = () => {
                             )}
                           </TableCell>
                           <TableCell align="center">
-                            {(user?.is_staff || user?.is_superuser) && (
-                              <IconButton
-                                size="small"
-                                onClick={() =>
-                                  handleDeleteMovement(movement.id)
-                                }
-                                sx={{
-                                  color: "#ef4444",
-                                  "&:hover": { color: "#dc2626" },
-                                }}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            )}
+                            <IconButton
+                              size="small"
+                              onClick={(event) => handleActionMenuOpen(event, movement)}
+                              sx={{
+                                color: "#64748b",
+                                "&:hover": { color: "#3b82f6" },
+                              }}
+                            >
+                              <MoreVertIcon fontSize="small" />
+                            </IconButton>
                           </TableCell>
                         </TableRow>
                       );
@@ -862,9 +1071,9 @@ const StockMovements = () => {
         >
           Enregistrer un mouvement de stock
         </DialogTitle>
-        <DialogContent sx={{ pt: 3, display: "flex", flexDirection: "column", gap: 2 }}>
+        <DialogContent sx={{ pt: 5, display: "flex", flexDirection: "column", gap: 2 }}>
           {/* Type de mouvement */}
-          <FormControl fullWidth size="small">
+          <FormControl fullWidth size="small" sx={{ mt: 2 }}>
             <InputLabel sx={{ color: "#64748b" }}>
               Type de mouvement
             </InputLabel>
@@ -877,6 +1086,7 @@ const StockMovements = () => {
                   movement_type: e.target.value,
                 })
               }
+              MenuProps={selectMenuProps}
               sx={inputSx}
             >
               <MenuItem value="entry">Entrée</MenuItem>
@@ -897,6 +1107,7 @@ const StockMovements = () => {
                   product_id: e.target.value,
                 })
               }
+              MenuProps={selectMenuProps}
               sx={inputSx}
             >
               <MenuItem value="">Sélectionner un produit</MenuItem>
@@ -939,6 +1150,7 @@ const StockMovements = () => {
                     entry_reason: e.target.value,
                   })
                 }
+                MenuProps={selectMenuProps}
                 sx={inputSx}
               >
                 <MenuItem value="purchase">Achat</MenuItem>
@@ -964,6 +1176,7 @@ const StockMovements = () => {
                     exit_reason: e.target.value,
                   })
                 }
+                MenuProps={selectMenuProps}
                 sx={inputSx}
               >
                 <MenuItem value="sale">Vente</MenuItem>
@@ -974,6 +1187,22 @@ const StockMovements = () => {
                 <MenuItem value="other">Autre</MenuItem>
               </Select>
             </FormControl>
+          )}
+
+          {formData.movement_type === "exit" && (
+            <TextField
+              label="Destinataire"
+              value={formData.recipient_name}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  recipient_name: e.target.value,
+                })
+              }
+              fullWidth
+              size="small"
+              sx={inputSx}
+            />
           )}
 
           {/* Entrepôts si Transfert */}
@@ -1056,6 +1285,201 @@ const StockMovements = () => {
             }}
           >
             Enregistrer
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Menu
+        anchorEl={actionAnchorEl}
+        open={Boolean(actionAnchorEl)}
+        onClose={handleActionMenuClose}
+        PaperProps={{
+          sx: {
+            bgcolor: "rgba(15,23,42,0.97)",
+            border: "1px solid rgba(59,130,246,0.2)",
+            borderRadius: "12px",
+            backdropFilter: "blur(12px)",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+          },
+        }}
+      >
+        <MenuItem
+          onClick={handleOpenDetailsDialog}
+          sx={{ color: "#3b82f6", fontSize: "0.875rem", gap: 1, "&:hover": { bgcolor: "rgba(59,130,246,0.08)" } }}
+        >
+          <VisibilityIcon fontSize="small" /> Voir détails
+        </MenuItem>
+        {selectedMovement?.movement_type === "entry" && (
+          <MenuItem
+            onClick={handleOpenExitDialog}
+            sx={{ color: "#f59e0b", fontSize: "0.875rem", gap: 1, "&:hover": { bgcolor: "rgba(245,158,11,0.08)" } }}
+          >
+            <ArrowDownwardIcon fontSize="small" /> Ajouter en sortie
+          </MenuItem>
+        )}
+        {(user?.is_staff || user?.is_superuser) && (
+          <MenuItem
+            onClick={() => {
+              handleDeleteMovement(selectedMovement?.id);
+              handleActionMenuClose();
+            }}
+            sx={{ color: "#ef4444", fontSize: "0.875rem", gap: 1, "&:hover": { bgcolor: "rgba(239,68,68,0.08)" } }}
+          >
+            <DeleteIcon fontSize="small" /> Supprimer
+          </MenuItem>
+        )}
+      </Menu>
+
+      <Dialog
+        open={openDetailsDialog}
+        onClose={handleCloseDetailsDialog}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: "#1e293b",
+            border: "1px solid rgba(59,130,246,0.2)",
+            borderRadius: 3,
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            color: "white",
+            fontWeight: 700,
+            borderBottom: "1px solid rgba(59,130,246,0.1)",
+          }}
+        >
+          Détails du mouvement
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3, display: "flex", flexDirection: "column", gap: 2.5 }}>
+          {selectedMovement && (() => {
+            const selectedConfig = movementTypeConfig[selectedMovement.movement_type];
+            return (
+              <>
+                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 2, flexWrap: "wrap" }}>
+                  <Typography sx={{ color: "white", fontSize: "1rem", fontWeight: 700 }}>
+                    {selectedMovement.product_name}
+                  </Typography>
+                  <Chip
+                    label={selectedConfig.label}
+                    onClick={() => handleFilterByMovementType(selectedMovement.movement_type)}
+                    clickable
+                    sx={{
+                      bgcolor: `${selectedConfig.color}20`,
+                      color: selectedConfig.color,
+                      fontWeight: 700,
+                      border: `1px solid ${selectedConfig.color}40`,
+                    }}
+                  />
+                </Box>
+
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <Typography sx={{ color: "#64748b", fontSize: "0.8rem", mb: 0.5 }}>SKU</Typography>
+                    <Typography sx={{ color: "white", fontWeight: 600 }}>{selectedMovement.product_sku || "-"}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography sx={{ color: "#64748b", fontSize: "0.8rem", mb: 0.5 }}>Quantité</Typography>
+                    <Typography sx={{ color: "white", fontWeight: 600 }}>{selectedMovement.quantity}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography sx={{ color: "#64748b", fontSize: "0.8rem", mb: 0.5 }}>Raison</Typography>
+                    <Typography sx={{ color: "white", fontWeight: 600 }}>{selectedMovement.reason || "-"}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography sx={{ color: "#64748b", fontSize: "0.8rem", mb: 0.5 }}>Responsable</Typography>
+                    <Typography sx={{ color: "white", fontWeight: 600 }}>{selectedMovement.responsible_name || "-"}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography sx={{ color: "#64748b", fontSize: "0.8rem", mb: 0.5 }}>Destinataire</Typography>
+                    <Typography sx={{ color: "white", fontWeight: 600 }}>{selectedMovement.recipient_name || "-"}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography sx={{ color: "#64748b", fontSize: "0.8rem", mb: 0.5 }}>Référence</Typography>
+                    <Typography sx={{ color: "white", fontWeight: 600 }}>{selectedMovement.reference || "-"}</Typography>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Typography sx={{ color: "#64748b", fontSize: "0.8rem", mb: 0.5 }}>Date</Typography>
+                    <Typography sx={{ color: "white", fontWeight: 600 }}>
+                      {selectedMovement.created_at
+                        ? new Date(selectedMovement.created_at).toLocaleString("fr-FR")
+                        : "-"}
+                    </Typography>
+                  </Grid>
+                </Grid>
+              </>
+            );
+          })()}
+        </DialogContent>
+        <DialogActions sx={{ p: 3, borderTop: "1px solid rgba(59,130,246,0.1)" }}>
+          <Button onClick={handleCloseDetailsDialog} sx={{ color: "#94a3b8" }}>
+            Fermer
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={openExitDialog}
+        onClose={handleCloseExitDialog}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{
+          sx: {
+            bgcolor: "#1e293b",
+            border: "1px solid rgba(59,130,246,0.2)",
+            borderRadius: 3,
+          },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            color: "white",
+            fontWeight: 700,
+            borderBottom: "1px solid rgba(59,130,246,0.1)",
+          }}
+        >
+          Ajouter une quantité en sortie
+        </DialogTitle>
+        <DialogContent sx={{ pt: 4, display: "flex", flexDirection: "column", gap: 2 }}>
+          <Typography sx={{ color: "#94a3b8", fontSize: "0.9rem" }}>
+            Quantité disponible dans l'entrée : {selectedMovement?.quantity || 0}
+          </Typography>
+          <TextField
+            label="Quantité à sortir"
+            type="number"
+            value={exitQuantity}
+            onChange={(event) => setExitQuantity(event.target.value)}
+            inputProps={{ min: 1, max: selectedMovement?.quantity || 1 }}
+            fullWidth
+            size="small"
+            sx={inputSx}
+          />
+          <TextField
+            label="Destinataire"
+            value={exitRecipient}
+            onChange={(event) => setExitRecipient(event.target.value)}
+            fullWidth
+            size="small"
+            sx={inputSx}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 3, borderTop: "1px solid rgba(59,130,246,0.1)" }}>
+          <Button onClick={handleCloseExitDialog} sx={{ color: "#94a3b8" }}>
+            Annuler
+          </Button>
+          <Button
+            onClick={handleConvertToExit}
+            variant="contained"
+            sx={{
+              bgcolor: "#f59e0b",
+              fontWeight: 600,
+              textTransform: "none",
+              borderRadius: 2,
+              "&:hover": { bgcolor: "#d97706" },
+            }}
+          >
+            Confirmer la sortie
           </Button>
         </DialogActions>
       </Dialog>

@@ -3,6 +3,7 @@ from django.utils import timezone
 from django.core.mail import send_mail
 from django.conf import settings
 from django.contrib.auth import get_user_model
+import requests
 
 from alerts.models import Alert
 from notifications.models import Notification
@@ -52,7 +53,7 @@ def _matches_categories(alert, product):
     if not alert.categories:
         return True
 
-    product_category = (product.category or "").strip().lower()
+    product_category = (product.category.name if product.category else "").strip().lower()
     allowed_categories = {str(category).strip().lower() for category in alert.categories if str(category).strip()}
     return product_category in allowed_categories
 
@@ -70,7 +71,7 @@ def _build_trigger_message(alert, product, current_value):
 
     return (
         f"Bonjour,\n\n"
-        f"⚠️ ALERTE STOCK FAIBLE\n\n"
+        f" ️ ALERTE STOCK FAIBLE\n\n"
         f"Produit : {product.name} ({product.sku})\n"
         f"Quantité actuelle : {current_value}\n"
         f"Quantité minimum requise : {compare_target}\n\n"
@@ -93,7 +94,7 @@ def _build_resolved_message(alert, product):
 def _build_facturation_trigger_message(alert, invoice, current_value):
     return (
         f"Bonjour,\n\n"
-        f"⚠️ ALERTE FACTURATION\n\n"
+        f" ️ ALERTE FACTURATION\n\n"
         f"Facture : {invoice.invoice_number}\n"
         f"Client : {invoice.customer_name}\n"
         f"Montant actuel : {current_value} {invoice.currency or 'EUR'}\n"
@@ -287,6 +288,53 @@ def _send_alert_email_to_recipients(alert, message):
     )
 
 
+def _extract_telegram_chat_ids(alert):
+    chat_ids = []
+
+    if alert.user and alert.user.telegram_chat_id:
+        chat_ids.append(str(alert.user.telegram_chat_id).strip())
+
+    for recipient in (alert.recipients or []):
+        recipient_str = str(recipient).strip()
+        if recipient_str.lower().startswith('tg:'):
+            chat_id = recipient_str[3:].strip()
+            if chat_id:
+                chat_ids.append(chat_id)
+
+    return sorted(set([cid for cid in chat_ids if cid]))
+
+
+def _send_alert_telegram_to_recipients(alert, message):
+    bot_token = getattr(settings, 'TELEGRAM_BOT_TOKEN', '')
+    if not bot_token:
+        return
+
+    chat_ids = _extract_telegram_chat_ids(alert)
+    if not chat_ids:
+        return
+
+    telegram_message = (
+        f"\U0001F6A8 Alerte déclenchée: {alert.name}\n"
+        f"Module: {alert.module}\n"
+        f"Sévérité: {alert.severity}\n\n"
+        f"{message}"
+    )
+
+    send_url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    for chat_id in chat_ids:
+        try:
+            requests.post(
+                send_url,
+                json={
+                    'chat_id': chat_id,
+                    'text': telegram_message,
+                },
+                timeout=8,
+            )
+        except Exception:
+            continue
+
+
 def create_trigger_notification(alert, product, message):
     token = _get_product_token(product)
     if token not in message:
@@ -306,6 +354,8 @@ def create_trigger_notification(alert, product, message):
     channels = [str(channel).strip().lower() for channel in (alert.notification_channels or [])]
     if "email" in channels:
         _send_alert_email_to_recipients(alert, message)
+    if "telegram" in channels:
+        _send_alert_telegram_to_recipients(alert, message)
 
     return True
 
@@ -329,6 +379,8 @@ def create_trigger_notification_for_invoice(alert, invoice, message):
     channels = [str(channel).strip().lower() for channel in (alert.notification_channels or [])]
     if "email" in channels:
         _send_alert_email_to_recipients(alert, message)
+    if "telegram" in channels:
+        _send_alert_telegram_to_recipients(alert, message)
 
     return True
 
@@ -408,14 +460,14 @@ def _is_due_date_upcoming(invoice, days_threshold):
 def _build_upcoming_due_message(alert, invoice, days_threshold):
     return (
         f"Bonjour,\n\n"
-        f"⚠️ ALERTE FACTURATION - ÉCHÉANCE IMMINENTE\n\n"
+        f" ️ ALERTE FACTURATION - ÉCHÉANCE IMMINENTE\n\n"
         f"Facture : {invoice.invoice_number}\n"
         f"Client : {invoice.customer_name}\n"
         f"Date d'échéance : {invoice.due_date}\n"
         f"Jours restants : < {days_threshold}\n"
         f"Montant total : {invoice.total_amount} {invoice.currency or 'EUR'}\n"
         f"Statut : {invoice.get_status_display()}\n\n"
-        f"Cordialement,\nSmartAlerte"
+        f"Cordialement,\nSmartNotify"
     )
 
 
@@ -457,7 +509,14 @@ def evaluate_alert_against_current_stock(alert):
         products = products.filter(id=alert.product_id)
 
     if alert.categories:
-        products = products.filter(category__in=alert.categories)
+        category_ids = []
+        for item in alert.categories:
+            try:
+                category_ids.append(int(item))
+            except (TypeError, ValueError):
+                continue
+        if category_ids:
+            products = products.filter(category_id__in=category_ids)
 
     evaluated = 0
     triggered = 0

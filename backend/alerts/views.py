@@ -5,6 +5,7 @@ from django.shortcuts import get_object_or_404
 from django.core.mail import send_mail, EmailMessage
 from django.conf import settings
 import logging
+import requests
 from .models import Alert
 from .serializers import AlertSerializer
 from .services import evaluate_alert_against_current_stock, evaluate_alert_against_current_invoices
@@ -97,6 +98,42 @@ L'équipe SmartNotify
     except Exception as e:
         logger.error(f" Erreur lors de l'envoi de l'email d'alerte: {str(e)}", exc_info=True)
         return False
+
+
+def send_alert_telegram(chat_ids, alert_name, module, severity, message=""):
+    if isinstance(chat_ids, str):
+        target_chat_ids = [chat_ids]
+    elif isinstance(chat_ids, list):
+        target_chat_ids = [str(chat_id).strip() for chat_id in chat_ids if str(chat_id).strip()]
+    else:
+        target_chat_ids = []
+
+    bot_token = getattr(settings, 'TELEGRAM_BOT_TOKEN', '')
+    if not bot_token or not target_chat_ids:
+        return False
+
+    text = (
+        f"Alerte: {alert_name}\n"
+        f"Module: {module}\n"
+        f"Severite: {severity}\n\n"
+        f"{message}"
+    )
+
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    sent = False
+
+    for chat_id in sorted(set(target_chat_ids)):
+        try:
+            response = requests.post(
+                url,
+                json={'chat_id': chat_id, 'text': text},
+                timeout=8,
+            )
+            sent = sent or response.ok
+        except Exception:
+            continue
+
+    return sent
 
 class AlertViewSet(viewsets.ModelViewSet):
     """ViewSet pour gérer les alertes"""
@@ -210,6 +247,17 @@ L'équipe SmartNotify
             else:
                 print(f"[ALERT CREATE]  send_mail a retourné {result}")
                 logger.warning(f" Email de création non envoyé à {user_email} (result={result})")
+
+            # Telegram confirmation au create (si lié)
+            creator_chat_id = getattr(self.request.user, 'telegram_chat_id', None)
+            if creator_chat_id:
+                send_alert_telegram(
+                    [creator_chat_id],
+                    alert_name,
+                    module,
+                    severity,
+                    "Votre alerte a été creée avec succés.",
+                )
             
             # Envoyer un email aux destinataires spécifiés
             if alert.recipients and 'email' in channels:
@@ -225,8 +273,8 @@ L'équipe SmartNotify
             
         except Exception as e:
             # Log l'erreur mais ne pas empêcher la création de l'alerte
-            print(f"[ALERT CREATE] ❌ ERREUR: {type(e).__name__}: {str(e)}")
-            logger.error(f"❌ Erreur lors de l'envoi de l'email de création: {str(e)}", exc_info=True)
+            print(f"[ALERT CREATE]  ERREUR: {type(e).__name__}: {str(e)}")
+            logger.error(f"Erreur lors de l'envoi de l'email de création: {str(e)}", exc_info=True)
     
     def perform_update(self, serializer):
         """Vérifier que l'utilisateur ne peut modifier que ses propres alertes et envoyer une notification"""
@@ -303,8 +351,32 @@ L'équipe SmartNotify
                 print(f"[ALERT UPDATE] ✅ Email envoyé avec succès à {user_email}")
                 logger.info(f"✅ Email de modification d'alerte envoyé avec succès à {user_email}")
             else:
-                print(f"[ALERT UPDATE] ⚠️ send_mail a retourné {result}")
-                logger.warning(f"⚠️ Email de modification non envoyé à {user_email} (result={result})")
+                print(f"[ALERT UPDATE]  ️ send_mail a retourné {result}")
+                logger.warning(f" ️ Email de modification non envoyé à {user_email} (result={result})")
+
+            # Telegram confirmation a la modification (si lié)
+            creator_chat_id = getattr(self.request.user, 'telegram_chat_id', None)
+            if creator_chat_id:
+                tg_message = (
+                    f"Bonjour {self.request.user.username},\n\n"
+                    f"Votre alerte a été modifiée avec succès!\n\n"
+                    f"Détails:\n"
+                    f"  Nom: {alert_name}\n"
+                    f"  Module: {module}\n"
+                    f"  Sévérité: {alert_updated.get_severity_display()}\n"
+                    f"  Type: {alert_updated.get_condition_type_display()}\n"
+                    f"  Statut: {'ACTIVE' if alert_updated.is_active else 'INACTIVE'}\n"
+                    f"  Canaux: {', '.join(alert_updated.notification_channels) if alert_updated.notification_channels else 'Aucun'}\n\n"
+                    f"Connectez-vous: {settings.FRONTEND_URL}/alerts"
+                )
+                send_alert_telegram(
+                    [creator_chat_id],
+                    alert_name,
+                    module,
+                    alert_updated.severity,
+                    tg_message,
+                )
+
             
         except Exception as e:
             print(f"[ALERT UPDATE] ❌ ERREUR: {type(e).__name__}: {str(e)}")
@@ -366,6 +438,7 @@ L'équipe SmartNotify
         message = f"Description: {alert.description or 'Aucune'}\n\nCondition: {alert.threshold_value or 'Non défini'}"
 
         email_success = False
+        telegram_success = False
 
         if 'email' in channels:
             email_success = send_alert_email(
@@ -376,7 +449,27 @@ L'équipe SmartNotify
                 message
             )
 
-        if email_success:
+        if 'telegram' in channels:
+            telegram_targets = []
+            if alert.user and alert.user.telegram_chat_id:
+                telegram_targets.append(alert.user.telegram_chat_id)
+
+            for recipient in (alert.recipients or []):
+                recipient_str = str(recipient).strip()
+                if recipient_str.lower().startswith('tg:'):
+                    chat_id = recipient_str[3:].strip()
+                    if chat_id:
+                        telegram_targets.append(chat_id)
+
+            telegram_success = send_alert_telegram(
+                telegram_targets,
+                alert.name,
+                alert.module,
+                alert.severity,
+                message,
+            )
+
+        if email_success or telegram_success:
             logger.info(f" Alerte {alert.id} envoyée à {len(alert.recipients)} destinataire(s)")
             return Response({
                 'message': f'Alerte envoyée avec succès à {len(alert.recipients)} destinataire(s)',

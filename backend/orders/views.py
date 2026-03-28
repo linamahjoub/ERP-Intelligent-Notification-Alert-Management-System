@@ -3,11 +3,14 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.contrib.auth import get_user_model
+from datetime import timedelta
 
 from .models import Order, OrderItem
 from notifications.models import Notification
+from facturation.models import Invoice, InvoiceItem
+from production.models import ProductionOrder
 from .serializers import (
     OrderDetailSerializer,
     OrderListSerializer,
@@ -32,17 +35,24 @@ class OrderViewSet(viewsets.ModelViewSet):
         """Retourne les commandes selon le rôle de l'utilisateur"""
         user = self.request.user
         
-        # Les admins voient toutes les commandes
+        # Include items in the queryset for both admin and regular users
         if user.is_staff or user.is_superuser:
-            return Order.objects.select_related('customer').prefetch_related('items').all()
+            return Order.objects.select_related('customer').prefetch_related(
+                'items', 
+                'items__product'
+            ).all()
         
         # Les utilisateurs normaux voient uniquement leurs propres commandes
-        return Order.objects.select_related('customer').prefetch_related('items').filter(customer=user)
+        return Order.objects.select_related('customer').prefetch_related(
+            'items', 
+            'items__product'
+        ).filter(customer=user)
     
     def get_serializer_class(self):
         """Utilise le bon sérialiseur selon l'action"""
         if self.action == 'list':
-            return OrderListSerializer
+            # Use OrderDetailSerializer to include items in list view
+            return OrderDetailSerializer
         elif self.action == 'create':
             return OrderCreateSerializer
         return OrderDetailSerializer
@@ -106,12 +116,18 @@ class OrderViewSet(viewsets.ModelViewSet):
             notification.send_email_notification()
         except Exception:
             pass
+
+        # Telegram en miroir si l'utilisateur a un chat_id
+        try:
+            notification.send_telegram_notification()
+        except Exception:
+            pass
     
     @action(detail=False, methods=['get'])
     def my_orders(self, request):
-        """Retourne les commandes de l'utilisateur connecté"""
-        queryset = Order.objects.filter(customer=request.user).select_related('customer').prefetch_related('items')
-        serializer = self.get_serializer(queryset, many=True)
+        """Retourne les commandes de l'utilisateur connecté avec leurs articles"""
+        queryset = Order.objects.filter(customer=request.user).select_related('customer').prefetch_related('items', 'items__product')
+        serializer = OrderDetailSerializer(queryset, many=True)
         return Response(serializer.data)
     
     @action(detail=False, methods=['get'])
@@ -322,3 +338,109 @@ class OrderViewSet(viewsets.ModelViewSet):
         order.save()
         
         return Response(OrderDetailSerializer(order).data)
+
+    @action(detail=True, methods=['post'])
+    def generate_invoice(self, request, pk=None):
+        """Génère une facture de vente à partir d'une commande.
+
+        Règles métier:
+        - Si la commande contient des produits fabriqués (liés à la production),
+          la facture n'est générable qu'après production terminée.
+        """
+        order = self.get_object()
+        user = request.user
+
+        can_generate = (
+            user.is_staff
+            or user.is_superuser
+            or getattr(user, 'role', None) in ['responsable_stock', 'responsable_facturation']
+        )
+        if not can_generate:
+            return Response(
+                {'error': 'Vous n\'avez pas la permission de générer une facture'},
+                status=status.HTTP_403_FORBIDDEN
+            )
+
+        if Invoice.objects.filter(order=order).exists():
+            return Response(
+                {'error': 'Une facture existe déjà pour cette commande'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        blocked_products = []
+        for item in order.items.select_related('product').all():
+            product = item.product
+
+            is_manufactured = product.production_orders.exists() or hasattr(product, 'finished_product_info')
+            if not is_manufactured:
+                continue
+
+            produced_qty = (
+                ProductionOrder.objects.filter(
+                    product=product,
+                    status=ProductionOrder.STATUS_COMPLETED,
+                ).aggregate(total=Sum('produced_quantity'))['total']
+                or 0
+            )
+
+            if produced_qty < item.quantity:
+                blocked_products.append({
+                    'product_id': product.id,
+                    'product_name': product.name,
+                    'required_quantity': item.quantity,
+                    'produced_quantity': int(produced_qty),
+                })
+
+        if blocked_products:
+            return Response(
+                {
+                    'error': 'Production non terminée pour certains produits fabriqués',
+                    'blocked_products': blocked_products,
+                },
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        invoice_number = f"INV-ORD-{order.id}-{timezone.now().strftime('%Y%m%d%H%M%S')}"
+        invoice_date = timezone.now().date()
+        due_date = invoice_date + timedelta(days=30)
+
+        customer_name = order.customer.get_full_name().strip() or order.customer.username
+
+        invoice = Invoice.objects.create(
+            invoice_number=invoice_number,
+            purchase_order_number=f"ORD-{order.id}",
+            order=order,
+            invoice_type='sales',
+            customer_name=customer_name,
+            customer_email=order.customer.email,
+            customer_address=order.shipping_address,
+            invoice_date=invoice_date,
+            due_date=due_date,
+            subtotal=order.total_amount,
+            tax_rate=20,
+            discount=0,
+            status='draft',
+            notes=order.notes or '',
+            created_by=user,
+        )
+
+        for item in order.items.select_related('product').all():
+            InvoiceItem.objects.create(
+                invoice=invoice,
+                product=item.product,
+                description=f"{item.product.name} (Commande #{order.id})",
+                quantity=item.quantity,
+                unit_price=item.unit_price,
+                total_price=item.subtotal,
+            )
+
+        invoice.save()
+
+        return Response(
+            {
+                'message': 'Facture générée avec succès',
+                'invoice_id': invoice.id,
+                'invoice_number': invoice.invoice_number,
+            },
+            status=status.HTTP_201_CREATED,
+        )

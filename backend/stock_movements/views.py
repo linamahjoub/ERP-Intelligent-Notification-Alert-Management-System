@@ -2,20 +2,57 @@ from rest_framework import viewsets, status, filters
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import StockMovement
+from .models import StockMovement, StockEntry, StockExit
 from .serializers import (
     StockMovementSerializer,
     StockMovementListSerializer,
+    StockEntrySerializer,
+    StockExitSerializer,
 )
 from stock.models import Product
 
 
+# ============ STOCK ENTRY VIEWSET ============
+class StockEntryViewSet(viewsets.ModelViewSet):
+    """ViewSet pour gérer les entrées de stock"""
+    
+    queryset = StockEntry.objects.all()
+    serializer_class = StockEntrySerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['reference', 'product__name', 'product__sku', 'supplier__name', 'notes']
+    ordering_fields = ['entry_date', 'quantity', 'reason']
+    ordering = ['-entry_date']
+    
+    def perform_create(self, serializer):
+        """Enregistre l'utilisateur responsable automatiquement"""
+        serializer.save(received_by=self.request.user)
+
+
+# ============ STOCK EXIT VIEWSET ============
+class StockExitViewSet(viewsets.ModelViewSet):
+    """ViewSet pour gérer les sorties de stock"""
+    
+    queryset = StockExit.objects.all()
+    serializer_class = StockExitSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['reference', 'product__name', 'product__sku', 'notes']
+    ordering_fields = ['exit_date', 'quantity', 'reason']
+    ordering = ['-exit_date']
+    
+    def perform_create(self, serializer):
+        """Enregistre l'utilisateur responsable automatiquement"""
+        serializer.save(prepared_by=self.request.user)
+
+
+# ============ STOCK MOVEMENT VIEWSET ============
 class StockMovementViewSet(viewsets.ModelViewSet):
-    """ViewSet pour gérer les mouvements de stock"""
+    """ViewSet pour gérer les mouvements de stock généraux"""
     
     serializer_class = StockMovementSerializer
     permission_classes = [IsAuthenticated]
@@ -111,42 +148,11 @@ class StockMovementViewSet(viewsets.ModelViewSet):
             'total_entries': queryset.filter(movement_type='entry').count(),
             'total_exits': queryset.filter(movement_type='exit').count(),
             'total_transfers': queryset.filter(movement_type='transfer').count(),
-            'total_quantity_entered': sum(
-                m.quantity for m in queryset.filter(movement_type='entry')
-            ),
-            'total_quantity_exited': sum(
-                m.quantity for m in queryset.filter(movement_type='exit')
-            ),
-            'by_reason': self._get_movements_by_reason(queryset),
+            'total_quantity_entered': queryset.filter(movement_type='entry').aggregate(total=Sum('quantity'))['total'] or 0,
+            'total_quantity_exited': queryset.filter(movement_type='exit').aggregate(total=Sum('quantity'))['total'] or 0,
         }
         
         return Response(stats)
-    
-    @staticmethod
-    def _get_movements_by_reason(queryset):
-        """Retourne les mouvements groupés par raison"""
-        entries = queryset.filter(movement_type='entry')
-        exits = queryset.filter(movement_type='exit')
-        
-        entry_reasons = {}
-        for entry in entries:
-            reason = entry.get_entry_reason_display()
-            entry_reasons[reason] = entry_reasons.get(reason, 0) + 1
-        
-        exit_reasons = {}
-        for exit_mov in exits:
-            reason = exit_mov.get_exit_reason_display()
-            exit_reasons[reason] = exit_reasons.get(reason, 0) + 1
-        
-        return {
-            'entries': entry_reasons,
-            'exits': exit_reasons,
-        }
-    
-    @action(detail=False, methods=['get'])
-    def by_responsible(self, request):
-        """Filtrer par utilisateur responsable"""
-        responsible_id = request.query_params.get('user_id')
         
         if not responsible_id:
             return Response(

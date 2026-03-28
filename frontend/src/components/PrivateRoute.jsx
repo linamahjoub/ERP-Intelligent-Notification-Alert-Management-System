@@ -2,7 +2,6 @@
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { CircularProgress, Box } from '@mui/material';
-import VerificationPending from '../pages/auth/VerificationPending';
 
 const PrivateRoute = ({ children }) => {
   const { user, loading } = useAuth();
@@ -19,13 +18,13 @@ const PrivateRoute = ({ children }) => {
   if (!user) {
     return <Navigate to="/login" />;
   }
-  
-  // Si l'utilisateur est authentifié mais inactif (en attente de vérification)
+
+  // Un compte inactif ne peut pas acceder aux pages protegees
   if (!user.is_active) {
-    return <VerificationPending />;
+    return <Navigate to="/login" replace />;
   }
   
-  // Utilisateur authentifié et actif
+  // Utilisateur authentifie et actif
   return children;
 };
 

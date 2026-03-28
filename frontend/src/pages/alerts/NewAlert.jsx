@@ -81,6 +81,8 @@ const fieldSx = (error = false) => ({
 });
 
 const selectSx = {
+  width: '100%',
+  minWidth: 0,
   bgcolor: T.surfaceAlt,
   color: T.textPrimary,
   borderRadius: 1.5,
@@ -88,6 +90,16 @@ const selectSx = {
   '&:hover .MuiOutlinedInput-notchedOutline': { borderColor: T.borderHover },
   '&.Mui-focused .MuiOutlinedInput-notchedOutline': { borderColor: T.accent, borderWidth: 1.5 },
   '& .MuiSvgIcon-root': { color: T.textSecondary },
+};
+
+const selectMenuProps = {
+  PaperProps: {
+    sx: {
+      '& .MuiMenuItem-root': {
+        color: T.textPrimary,
+      },
+    },
+  },
 };
 
 /* ─── Selectable Card ────────────────────────────────────────── */
@@ -299,7 +311,10 @@ const NewAlert = () => {
   };
 
   const handleCategoriesChange = (e) => {
-    const value = e.target.value;
+    const value = (e.target.value || []).map((v) => {
+      const parsed = Number(v);
+      return Number.isFinite(parsed) ? parsed : v;
+    });
     setFormData({ ...formData, categories: value });
     if (validationErrors.categories) setValidationErrors({ ...validationErrors, categories: undefined });
   };
@@ -386,11 +401,11 @@ const NewAlert = () => {
     threshold: {
       title: 'Configuration du seuil',
       fields: (
-        <Grid container spacing={2.5}>
+        <Grid container spacing={2.5} sx={{ pt: 0.5, minWidth: 0 }}>
           <Grid item xs={12} md={6}>
-            <FormControl fullWidth>
+            <FormControl fullWidth sx={{ mt: 0.5, width: '100%' }}>
               <InputLabel sx={{ color: T.textSecondary, fontSize: '0.875rem' }}>Opérateur de comparaison</InputLabel>
-              <Select value={formData.comparisonOperator} onChange={handleInputChange('comparisonOperator')} label="Opérateur de comparaison" sx={selectSx}>
+              <Select fullWidth value={formData.comparisonOperator} onChange={handleInputChange('comparisonOperator')} label="Opérateur de comparaison" sx={selectSx} MenuProps={selectMenuProps}>
                 {comparisonOperators.map(op => (
                   <MenuItem key={op.value} value={op.value}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -403,7 +418,7 @@ const NewAlert = () => {
             </FormControl>
           </Grid>
           <Grid item xs={12} md={6}>
-            <TextField fullWidth label="Valeur du seuil" type="number" placeholder="Ex: 100" value={formData.thresholdValue} onChange={handleInputChange('thresholdValue')} error={!!validationErrors.thresholdValue} helperText={validationErrors.thresholdValue} required sx={fieldSx(!!validationErrors.thresholdValue)} />
+            <TextField fullWidth label="Valeur du seuil" type="number" placeholder="Ex: 100" value={formData.thresholdValue} onChange={handleInputChange('thresholdValue')} error={!!validationErrors.thresholdValue} helperText={validationErrors.thresholdValue} required sx={{ ...fieldSx(!!validationErrors.thresholdValue), width: '100%' }} />
           </Grid>
         </Grid>
       ),
@@ -523,49 +538,58 @@ const NewAlert = () => {
 
             <Box>
               <SectionHeader title={thresholdPanel[formData.conditionType]?.title || 'Configuration'} />
-              <Box sx={{ p: 3, bgcolor: T.surfaceAlt, borderRadius: 2, border: `1px solid ${T.border}` }}>
+              <Box sx={{ p: 3, pt: 3, bgcolor: T.surfaceAlt, borderRadius: 2, border: `1px solid ${T.border}` }}>
                 {formData.module === 'stock' && (
-                  <Grid container spacing={2.5} sx={{ mb: 2 }}>
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth>
-                        <InputLabel sx={{ color: T.textSecondary, fontSize: '0.875rem' }}>Produit (optionnel)</InputLabel>
+                  <Grid container spacing={2.5} sx={{ mb: 2, alignItems: 'stretch' }}>
+                    <Grid item xs={12} md={6} sx={{ minWidth: 0, display: 'flex' }}>
+                      <FormControl fullWidth sx={{ mt: 0.5, width: '100%', minWidth: { xs: '100%', md: 300 }, flex: 1 }}>
+                        <InputLabel shrink sx={{ color: T.textSecondary, fontSize: '0.875rem' }}>Produit (optionnel)</InputLabel>
                         <Select
+                          fullWidth
                           value={formData.product}
                           onChange={handleInputChange('product')}
                           label="Produit (optionnel)"
-                          sx={selectSx}
+                          MenuProps={selectMenuProps}
+                          sx={{ ...selectSx, minWidth: { xs: '100%', md: 300 } }}
                         >
                           <MenuItem value="">
-                            <em>Tous les produits (filtre par catégories)</em>
+                            <Typography sx={{ color: '#94a3b8' }}>Tous les produits disponibles</Typography>
                           </MenuItem>
                           {products.map((p) => (
                             <MenuItem key={p.id} value={p.id}>
-                              {p.name} ({p.sku})
+                              <Typography sx={{ color: 'white' }}>{p.name} ({p.sku})</Typography>
                             </MenuItem>
                           ))}
                         </Select>
                       </FormControl>
                     </Grid>
-                    <Grid item xs={12} md={6}>
-                      <FormControl fullWidth error={!!validationErrors.categories}>
-                        <InputLabel sx={{ color: T.textSecondary, fontSize: '0.875rem' }}>Catégories</InputLabel>
+                    <Grid item xs={12} md={6} sx={{ minWidth: 0, display: 'flex' }}>
+                      <FormControl fullWidth error={!!validationErrors.categories} sx={{ mt: 0.5, width: '100%', minWidth: { xs: '100%', md: 300 }, flex: 1 }}>
+                        <InputLabel shrink sx={{ color: T.textSecondary, fontSize: '0.875rem' }}>Catégories</InputLabel>
                         <Select
+                          fullWidth
                           multiple
                           value={formData.categories}
                           onChange={handleCategoriesChange}
                           label="Catégories"
-                          sx={selectSx}
+                          MenuProps={selectMenuProps}
+                          sx={{ ...selectSx, minWidth: { xs: '100%', md: 300 } }}
                           renderValue={(selected) => (
                             <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
                               {selected.map((value) => (
-                                <Chip key={value} label={value} size="small" sx={{ bgcolor: 'rgba(59,130,246,0.15)', color: T.textPrimary }} />
+                                <Chip
+                                  key={value}
+                                  label={categories.find((c) => Number(c.id) === Number(value))?.name || value}
+                                  size="small"
+                                  sx={{ bgcolor: 'rgba(59,130,246,0.15)', color: T.textPrimary }}
+                                />
                               ))}
                             </Box>
                           )}
                         >
                           {categories.map((cat) => (
-                            <MenuItem key={cat.id} value={cat.name}>
-                              {cat.name}
+                            <MenuItem key={cat.id} value={cat.id}>
+                              <Typography sx={{ color: 'white' }}>{cat.name}</Typography>
                             </MenuItem>
                           ))}
                         </Select>
@@ -582,12 +606,7 @@ const NewAlert = () => {
               </Box>
             </Box>
 
-            <Divider sx={{ borderColor: T.border }} />
-
            
-
-            <Divider sx={{ borderColor: T.border }} />
-
           
           </Stack>
         </Fade>

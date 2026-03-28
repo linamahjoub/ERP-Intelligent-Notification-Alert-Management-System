@@ -124,7 +124,7 @@ const Fournisseur = () => {
 
   const [suppliers, setSuppliers] = useState([]);
 
-  const API_BASE = "http://localhost:8000/api/fournisseurs/suppliers/";
+  const API_BASE = "http://localhost:8000/api/fournisseurs/";
 
   const mapFromApi = (item) => ({
     id: item.id,
@@ -701,8 +701,8 @@ const Fournisseur = () => {
         <DialogTitle sx={{ color: "white", fontWeight: 700, borderBottom: "1px solid rgba(59,130,246,0.1)" }}>
           {formData.id ? "Modifier le fournisseur" : "Ajouter un fournisseur"}
         </DialogTitle>
-        <DialogContent sx={{ pt: 3, display: "flex", flexDirection: "column", gap: 2 }}>
-          <TextField label="Nom" value={formData.name} fullWidth size="small" sx={inputSx}
+        <DialogContent sx={{ pt: 4, display: "flex", flexDirection: "column", gap: 2 }}>
+          <TextField label="Nom" value={formData.name} fullWidth size="small" sx={{ ...inputSx, mt: 1.5 }}
             onChange={(e) => setFormData({ ...formData, name: e.target.value })}
           />
           <TextField label="Contact" value={formData.contact_name} fullWidth size="small" sx={inputSx}

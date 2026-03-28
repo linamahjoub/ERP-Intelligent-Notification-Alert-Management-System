@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router-dom";
 import {
   Box,
@@ -14,26 +13,20 @@ import {
   Divider,
   Stack,
   Chip,
-  List,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Paper,
 } from "@mui/material";
 import {
   CheckCircle as CheckCircleIcon,
-  Schedule as ScheduleIcon,
+  HourglassEmpty as HourglassEmptyIcon,
   Logout as LogoutIcon,
   Refresh as RefreshIcon,
   Info as InfoIcon,
   Email as EmailIcon,
-  Business as BusinessIcon,
   Person as PersonIcon,
-  HourglassEmpty as HourglassEmptyIcon,
-  Verified as VerifiedIcon,
-  Support as SupportIcon,
   AccessTime as AccessTimeIcon,
+  Warning as WarningIcon,
 } from "@mui/icons-material";
+// ✅ CORRECTION 1 : Vérifiez le chemin (../../ depuis src/pages/auth/)
+import { useAuth } from "../../context/AuthContext";
 
 const VerificationPending = () => {
   const { user, logout, refreshUser, loading } = useAuth();
@@ -41,26 +34,39 @@ const VerificationPending = () => {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [showSuccess, setShowSuccess] = useState(false);
+  // ✅ CORRECTION 2 : Ajout d'un état mounted pour éviter les renders prématurés
+  const [mounted, setMounted] = useState(false);
+
+  // ✅ Marquer comme monté
+  useEffect(() => {
+    setMounted(true);
+    // ✅ DEBUG : Voir l'état de user
+    console.log("🔍 VerificationPending mounted - user:", user, "loading:", loading);
+  }, []);
 
   // Auto-refresh toutes les 10 secondes
   useEffect(() => {
-    if (!autoRefresh || loading) return;
+    if (!autoRefresh || loading || !mounted) return;
 
     const interval = setInterval(async () => {
       setIsRefreshing(true);
-      await refreshUser();
+      try {
+        await refreshUser();
+      } catch (err) {
+        console.error("Erreur refresh:", err);
+      }
       setIsRefreshing(false);
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [autoRefresh, refreshUser, loading]);
+  }, [autoRefresh, refreshUser, loading, mounted]);
 
   // Redirection quand le compte est activé
   useEffect(() => {
-    if (!loading && user) {
-      if (user.is_active) {
+    if (!loading && mounted && user) {
+      // ✅ CORRECTION 3 : Comparaison explicite avec === true
+      if (user.is_active === true) {
         setShowSuccess(true);
-        // Redirection après 2 secondes
         const timer = setTimeout(() => {
           if (user.is_superuser || user.is_staff) {
             navigate("/admin_dashboard");
@@ -71,11 +77,15 @@ const VerificationPending = () => {
         return () => clearTimeout(timer);
       }
     }
-  }, [user?.is_active, loading, navigate, user]);
+  }, [user?.is_active, loading, navigate, user, mounted]);
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
-    await refreshUser();
+    try {
+      await refreshUser();
+    } catch (err) {
+      console.error("Erreur refresh manuel:", err);
+    }
     setIsRefreshing(false);
   };
 
@@ -84,8 +94,8 @@ const VerificationPending = () => {
     navigate("/login");
   };
 
-  // Si en cours de chargement
-  if (loading) {
+  // ✅ CORRECTION 4 : Toujours afficher un contenu, jamais null
+  if (loading || !mounted) {
     return (
       <Box
         sx={{
@@ -93,16 +103,19 @@ const VerificationPending = () => {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "black",
+          background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)",
         }}
       >
-        <CircularProgress sx={{ color: "#3b82f6" }} />
+        <Card sx={{ p: 4, textAlign: "center", bgcolor: "rgba(30, 41, 59, 0.9)", borderRadius: 3 }}>
+          <CircularProgress sx={{ color: "#3b82f6", mb: 2 }} />
+          <Typography sx={{ color: "white" }}>Chargement...</Typography>
+        </Card>
       </Box>
     );
   }
 
-  // Si le compte est activé (montre le message de succès)
-  if (showSuccess || user?.is_active) {
+  // Si le compte est activé
+  if (showSuccess || user?.is_active === true) {
     return (
       <Box
         sx={{
@@ -110,17 +123,19 @@ const VerificationPending = () => {
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          backgroundColor: "black",
+          background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)",
         }}
       >
-        <Card sx={{
-          p: 2,
-          textAlign: "center",
-          bgcolor: "rgba(30, 41, 59, 0.9)",
-          border: "1px solid rgba(16, 185, 129, 0.3)",
-          borderRadius: 3,
-          maxWidth: 400
-        }}>
+        <Card
+          sx={{
+            p: 4,
+            textAlign: "center",
+            bgcolor: "rgba(30, 41, 59, 0.9)",
+            border: "1px solid rgba(16, 185, 129, 0.3)",
+            borderRadius: 3,
+            maxWidth: 400,
+          }}
+        >
           <CheckCircleIcon sx={{ fontSize: 60, color: "#10b981", mb: 2 }} />
           <Typography variant="h5" sx={{ color: "white", fontWeight: 600, mb: 2 }}>
             Compte activé !
@@ -136,11 +151,49 @@ const VerificationPending = () => {
     );
   }
 
-  // Si l'utilisateur n'existe pas
+  // ✅ CORRECTION 5 : Si user n'existe pas, afficher un message au lieu de null
   if (!user) {
-    return null;
+    return (
+      <Box
+        sx={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)",
+          p: 3,
+        }}
+      >
+        <Card
+          sx={{
+            p: 4,
+            textAlign: "center",
+            bgcolor: "rgba(30, 41, 59, 0.9)",
+            border: "1px solid rgba(239, 68, 68, 0.3)",
+            borderRadius: 3,
+            maxWidth: 400,
+          }}
+        >
+          <WarningIcon sx={{ fontSize: 60, color: "#ef4444", mb: 2 }} />
+          <Typography variant="h5" sx={{ color: "white", fontWeight: 600, mb: 2 }}>
+            Session expirée
+          </Typography>
+          <Typography variant="body1" sx={{ color: "#94a3b8", mb: 3 }}>
+            Veuillez vous reconnecter pour accéder à cette page.
+          </Typography>
+          <Button
+            variant="contained"
+            onClick={() => navigate("/login")}
+            sx={{ bgcolor: "#3b82f6", "&:hover": { bgcolor: "#2563eb" } }}
+          >
+            Se reconnecter
+          </Button>
+        </Card>
+      </Box>
+    );
   }
 
+  // ✅ Affichage principal : votre design préservé
   return (
     <Box
       sx={{
@@ -148,13 +201,13 @@ const VerificationPending = () => {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: "black",
-        p: 2,
+        background: "linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)",
+        p: 3,
       }}
     >
       <Box sx={{ maxWidth: 900, width: "100%" }}>
         {/* En-tête */}
-        <Box sx={{ textAlign: "center", mb: 2 }}>
+        <Box sx={{ textAlign: "center", mb: 4 }}>
           <Box
             sx={{
               display: "inline-flex",
@@ -188,7 +241,7 @@ const VerificationPending = () => {
           </Typography>
         </Box>
 
-        <Box sx={{ display: "grid", gap: 2, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" } }}>
+        <Box sx={{ display: "grid", gap: 3, gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" } }}>
           {/* Carte statut */}
           <Card
             sx={{
@@ -199,9 +252,16 @@ const VerificationPending = () => {
               gridColumn: { xs: "1", md: "1 / -1" },
             }}
           >
-            <CardContent sx={{ p: 2 }}>
-              <Box sx={{ mb: 2 }}>
-                <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 2 }}>
+            <CardContent sx={{ p: 4 }}>
+              <Box sx={{ mb: 4 }}>
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    mb: 3,
+                  }}
+                >
                   <Typography variant="h5" sx={{ color: "white", fontWeight: 600 }}>
                     Statut de votre demande
                   </Typography>
@@ -228,7 +288,7 @@ const VerificationPending = () => {
                   }}
                 >
                   Votre demande est en cours d'examen par notre équipe.
-                  Vous recevrez un email dès que votre compte sera activé.
+                  Vous recevrez un email à <strong>{user?.email}</strong> dès que votre compte sera activé.
                 </Alert>
               </Box>
             </CardContent>
@@ -243,12 +303,12 @@ const VerificationPending = () => {
               backdropFilter: "blur(10px)",
             }}
           >
-            <CardContent sx={{ p: 2 }}>
-              <Typography variant="h6" sx={{ color: "white", fontWeight: 600, mb: 2 }}>
+            <CardContent sx={{ p: 4 }}>
+              <Typography variant="h6" sx={{ color: "white", fontWeight: 600, mb: 3 }}>
                 Vos informations
               </Typography>
 
-              <Stack spacing={1.5}>
+              <Stack spacing={2.5}>
                 <Box>
                   <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
                     <EmailIcon sx={{ color: "#3b82f6", fontSize: 20 }} />
@@ -257,7 +317,7 @@ const VerificationPending = () => {
                     </Typography>
                   </Box>
                   <Typography sx={{ color: "white", pl: 3.5 }}>
-                    {user?.email}
+                    {user?.email || "Non renseigné"}
                   </Typography>
                 </Box>
 
@@ -269,7 +329,7 @@ const VerificationPending = () => {
                     </Typography>
                   </Box>
                   <Typography sx={{ color: "white", pl: 3.5 }}>
-                    {user?.username}
+                    {user?.username || "Non renseigné"}
                   </Typography>
                 </Box>
 
@@ -288,7 +348,7 @@ const VerificationPending = () => {
                 </Box>
               </Stack>
 
-              <Divider sx={{ bgcolor: "rgba(100, 116, 139, 0.2)", my: 2 }} />
+              <Divider sx={{ bgcolor: "rgba(100, 116, 139, 0.2)", my: 3 }} />
 
               {/* Boutons d'action */}
               <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -344,8 +404,8 @@ const VerificationPending = () => {
               borderRadius: 3,
             }}
           >
-            <CardContent sx={{ p: 2 }}>
-              <Typography variant="h6" sx={{ color: "white", fontWeight: 600, mb: 2 }}>
+            <CardContent sx={{ p: 4 }}>
+              <Typography variant="h6" sx={{ color: "white", fontWeight: 600, mb: 3 }}>
                 Support
               </Typography>
               

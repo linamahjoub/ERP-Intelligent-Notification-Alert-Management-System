@@ -1,7 +1,7 @@
 from django.utils import timezone
 from rest_framework import serializers
 
-from .models import ProductionAlert, ProductionOrder, ProductionOrderMaterial, RawMaterial
+from .models import ProductionAlert, ProductionOrder, ProductionOrderMaterial, RawMaterial, FinishedProduct
 from stock.models import Product
 
 
@@ -167,3 +167,33 @@ class ProductionAlertResolveSerializer(serializers.ModelSerializer):
             instance.resolved_at = None
         instance.save(update_fields=["is_resolved", "resolved_at"])
         return instance
+
+
+class FinishedProductSerializer(serializers.ModelSerializer):
+    """Sérialiseur pour les produits finis"""
+    product_name = serializers.CharField(source='product.name', read_only=True)
+    product_sku = serializers.CharField(source='product.sku', read_only=True)
+    production_order_code = serializers.CharField(source='production_order.code', read_only=True, allow_null=True)
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    
+    class Meta:
+        model = FinishedProduct
+        fields = [
+            'id',
+            'product',
+            'product_name',
+            'product_sku',
+            'production_order',
+            'production_order_code',
+            'batch_number',
+            'quantity_produced',
+            'quantity_available',
+            'status',
+            'status_display',
+            'production_date',
+            'quality_check_passed',
+            'quality_notes',
+            'created_at',
+            'updated_at',
+        ]
+        read_only_fields = ['id', 'production_date', 'created_at', 'updated_at']

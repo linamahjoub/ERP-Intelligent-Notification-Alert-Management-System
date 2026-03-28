@@ -1,6 +1,10 @@
 ﻿import React, { createContext, useState, useContext, useEffect } from 'react';
 import axios from 'axios';
 
+const API_BASE_URL = (process.env.REACT_APP_API_URL || 'http://localhost:8000')
+  .replace(/\/+$/, '')
+  .replace(/\/api$/i, '');
+
 const AuthContext = createContext();
 
 export const useAuth = () => {
@@ -40,9 +44,12 @@ export const AuthProvider = ({ children }) => {
         first_name: response.data.first_name,
         last_name: response.data.last_name,
         phone_number: response.data.phone_number || '',
+        telegram_username: response.data.telegram_username || '',
+        telegram_chat_id: response.data.telegram_chat_id || '',
         role: response.data.role || '',
         company: response.data.company || '',
         profile_picture: response.data.profile_picture || null,
+        authorized_pages: response.data.authorized_pages || [],
         is_active: response.data.is_active,
         is_superuser: response.data.is_superuser || false,
         is_staff: response.data.is_staff || false,
@@ -63,19 +70,33 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     try {
-      const response = await axios.post('http://localhost:8000/api/auth/login/', {
-        email,
-        password
+      const normalizedEmail = String(email || '').trim().toLowerCase();
+      const normalizedPassword = String(password || '');
+
+      const response = await axios.post(`${API_BASE_URL}/api/auth/login/`, {
+        email: normalizedEmail,
+        password: normalizedPassword
       }, {
         withCredentials: true
       });
-      
+
+      if (response.data?.verification_required) {
+        return {
+          success: true,
+          verificationRequired: true,
+          challengeId: response.data.challenge_id,
+          email: response.data.email,
+          purpose: response.data.purpose,
+          message: response.data.message,
+        };
+      }
+
       const { access, refresh, user: apiUserData } = response.data;
-      
+
       localStorage.setItem('access_token', access);
       localStorage.setItem('refresh_token', refresh);
       setToken(access);
-      
+
       const fullUserData = {
         id: apiUserData.id,
         email: apiUserData.email,
@@ -83,9 +104,12 @@ export const AuthProvider = ({ children }) => {
         first_name: apiUserData.first_name,
         last_name: apiUserData.last_name,
         phone_number: apiUserData.phone_number || '',
+        telegram_username: apiUserData.telegram_username || '',
+        telegram_chat_id: apiUserData.telegram_chat_id || '',
         role: apiUserData.role || '',
         company: apiUserData.company || '',
         profile_picture: apiUserData.profile_picture || null,
+        authorized_pages: apiUserData.authorized_pages || [],
         is_active: apiUserData.is_active,
         is_superuser: apiUserData.is_superuser || false,
         is_staff: apiUserData.is_staff || false,
@@ -93,38 +117,42 @@ export const AuthProvider = ({ children }) => {
         date_joined: apiUserData.date_joined,
         last_login: apiUserData.last_login,
       };
-      
+
       setUser(fullUserData);
       localStorage.setItem('user', JSON.stringify(fullUserData));
-      
-      return { success: true };
+
+      return { success: true, user: fullUserData };
     } catch (error) {
-      console.error('Login error:', error.response?.data || error);
-      
+      const statusCode = error?.response?.status;
+      const responseData = error?.response?.data;
+
+      // Les 400/401 sont des erreurs metier attendues (mauvais creds, validation)
+      if (!statusCode || statusCode >= 500) {
+        console.error('Login error:', responseData || error);
+      }
+
       let errorMessage = 'Login failed';
-      if (error.response?.data) {
-        if (typeof error.response.data === 'object') {
-          if (error.response.data.error) {
-            errorMessage = error.response.data.error;
-          } else if (error.response.data.detail) {
-            errorMessage = error.response.data.detail;
+      if (responseData) {
+        if (typeof responseData === 'object') {
+          if (responseData.error) {
+            errorMessage = responseData.error;
+          } else if (responseData.detail) {
+            errorMessage = responseData.detail;
           } else {
-            // Extraire le premier message d'erreur
-            const errors = Object.values(error.response.data).flat();
+            const errors = Object.values(responseData).flat();
             errorMessage = errors[0] || errorMessage;
           }
         } else {
-          errorMessage = error.response.data;
+          errorMessage = responseData;
         }
       }
-      
-      return { 
-        success: false, 
+
+      return {
+        success: false,
         error: errorMessage
       };
     }
   };
-
   const logout = async () => {
     try {
       const refresh_token = localStorage.getItem('refresh_token');
@@ -153,45 +181,26 @@ export const AuthProvider = ({ children }) => {
 
   const register = async (userData) => {
     try {
-      const response = await axios.post('http://localhost:8000/api/auth/register/', userData);
-      
-      const { access, refresh, user: apiUserData } = response.data;
-      
-      // Sauvegarder les tokens
-      localStorage.setItem('access_token', access);
-      localStorage.setItem('refresh_token', refresh);
-      setToken(access);
-      
-      // Sauvegarder les données utilisateur (avec is_active = false)
-      const fullUserData = {
-        id: apiUserData.id,
-        email: apiUserData.email,
-        username: apiUserData.username,
-        first_name: apiUserData.first_name,
-        last_name: apiUserData.last_name,
-        phone_number: apiUserData.phone_number || '',
-        role: apiUserData.role || '',
-        company: apiUserData.company || '',
-        profile_picture: apiUserData.profile_picture || null,
-        is_active: apiUserData.is_active,
-        is_superuser: apiUserData.is_superuser || false,
-        is_staff: apiUserData.is_staff || false,
-        is_primary_admin: apiUserData.is_primary_admin || false,
-        date_joined: apiUserData.date_joined,
-        last_login: apiUserData.last_login,
-      };
-      
-      setUser(fullUserData);
-      localStorage.setItem('user', JSON.stringify(fullUserData));
-      
+      const response = await axios.post(`${API_BASE_URL}/api/auth/register/`, userData);
+
+      if (response.data?.verification_required) {
+        return {
+          success: true,
+          verificationRequired: true,
+          challengeId: response.data.challenge_id,
+          email: response.data.email,
+          purpose: response.data.purpose,
+          message: response.data.message,
+        };
+      }
+
       return { success: true, data: response.data };
     } catch (error) {
       console.error('Registration error:', error.response?.data || error);
-      
+
       let errorMessage = 'Registration failed';
       if (error.response?.data) {
         if (typeof error.response.data === 'object') {
-          // Extraire tous les messages d'erreur
           const errors = [];
           for (const key in error.response.data) {
             if (Array.isArray(error.response.data[key])) {
@@ -205,14 +214,13 @@ export const AuthProvider = ({ children }) => {
           errorMessage = error.response.data;
         }
       }
-      
-      return { 
-        success: false, 
+
+      return {
+        success: false,
         error: errorMessage
       };
     }
   };
-
   const updateProfile = async (formData) => {
     if (!token) {
       return { success: false, error: 'No authentication token found' };
@@ -344,9 +352,12 @@ export const AuthProvider = ({ children }) => {
         first_name: response.data.first_name,
         last_name: response.data.last_name,
         phone_number: response.data.phone_number || '',
+        telegram_username: response.data.telegram_username || '',
+        telegram_chat_id: response.data.telegram_chat_id || '',
         role: response.data.role || '',
         company: response.data.company || '',
         profile_picture: response.data.profile_picture || null,
+        authorized_pages: response.data.authorized_pages || [],
         is_active: response.data.is_active,
         is_superuser: response.data.is_superuser || false,
         is_staff: response.data.is_staff || false,
@@ -364,6 +375,116 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  const verifyEmailOtp = async (challengeId, otp) => {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/auth/email-otp/verify/`, {
+        challenge_id: challengeId,
+        otp,
+      }, {
+        withCredentials: true,
+      });
+
+      const { access, refresh, user: apiUserData } = response.data;
+
+      localStorage.setItem('access_token', access);
+      localStorage.setItem('refresh_token', refresh);
+      setToken(access);
+
+      const fullUserData = {
+        id: apiUserData.id,
+        email: apiUserData.email,
+        username: apiUserData.username,
+        first_name: apiUserData.first_name,
+        last_name: apiUserData.last_name,
+        phone_number: apiUserData.phone_number || '',
+        telegram_username: apiUserData.telegram_username || '',
+        telegram_chat_id: apiUserData.telegram_chat_id || '',
+        role: apiUserData.role || '',
+        company: apiUserData.company || '',
+        profile_picture: apiUserData.profile_picture || null,
+        is_active: apiUserData.is_active,
+        is_superuser: apiUserData.is_superuser || false,
+        is_staff: apiUserData.is_staff || false,
+        is_primary_admin: apiUserData.is_primary_admin || false,
+        date_joined: apiUserData.date_joined,
+        last_login: apiUserData.last_login,
+      };
+
+      setUser(fullUserData);
+      localStorage.setItem('user', JSON.stringify(fullUserData));
+
+      return { success: true, user: fullUserData };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Code OTP invalide',
+      };
+    }
+  };
+
+  const resendEmailOtp = async (challengeId) => {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/auth/email-otp/resend/`, {
+        challenge_id: challengeId,
+      });
+
+      return {
+        success: true,
+        challengeId: response.data.challenge_id,
+        email: response.data.email,
+        purpose: response.data.purpose,
+        message: response.data.message,
+      };
+    } catch (error) {
+      return {
+        success: false,
+        error: error.response?.data?.error || 'Impossible de renvoyer le code',
+      };
+    }
+  };
+
+  const telegramAuth = async (telegramPayload) => {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/api/auth/telegram-auth/`, telegramPayload, {
+        withCredentials: true
+      });
+
+      const { token: accessToken, refresh_token: refreshToken, user: apiUserData } = response.data;
+
+      localStorage.setItem('access_token', accessToken);
+      localStorage.setItem('refresh_token', refreshToken || '');
+      setToken(accessToken);
+
+      const fullUserData = {
+        id: apiUserData.id,
+        email: apiUserData.email,
+        username: apiUserData.username,
+        first_name: apiUserData.first_name,
+        last_name: apiUserData.last_name,
+        phone_number: apiUserData.phone_number || '',
+        telegram_username: apiUserData.telegram_username || '',
+        telegram_chat_id: apiUserData.telegram_chat_id || '',
+        role: apiUserData.role || '',
+        company: apiUserData.company || '',
+        profile_picture: apiUserData.profile_picture || null,
+        is_active: apiUserData.is_active,
+        is_superuser: apiUserData.is_superuser || false,
+        is_staff: apiUserData.is_staff || false,
+        is_primary_admin: apiUserData.is_primary_admin || false,
+        date_joined: apiUserData.date_joined,
+        last_login: apiUserData.last_login,
+      };
+
+      setUser(fullUserData);
+      localStorage.setItem('user', JSON.stringify(fullUserData));
+
+      return { success: true, user: fullUserData };
+    } catch (error) {
+      const errorMessage = error.response?.data?.error || 'Connexion Telegram impossible';
+      return { success: false, error: errorMessage };
+    }
+  };
+
   const value = {
     user,
     token,
@@ -377,7 +498,37 @@ export const AuthProvider = ({ children }) => {
     checkEmailExists,
     checkPasswordStrength,
     generatePassword,
-    refreshUser
+    refreshUser,
+    verifyEmailOtp,
+    resendEmailOtp,
+    telegramAuth,
+    setSession: (userData, accessToken, refreshToken) => {
+      const fullUserData = {
+        id: userData.id,
+        email: userData.email,
+        username: userData.username,
+        first_name: userData.first_name,
+        last_name: userData.last_name,
+        phone_number: userData.phone_number || '',
+        telegram_username: userData.telegram_username || '',
+        telegram_chat_id: userData.telegram_chat_id || '',
+        role: userData.role || '',
+        company: userData.company || '',
+        profile_picture: userData.profile_picture || null,
+        is_active: userData.is_active,
+        is_superuser: userData.is_superuser || false,
+        is_staff: userData.is_staff || false,
+        is_primary_admin: userData.is_primary_admin || false,
+        date_joined: userData.date_joined,
+        last_login: userData.last_login,
+      };
+      localStorage.setItem('access_token', accessToken);
+      localStorage.setItem('refresh_token', refreshToken || '');
+      localStorage.setItem('user', JSON.stringify(fullUserData));
+      setToken(accessToken);
+      setUser(fullUserData);
+      return fullUserData;
+    },
   };
 
   return (

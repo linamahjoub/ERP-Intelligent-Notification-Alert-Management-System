@@ -20,3 +20,20 @@ class AlertSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at'
         ]
         read_only_fields = ['id', 'user', 'user_name', 'user_email', 'created_at', 'updated_at']
+
+    def validate_categories(self, value):
+        """Accept category ids as int/str and normalize to a list of ints."""
+        if value in (None, ""):
+            return []
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Le champ catégories doit être une liste.")
+
+        normalized = []
+        for item in value:
+            try:
+                normalized.append(int(item))
+            except (TypeError, ValueError):
+                raise serializers.ValidationError(
+                    f"Catégorie invalide: {item}. Utilisez des IDs numériques."
+                )
+        return normalized

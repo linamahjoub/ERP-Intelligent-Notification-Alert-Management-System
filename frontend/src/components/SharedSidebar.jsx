@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { getAuthorizedMenus } from '../utils/moduleMenuConfig';
 import {
   Box,
   Typography,
@@ -44,6 +45,10 @@ import {
   Receipt as ReceiptIcon,
   PrecisionManufacturing as ProductionIcon,
   ShoppingCart as ShoppingCartIcon,
+  Science as ScienceIcon,
+  WarningAmber as WarningAmberIcon,
+  BusinessCenter as BusinessCenterIcon,
+  Inventory2 as Inventory2Icon,
 } from '@mui/icons-material';
 import notif from '../assets/notif.png';
 
@@ -63,7 +68,16 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
   const drawerWidth = isMobile ? mobileWidth : (sidebarCollapsed ? collapsedWidth : desktopWidth);
 
   const isAdmin = user?.is_superuser || user?.is_staff;
-  const [openMenus, setOpenMenus] = useState({ stock: true, orders: false, fournisseurs: false, categories: false, facturation: false, production: false });
+  
+  // Vérifier si l'utilisateur a accès au panneau admin (super admin ou responsable de module)
+  const hasAdminPanelAccess = isAdmin || [
+    'responsable_stock',
+    'responsable_production',
+    'responsable_facturation',
+    'responsable_commandes'
+  ].includes(user?.role);
+  
+  const [openMenus, setOpenMenus] = useState({ stock: true, orders: false, fournisseurs: false, categories: false, facturation: false, 'matiere-premiere': false, 'ordre-production': false, 'produit-fini': false });
 
   const toggleSidebar = () => setSidebarCollapsed(!sidebarCollapsed);
 
@@ -106,7 +120,43 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
       children: [
         { id: 'stock-new',   label: 'Nouveau produit',      icon: <AddBoxIcon />,    path: '/stock/new' },
         { id: 'stock-list',  label: 'Liste',                icon: <ListIcon />,      path: '/stock' },
-        { id: 'stock-movements',  label: 'Mouvements',      icon: <ListIcon />,      path: '/stock-movements' },
+         ],
+    },
+    
+    {
+      id: 'categories',
+      label: 'Categories',
+      icon: <CategoryIcon />,
+      children: [
+        { id: 'categories-new',   label: 'Nouvelle categorie', icon: <AddBoxIcon />, path: '/categories/new' },
+        { id: 'categories-list',  label: 'Liste',              icon: <ListIcon />,   path: '/categories' },
+      ],
+    },{
+      id: 'stock-movements',
+      label: 'Mouvements',
+      icon: <ListIcon />,
+      children: [
+        { id: 'movements-new', label: 'Nouveau mouvement', icon: <AddBoxIcon />, path: '/stock-movements/new' },
+        { id: 'movements-list', label: 'Liste', icon: <ListIcon />, path: '/stock-movements' },
+      ],
+    },
+     
+    {
+      id: 'fournisseurs',
+      label: 'fournisseurs',
+      icon: <PeopleIcon />,
+      children: [
+        { id: 'fournisseur-new',   label: 'Nouveau fournisseur',      icon: <AddBoxIcon />,    path: '/fournisseur/new' },
+        { id: 'fournisseur-list',  label: 'Liste',                icon: <ListIcon />,      path: '/fournisseur' },
+      ],
+    },
+    {
+      id: 'entrepots',
+      label: 'Entrepôts',
+      icon: <WarehouseIcon />,
+      children: [
+        { id: 'entrepot-new', label: 'Nouvel entrepôt', icon: <AddWarehouseIcon />, path: '/entrepots/new' },
+        { id: 'entrepot-list',label: 'Liste',           icon: <ListIcon />,         path: '/entrepots' },
       ],
     },
     {
@@ -118,35 +168,6 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
         { id: 'orders-list', label: 'Liste',                icon: <ListIcon />,      path: '/orders' },
       ],
     },
-    ...(isAdmin ? [
-      {
-        id: 'categories',
-        label: 'Categories',
-        icon: <CategoryIcon />,
-        children: [
-          { id: 'categories-new',   label: 'Nouvelle categorie', icon: <AddBoxIcon />, path: '/categories/new' },
-          { id: 'categories-list',  label: 'Liste',              icon: <ListIcon />,   path: '/categories' },
-        ],
-      },
-      {
-        id: 'fournisseurs',
-        label: 'fournisseurs',
-        icon: <PeopleIcon />,
-       children: [
-          { id: 'fournisseur-new',   label: 'Nouveau fournisseur',      icon: <AddBoxIcon />,    path: '/fournisseur/new' },
-          { id: 'fournisseur-list',  label: 'Liste',                icon: <ListIcon />,      path: '/fournisseur' },
-        ],
-      },
-      {
-        id: 'entrepots',
-        label: 'Entrepôts',
-        icon: <WarehouseIcon />,
-        children: [
-          { id: 'entrepot-new', label: 'Nouvel entrepôt', icon: <AddWarehouseIcon />, path: '/entrepots/new' },
-          { id: 'entrepot-list',label: 'Liste',           icon: <ListIcon />,         path: '/entrepots' },
-        ],
-      },
-    ] : []),
     {
       id: 'facturation',
       label: 'Facturation',
@@ -156,15 +177,25 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
         { id: 'facturation-list', label: 'Liste', icon: <ListIcon />, path: '/facturation' },
       ],
     },
-    {
-      id: 'production',
-      label: 'Production',
+  
+   /* {
+      id: 'ordre-production',
+      label: 'Ordre de Production',
       icon: <ProductionIcon />,
       children: [
-        { id: 'production-new', label: 'Nouvel ordre', icon: <AddBoxIcon />, path: '/production/new' },
-        { id: 'production-list', label: 'Liste', icon: <ListIcon />, path: '/production' },
+        { id: 'ordre-new', label: 'Ajouter', icon: <AddBoxIcon />, path: '/ordre-production/new' },
+        { id: 'ordre-list', label: 'Liste', icon: <ListIcon />, path: '/ordre-production' },
       ],
     },
+    {
+      id: 'produit-fini',
+      label: 'Produit Fini',
+      icon: <InventoryIcon />,
+      children: [
+        { id: 'produit-new', label: 'Ajouter', icon: <AddBoxIcon />, path: '/produit-fini/new' },
+        { id: 'produit-list', label: 'Liste', icon: <ListIcon />, path: '/produit-fini' },
+      ],
+    },*/
    
     {
       id: 'modules',
@@ -173,8 +204,10 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
       path: '/modulesERP',
     },
     
-    ...(isAdmin ? [
+    ...(hasAdminPanelAccess ? [
       { id: 'admin',   label: 'Admin Panel', icon: <AdminIcon />,     path: '/admin_panel' },
+    ] : []),
+    ...(isAdmin ? [
       { id: 'Employes', label: 'Employés',     icon: <PersonAddIcon />, path: '/Employes_requests' },
     ] : []),
     { id: 'history',      label: 'Historique ',      icon: <CalendarIcon />, path: '/history' },
@@ -183,13 +216,47 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
     { id: 'deconnexion',  label: 'Déconnexion',   icon: <LogoutIcon />,  action: handleLogout },
   ];
 
-  const isGroupActive = (group) => {
-    if (group.path) return location.pathname === group.path;
-    if (group.children) return group.children.some(c => location.pathname === c.path || location.pathname.startsWith(c.path + '/'));
-    return false;
+  // Filtrer les menus en fonction du module et rôle de l'utilisateur
+  const authorizedMenuIds = useMemo(() => getAuthorizedMenus(user), [user]);
+  const filteredMenuGroups = useMemo(() => {
+    return menuGroups.filter(group => authorizedMenuIds.includes(group.id));
+  }, [menuGroups, authorizedMenuIds]);
+
+  const parsePathWithQuery = (path) => {
+    const [pathname, query = ''] = String(path || '').split('?');
+    return {
+      pathname,
+      query: query ? `?${query}` : '',
+    };
   };
 
-  const isChildActive = (path) => location.pathname === path;
+  const isChildActive = (path) => {
+    const { pathname, query } = parsePathWithQuery(path);
+    if (location.pathname !== pathname) return false;
+
+    if (!query) {
+      return !location.search || location.search === '?materialType=all';
+    }
+
+    return location.search === query;
+  };
+
+  const isGroupActive = (group) => {
+    if (group.path) {
+      const { pathname } = parsePathWithQuery(group.path);
+      return location.pathname === pathname;
+    }
+    if (group.children) {
+      return group.children.some((c) => {
+        const { pathname, query } = parsePathWithQuery(c.path);
+        if (!query) {
+          return location.pathname === pathname || location.pathname.startsWith(pathname + '/');
+        }
+        return location.pathname === pathname && location.search === query;
+      });
+    }
+    return false;
+  };
 
   // Bottom nav items for mobile (only main items)
   const bottomNavItems = isAdmin ? [
@@ -250,7 +317,7 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
 
       {/* Menu */}
       <Box sx={{ flex: 1, overflowY: 'auto', py: isMobile ? 1 : 2, px: isMobile ? 1.5 : 2, scrollbarWidth: 'none', msOverflowStyle: 'none', '&::-webkit-scrollbar': { display: 'none' }, position: 'relative', zIndex: 1 }}>
-        {menuGroups.map((group) => {
+        {filteredMenuGroups.map((group) => {
           const active = isGroupActive(group);
           const isOpen = openMenus[group.id];
           const hasChildren = Boolean(group.children?.length);
@@ -270,7 +337,7 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
                   px: isMobile ? 1.5 : (sidebarCollapsed ? 1.5 : 2), py: isMobile ? 0.7 : 1, borderRadius: 2, cursor: 'pointer',
                   transition: 'all 0.2s ease',
                   bgcolor: active && !hasChildren ? 'rgba(59,130,246,0.15)' : 'transparent',
-                  '&:hover': { bgcolor: active && !hasChildren ? 'rgba(59,130,246,0.2)' : 'rgba(59,130,246,0.08)' },
+                  '&:hover': { bgcolor: active && !hasChildren ? '#3B82F633' : 'rgba(59,130,246,0.08)' },
                   position: 'relative',
                 }}
               >
@@ -369,7 +436,7 @@ const SharedSidebar = ({ mobileOpen, onMobileClose }) => {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: isMobile ? 0.75 : 1 }}>
             <Box sx={{ width: isMobile ? 6 : 8, height: isMobile ? 6 : 8, borderRadius: '50%', bgcolor: '#10b981', boxShadow: '0 0 8px rgba(16,185,129,0.5)', flexShrink: 0 }} />
             <Box>
-              <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 600, display: 'block', fontSize: isMobile ? '0.7rem' : '0.85rem' }}>
+              <Typography variant="caption" sx={{ color: '#-', fontWeight: 600, display: 'block', fontSize: isMobile ? '0.7rem' : '0.85rem' }}>
                 System Active
               </Typography>
               <Typography variant="caption" sx={{ color: '#64748b', fontSize: isMobile ? '0.65rem' : '0.75rem' }}>
